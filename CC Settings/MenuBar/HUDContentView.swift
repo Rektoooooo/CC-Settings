@@ -12,6 +12,7 @@ final class HUDState: ObservableObject {
 struct HUDContentView: View {
     @ObservedObject var configManager = ConfigurationManager.shared
     @ObservedObject var hudState: HUDState
+    @State private var localBudget: Double = 10000
 
     var body: some View {
         Group {
@@ -96,16 +97,24 @@ struct HUDContentView: View {
                             .foregroundStyle(.secondary)
 
                         Slider(
-                            value: budgetBinding,
+                            value: $localBudget,
                             in: 1024...32768,
                             step: 1024
-                        )
+                        ) { editing in
+                            if !editing {
+                                configManager.settings.thinkingBudgetTokens = Int(localBudget)
+                                configManager.saveSettings()
+                            }
+                        }
                         .controlSize(.small)
 
-                        Text("\(configManager.settings.thinkingBudgetTokens ?? 10000)")
+                        Text("\(Int(localBudget))")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
                             .frame(width: 40, alignment: .trailing)
+                    }
+                    .onAppear {
+                        localBudget = Double(configManager.settings.thinkingBudgetTokens ?? 10000)
                     }
                 }
             }
@@ -186,13 +195,4 @@ struct HUDContentView: View {
         )
     }
 
-    private var budgetBinding: Binding<Double> {
-        Binding(
-            get: { Double(configManager.settings.thinkingBudgetTokens ?? 10000) },
-            set: { newValue in
-                configManager.settings.thinkingBudgetTokens = Int(newValue)
-                configManager.saveSettings()
-            }
-        )
-    }
 }

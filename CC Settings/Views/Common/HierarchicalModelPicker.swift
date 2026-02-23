@@ -18,7 +18,8 @@ struct HierarchicalModelPicker: View {
             .pickerStyle(.segmented)
             .onChange(of: selectedFamily) { _, newFamily in
                 if !isCustomMode {
-                    if let latest = versions(for: newFamily).first(where: { $0.isLatest }) {
+                    if let latest = versions(for: newFamily).first(where: { $0.isLatest }),
+                       selectedModelId != latest.modelId {
                         selectedModelId = latest.modelId
                     }
                 }

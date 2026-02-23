@@ -123,11 +123,11 @@ class GitService: ObservableObject {
 
     // MARK: - Init Repo
 
-    func initRepo() -> Bool {
+    func initRepo() async -> Bool {
         let fm = FileManager.default
         try? fm.createDirectory(at: repoPath, withIntermediateDirectories: true)
 
-        let (_, initExit) = runGit(["init"])
+        let (_, initExit) = await runGit(["init"])
         guard initExit == 0 else { return false }
 
         let gitignoreURL = repoPath.appendingPathComponent(".gitignore")
@@ -137,10 +137,10 @@ class GitService: ObservableObject {
             return false
         }
 
-        let (_, addExit) = runGit(["add", "."])
+        let (_, addExit) = await runGit(["add", "."])
         guard addExit == 0 else { return false }
 
-        let (_, commitExit) = runGit(["commit", "-m", "Initial commit - track Claude Code settings"])
+        let (_, commitExit) = await runGit(["commit", "-m", "Initial commit - track Claude Code settings"])
         guard commitExit == 0 else { return false }
 
         refreshStatus()
@@ -176,20 +176,20 @@ class GitService: ObservableObject {
 
     // MARK: - Remote
 
-    func addRemote(url: String) -> Bool {
-        let (_, checkExit) = runGit(["remote", "get-url", "origin"])
+    func addRemote(url: String) async -> Bool {
+        let (_, checkExit) = await runGit(["remote", "get-url", "origin"])
         if checkExit == 0 {
-            runGit(["remote", "set-url", "origin", url])
+            await runGit(["remote", "set-url", "origin", url])
         } else {
-            let (_, addExit) = runGit(["remote", "add", "origin", url])
+            let (_, addExit) = await runGit(["remote", "add", "origin", url])
             if addExit != 0 { return false }
         }
         refreshStatus()
         return true
     }
 
-    func removeRemote() -> Bool {
-        let (_, exitCode) = runGit(["remote", "remove", "origin"])
+    func removeRemote() async -> Bool {
+        let (_, exitCode) = await runGit(["remote", "remove", "origin"])
         if exitCode == 0 {
             refreshStatus()
             return true
@@ -230,24 +230,6 @@ class GitService: ObservableObject {
 
     // MARK: - Diff
 
-    func getDiff(for file: String) -> String {
-        let (stagedDiff, _) = runGit(["diff", "--cached", "--", file])
-        let (unstagedDiff, _) = runGit(["diff", "--", file])
-        let combined = [stagedDiff, unstagedDiff].filter { !$0.isEmpty }.joined(separator: "\n")
-        if combined.isEmpty {
-            let fileURL = repoPath.appendingPathComponent(file)
-            if let content = try? String(contentsOf: fileURL, encoding: .utf8) {
-                let lines = content.components(separatedBy: "\n")
-                var diff = "--- /dev/null\n+++ b/\(file)\n@@ -0,0 +1,\(lines.count) @@\n"
-                for line in lines {
-                    diff += "+\(line)\n"
-                }
-                return diff
-            }
-        }
-        return combined
-    }
-
     /// Async diff — captures repoPath on main actor, runs git off-thread
     func getDiffAsync(for file: String) async -> String {
         let path = gitPath
@@ -271,11 +253,6 @@ class GitService: ObservableObject {
             }
         }
         return combined
-    }
-
-    func getCommitDiff(hash: String) -> String {
-        let (diff, _) = runGit(["show", "--format=", hash])
-        return diff
     }
 
     /// Async commit diff — captures repoPath on main actor, runs git off-thread
@@ -315,11 +292,17 @@ class GitService: ObservableObject {
         Self.defaultGitignoreContent
     }
 
-    // Synchronous git (for quick, user-initiated operations)
+    // Async git — captures repoPath on main actor, runs Process off-thread
     @discardableResult
-    private func runGit(_ args: [String]) -> (output: String, exitCode: Int32) {
-        let result = Self.git(gitPath, repoPath, args)
+    private func runGit(_ args: [String]) async -> (output: String, exitCode: Int32) {
+        let path = gitPath
+        let dir = repoPath
+        let result = await Self.runGitOffMain(path: path, dir: dir, args: args)
         return (result.output, result.exit)
+    }
+
+    nonisolated private static func runGitOffMain(path: String, dir: URL, args: [String]) async -> (output: String, exit: Int32) {
+        git(path, dir, args)
     }
 
     // Static git execution (safe to call from any thread)

@@ -308,7 +308,11 @@ struct SidebarView: View {
 
     private func matchesSearchForAnyProject() -> Bool {
         guard isSearching else { return true }
-        return matchesSearch(.globalFiles)
+        let query = searchText.lowercased()
+        return filteredProjects.contains { project in
+            project.displayName.localizedCaseInsensitiveContains(query) ||
+            project.originalPath.localizedCaseInsensitiveContains(query)
+        }
     }
 
     private func matchesSearchForAnySubfolder() -> Bool {
@@ -329,8 +333,10 @@ struct SidebarView: View {
 
     private func loadProjects() {
         isLoadingProjects = true
-        projects = configManager.loadProjects()
-        isLoadingProjects = false
+        Task {
+            projects = configManager.loadProjects()
+            isLoadingProjects = false
+        }
     }
 
     // MARK: - Navigation Row Helpers

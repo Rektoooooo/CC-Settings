@@ -66,6 +66,9 @@ struct HUDView: View {
     @State private var installedVersion: String?
     @State private var hasLoadedOnce = false
 
+    /// Hardcoded path matching the claude-hud plugin's expected config location.
+    /// This is the canonical path used by the plugin itself; deriving it from install
+    /// metadata would add complexity without benefit since the plugin always reads from here.
     private let configURL: URL = {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/plugins/claude-hud/config.json")
@@ -659,18 +662,45 @@ struct HUDView: View {
         }
     }
 
+    /// Top-level keys that HUDConfig models — used to merge without destroying unknown plugin keys.
+    private static let knownHUDConfigKeys: Set<String> = [
+        "display", "lineLayout", "showSeparators", "pathLevels", "gitStatus",
+    ]
+
     private func saveConfig() {
         guard hasLoadedOnce else { return }
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
-        guard let data = try? encoder.encode(config) else { return }
+        guard let encodedData = try? encoder.encode(config) else { return }
 
         // Ensure directory exists
         let dir = configURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        try? data.write(to: configURL, options: .atomic)
+        // Load existing JSON to preserve unknown keys the plugin may use
+        var existingJSON: [String: Any] = [:]
+        if let fileData = try? Data(contentsOf: configURL),
+           let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
+            existingJSON = json
+        }
+
+        // Merge our known keys on top
+        if let configJSON = try? JSONSerialization.jsonObject(with: encodedData) as? [String: Any] {
+            for (key, value) in configJSON {
+                existingJSON[key] = value
+            }
+            // Remove keys that our model explicitly set to nil (encoded as absent)
+            for key in existingJSON.keys {
+                if configJSON[key] == nil, Self.knownHUDConfigKeys.contains(key) {
+                    existingJSON.removeValue(forKey: key)
+                }
+            }
+        }
+
+        if let outputData = try? JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys]) {
+            try? outputData.write(to: configURL, options: .atomic)
+        }
     }
 }

@@ -253,9 +253,11 @@ struct CleanupView: View {
 
     private func loadProjects() {
         isLoading = true
-        projects = configManager.loadProjects()
-        selectedProjectIds.removeAll()
-        isLoading = false
+        Task {
+            projects = configManager.loadProjects()
+            selectedProjectIds.removeAll()
+            isLoading = false
+        }
     }
 
     private func deleteSelectedProjects() {

@@ -107,6 +107,10 @@ final class ThemeManager: ObservableObject {
 extension Color {
     /// The current theme's accent color. Use this instead of `.blue` or `Color.accentColor`
     /// for any UI element that should follow the selected theme.
+    ///
+    /// Safe to use from SwiftUI views and other @MainActor contexts.
+    /// Uses `assumeIsolated` because all call sites are SwiftUI view bodies
+    /// which always run on the main actor.
     static var themeAccent: Color {
         MainActor.assumeIsolated {
             ThemeManager.shared.resolvedAccentColor

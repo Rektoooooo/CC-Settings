@@ -421,12 +421,14 @@ struct SessionBrowserView: View {
 
     private func loadProjects() {
         isLoadingProjects = true
-        projects = configManager.loadProjects()
-        isLoadingProjects = false
+        Task {
+            projects = configManager.loadProjects()
+            isLoadingProjects = false
 
-        if selectedProject == nil {
-            let withSessions = projects.filter { !$0.sessions.isEmpty }
-            selectedProject = withSessions.first
+            if selectedProject == nil {
+                let withSessions = projects.filter { !$0.sessions.isEmpty }
+                selectedProject = withSessions.first
+            }
         }
     }
 

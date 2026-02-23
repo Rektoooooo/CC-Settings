@@ -28,6 +28,11 @@ enum MCPTransportType: String, Codable, CaseIterable {
 }
 
 struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
+    /// Server name, used as the Identifiable/Hashable key.
+    /// Excluded from CodingKeys because it is assigned at runtime from the dictionary key
+    /// when decoding `[String: MCPServerConfig]` (see `loadMCPServers`). This is safe because
+    /// dictionary keys are unique by definition, so no hash collisions can occur for servers
+    /// loaded from the same config file.
     var id: String
     var type: String?
     var command: String?

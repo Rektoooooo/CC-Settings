@@ -604,69 +604,74 @@ struct VersionControlView: View {
 
     private func loadRepositories() {
         isLoadingRepos = true
-        let projects = configManager.loadProjects()
         let savedRepoPath = UserDefaults.standard.string(forKey: Self.selectedRepoKey)
         let customPaths = UserDefaults.standard.stringArray(forKey: Self.customReposKey) ?? []
+        let manager = configManager
 
-        Task.detached {
-            var repos: [GitRepository] = []
+        Task {
+            let projects = manager.loadProjects()
 
-            // Check ~/.claude/ as a repo
-            let claudeDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
-            if GitService.isGitRepository(at: claudeDir) {
-                repos.append(GitRepository(
-                    id: claudeDir.path,
-                    path: claudeDir,
-                    displayName: "~/.claude (Settings)",
-                    isClaudeProject: true
-                ))
-            }
+            // Dispatch heavy git-repo checks off the main actor
+            let repos = await Task.detached {
+                var repos: [GitRepository] = []
 
-            // Check each Claude Code project for git repos
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            for project in projects {
-                guard project.originalPath != home else { continue }
-                let projectURL = URL(fileURLWithPath: project.originalPath)
-                guard GitService.isGitRepository(at: projectURL) else { continue }
-                guard !repos.contains(where: { $0.id == projectURL.path }) else { continue }
-                repos.append(GitRepository(
-                    id: projectURL.path,
-                    path: projectURL,
-                    displayName: project.displayName,
-                    isClaudeProject: true
-                ))
-            }
-
-            // Restore manually-added repos from previous sessions
-            for path in customPaths {
-                let url = URL(fileURLWithPath: path)
-                guard !repos.contains(where: { $0.id == url.path }) else { continue }
-                guard GitService.isGitRepository(at: url) else { continue }
-                repos.append(GitRepository(
-                    id: url.path,
-                    path: url,
-                    displayName: url.lastPathComponent,
-                    isClaudeProject: false
-                ))
-            }
-
-            await MainActor.run {
-                repositories = repos
-                isLoadingRepos = false
-
-                // Restore previously selected repo
-                if selectedRepo == nil, let saved = savedRepoPath,
-                   let match = repos.first(where: { $0.path.path == saved }) {
-                    selectedRepo = match
+                // Check ~/.claude/ as a repo
+                let claudeDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
+                if GitService.isGitRepository(at: claudeDir) {
+                    repos.append(GitRepository(
+                        id: claudeDir.path,
+                        path: claudeDir,
+                        displayName: "~/.claude (Settings)",
+                        isClaudeProject: true
+                    ))
                 }
-                // Fallback: auto-select first if nothing saved
-                else if selectedRepo == nil, let first = repos.first {
-                    selectedRepo = first
+
+                // Check each Claude Code project for git repos
+                let home = FileManager.default.homeDirectoryForCurrentUser.path
+                for project in projects {
+                    guard project.originalPath != home else { continue }
+                    let projectURL = URL(fileURLWithPath: project.originalPath)
+                    guard GitService.isGitRepository(at: projectURL) else { continue }
+                    guard !repos.contains(where: { $0.id == projectURL.path }) else { continue }
+                    repos.append(GitRepository(
+                        id: projectURL.path,
+                        path: projectURL,
+                        displayName: project.displayName,
+                        isClaudeProject: true
+                    ))
                 }
-                // If user already has a selection, ensure it's still in the list
-                else if let current = selectedRepo, !repos.contains(where: { $0.id == current.id }) {
-                    selectedRepo = repos.first
+
+                // Restore manually-added repos from previous sessions
+                for path in customPaths {
+                    let url = URL(fileURLWithPath: path)
+                    guard !repos.contains(where: { $0.id == url.path }) else { continue }
+                    guard GitService.isGitRepository(at: url) else { continue }
+                    repos.append(GitRepository(
+                        id: url.path,
+                        path: url,
+                        displayName: url.lastPathComponent,
+                        isClaudeProject: false
+                    ))
                 }
+
+                return repos
+            }.value
+
+            repositories = repos
+            isLoadingRepos = false
+
+            // Restore previously selected repo
+            if selectedRepo == nil, let saved = savedRepoPath,
+               let match = repos.first(where: { $0.path.path == saved }) {
+                selectedRepo = match
+            }
+            // Fallback: auto-select first if nothing saved
+            else if selectedRepo == nil, let first = repos.first {
+                selectedRepo = first
+            }
+            // If user already has a selection, ensure it's still in the list
+            else if let current = selectedRepo, !repos.contains(where: { $0.id == current.id }) {
+                selectedRepo = repos.first
             }
         }
     }

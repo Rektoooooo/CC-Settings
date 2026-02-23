@@ -212,7 +212,8 @@ struct MCPServerEditorSheet: View {
             }
             .padding()
         }
-        .frame(width: 600, height: 600)
+        .frame(minWidth: 450, idealWidth: 600, maxWidth: 800,
+               minHeight: 450, idealHeight: 600, maxHeight: 800)
     }
 
     // MARK: - Stdio Fields

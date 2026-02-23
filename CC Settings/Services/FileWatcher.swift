@@ -5,8 +5,6 @@ import CoreServices
 class FileWatcher: ObservableObject {
     static let shared = FileWatcher()
 
-    @Published var shouldReload: Bool = false
-
     private var stream: FSEventStreamRef?
     private var debounceTimer: Timer?
     private let watchPath: String
@@ -64,9 +62,13 @@ class FileWatcher: ObservableObject {
         debounceTimer?.invalidate()
         debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.shouldReload = true
-                ConfigurationManager.shared.loadAll()
-                self?.shouldReload = false
+                guard self != nil else { return }
+                let manager = ConfigurationManager.shared
+                // Skip reload if the app itself just saved (avoids overwriting in-progress edits)
+                if Date().timeIntervalSince(manager.lastSaveTime) < 1.0 {
+                    return
+                }
+                manager.loadAll()
             }
         }
     }

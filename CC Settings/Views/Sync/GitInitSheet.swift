@@ -154,13 +154,15 @@ struct GitInitSheet: View {
         isInitializing = true
         initResult = nil
 
-        let success = gitService.initRepo()
+        Task {
+            let success = await gitService.initRepo()
 
-        isInitializing = false
-        if success {
-            initResult = .success
-        } else {
-            initResult = .failure("Failed to initialize the repository. Check that git is installed and \(gitService.repoPath.path) is accessible.")
+            isInitializing = false
+            if success {
+                initResult = .success
+            } else {
+                initResult = .failure("Failed to initialize the repository. Check that git is installed and \(gitService.repoPath.path) is accessible.")
+            }
         }
     }
 }

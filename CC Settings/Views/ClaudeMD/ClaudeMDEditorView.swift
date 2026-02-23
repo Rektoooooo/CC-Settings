@@ -266,7 +266,9 @@ struct ClaudeMDEditorView: View {
     // MARK: - Load / Save
 
     private func loadProjects() {
-        projects = configManager.loadProjects()
+        Task {
+            projects = configManager.loadProjects()
+        }
     }
 
     private func loadContent() {

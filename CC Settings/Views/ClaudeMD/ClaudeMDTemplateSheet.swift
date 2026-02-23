@@ -103,7 +103,8 @@ struct ClaudeMDTemplateSheet: View {
             }
             .padding()
         }
-        .frame(width: 700, height: 500)
+        .frame(minWidth: 500, idealWidth: 700, maxWidth: 900,
+               minHeight: 400, idealHeight: 500, maxHeight: 700)
     }
 }
 

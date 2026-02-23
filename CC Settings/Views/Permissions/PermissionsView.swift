@@ -161,6 +161,7 @@ struct PermissionsView: View {
                         Text(mode.displayName).tag(mode)
                     }
                 }
+                .onChange(of: defaultMode) { _, _ in savePermissions() }
                 Text(defaultMode.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -316,16 +317,6 @@ struct PermissionsView: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    savePermissions()
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .keyboardShortcut("s", modifiers: .command)
-            }
-        }
         .onAppear {
             loadPermissions()
         }
@@ -511,31 +502,5 @@ private struct CustomRuleRow: View {
             .buttonStyle(.plain)
         }
         .padding(.vertical, 2)
-    }
-}
-
-// MARK: - Old types kept for compatibility
-
-enum PermissionType: String, CaseIterable, Identifiable {
-    case allow = "Allow"
-    case deny = "Deny"
-    case ask = "Ask"
-
-    var id: String { rawValue }
-
-    var icon: String {
-        switch self {
-        case .allow: return "checkmark.circle.fill"
-        case .deny: return "xmark.circle.fill"
-        case .ask: return "questionmark.circle.fill"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .allow: return .green
-        case .deny: return .red
-        case .ask: return .orange
-        }
     }
 }

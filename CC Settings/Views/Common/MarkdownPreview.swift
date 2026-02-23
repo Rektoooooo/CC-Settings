@@ -35,41 +35,43 @@ struct MarkdownPreview: View {
     @ViewBuilder
     private func renderMarkup(_ markup: any Markup) -> some View {
         ForEach(Array(markup.children.enumerated()), id: \.offset) { _, child in
-            AnyView(renderBlock(child))
+            renderBlock(child)
         }
     }
 
-    @ViewBuilder
-    private func renderBlock(_ block: any Markup) -> some View {
+    /// Returns `AnyView` to break the recursive type cycle (renderBlock can call itself
+    /// for unknown block types). This is the single point of type erasure; callers use
+    /// the returned value directly without additional wrapping.
+    private func renderBlock(_ block: any Markup) -> AnyView {
         if let heading = block as? Heading {
-            renderHeading(heading)
+            AnyView(renderHeading(heading))
         } else if let paragraph = block as? Paragraph {
-            renderParagraph(paragraph)
+            AnyView(renderParagraph(paragraph))
         } else if let codeBlock = block as? CodeBlock {
-            renderCodeBlock(codeBlock)
+            AnyView(renderCodeBlock(codeBlock))
         } else if let blockQuote = block as? BlockQuote {
-            renderBlockQuote(blockQuote)
+            AnyView(renderBlockQuote(blockQuote))
         } else if let unorderedList = block as? UnorderedList {
-            renderUnorderedList(unorderedList)
+            AnyView(renderUnorderedList(unorderedList))
         } else if let orderedList = block as? OrderedList {
-            renderOrderedList(orderedList)
+            AnyView(renderOrderedList(orderedList))
         } else if block is ThematicBreak {
-            Divider()
-                .padding(.vertical, 6)
+            AnyView(Divider()
+                .padding(.vertical, 6))
         } else if let table = block as? Markdown.Table {
-            renderTable(table)
+            AnyView(renderTable(table))
         } else if let htmlBlock = block as? HTMLBlock {
-            Text(htmlBlock.rawHTML)
+            AnyView(Text(htmlBlock.rawHTML)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundColor(.secondary)
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.secondary.opacity(0.06))
-                .cornerRadius(6)
+                .cornerRadius(6))
         } else {
-            ForEach(Array(block.children.enumerated()), id: \.offset) { _, child in
-                AnyView(renderBlock(child))
-            }
+            AnyView(ForEach(Array(block.children.enumerated()), id: \.offset) { _, child in
+                renderBlock(child)
+            })
         }
     }
 
@@ -189,7 +191,7 @@ struct MarkdownPreview: View {
                             .foregroundColor(.secondary)
                             .lineSpacing(2)
                     } else {
-                        AnyView(renderBlock(child))
+                        renderBlock(child)
                     }
                 }
             }
@@ -222,7 +224,7 @@ struct MarkdownPreview: View {
                                     AnyView(renderOrderedList(nestedOL)
                                         .padding(.leading, 4))
                                 } else {
-                                    AnyView(renderBlock(child))
+                                    renderBlock(child)
                                 }
                             }
                         }
@@ -264,7 +266,7 @@ struct MarkdownPreview: View {
                                     AnyView(renderOrderedList(nestedOL)
                                         .padding(.leading, 4))
                                 } else {
-                                    AnyView(renderBlock(child))
+                                    renderBlock(child)
                                 }
                             }
                         }

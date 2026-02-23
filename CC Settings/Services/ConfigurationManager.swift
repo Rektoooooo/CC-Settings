@@ -11,6 +11,10 @@ class ConfigurationManager: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var lastError: Error?
 
+    /// Timestamp of the last save performed by the app. FileWatcher checks this to avoid
+    /// reloading settings that the app itself just wrote (which would overwrite in-progress edits).
+    private(set) var lastSaveTime: Date = .distantPast
+
     private let claudeDir: URL
     private let settingsURL: URL
     private let localSettingsURL: URL
@@ -49,16 +53,20 @@ class ConfigurationManager: ObservableObject {
         // Load settings.json
         if let data = try? Data(contentsOf: settingsURL) {
             let fixed = validateAndFix(jsonData: data)
-            if let decoded = try? decoder.decode(ClaudeSettings.self, from: fixed) {
-                settings = decoded
+            do {
+                settings = try decoder.decode(ClaudeSettings.self, from: fixed)
+            } catch {
+                lastError = error
             }
         }
 
         // Load settings.local.json
         if let data = try? Data(contentsOf: localSettingsURL) {
             let fixed = validateAndFix(jsonData: data)
-            if let decoded = try? decoder.decode(LocalSettings.self, from: fixed) {
-                localSettings = decoded
+            do {
+                localSettings = try decoder.decode(LocalSettings.self, from: fixed)
+            } catch {
+                lastError = error
             }
         }
 
@@ -71,6 +79,7 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveSettings() {
+        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
 
@@ -98,7 +107,8 @@ class ConfigurationManager: ObservableObject {
             }
 
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
-            try outputData.write(to: settingsURL, options: .atomic)
+            let fixedOutput = fixIntegerFormatting(outputData)
+            try fixedOutput.write(to: settingsURL, options: .atomic)
         } catch {
             lastError = error
         }
@@ -123,17 +133,49 @@ class ConfigurationManager: ObservableObject {
         "statusLineCommand",
     ]
 
+    /// Keys that LocalSettings models — used to distinguish "intentionally nil" from "unknown".
+    private let knownLocalSettingsKeys: Set<String> = [
+        "permissions",
+    ]
+
     func saveLocalSettings() {
+        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
-            let data = try encoder.encode(localSettings)
-            try data.write(to: localSettingsURL, options: .atomic)
+
+            // Load existing JSON to preserve unknown keys the CLI uses
+            var existingJSON: [String: Any] = [:]
+            if let data = try? Data(contentsOf: localSettingsURL) {
+                let fixed = validateAndFix(jsonData: data)
+                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
+                    existingJSON = json
+                }
+            }
+
+            // Encode our known settings and merge on top
+            let localData = try encoder.encode(localSettings)
+            if let localJSON = try JSONSerialization.jsonObject(with: localData) as? [String: Any] {
+                for (key, value) in localJSON {
+                    existingJSON[key] = value
+                }
+                // Remove keys that our model explicitly set to nil (encoded as absent)
+                for key in existingJSON.keys {
+                    if localJSON[key] == nil, knownLocalSettingsKeys.contains(key) {
+                        existingJSON.removeValue(forKey: key)
+                    }
+                }
+            }
+
+            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
+            let fixedOutput = fixIntegerFormatting(outputData)
+            try fixedOutput.write(to: localSettingsURL, options: .atomic)
         } catch {
             lastError = error
         }
     }
 
     func saveClaudeMD() {
+        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
             try claudeMD.write(to: claudeMDURL, atomically: true, encoding: .utf8)
@@ -162,6 +204,7 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveMCPServers(_ servers: [String: MCPServerConfig]) {
+        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
 
@@ -187,11 +230,27 @@ class ConfigurationManager: ObservableObject {
         }
     }
 
+    /// JSONSerialization converts Swift Int values to Double (e.g. 10000 becomes 10000.0).
+    /// This post-processes the JSON text to restore whole-number doubles back to plain integers.
+    private func fixIntegerFormatting(_ data: Data) -> Data {
+        guard var str = String(data: data, encoding: .utf8) else { return data }
+        // Match ": <digits>.0" patterns produced by JSONSerialization for integer values.
+        str = str.replacingOccurrences(
+            of: ":\\s*(-?\\d+)\\.0(\\s*[,\\]\\}\\n])",
+            with: ": $1$2",
+            options: .regularExpression
+        )
+        return str.data(using: .utf8) ?? data
+    }
+
     func validateAndFix(jsonData: Data) -> Data {
         if (try? JSONSerialization.jsonObject(with: jsonData)) != nil {
             return jsonData
         }
-        // Strip trailing commas before } or ]
+        // Strip trailing commas before } or ].
+        // NOTE: This regex can match inside JSON string values (e.g. a string containing ",]").
+        // This is acceptable as a best-effort fixer — it only runs on already-invalid JSON,
+        // and string values containing trailing-comma patterns are extremely rare in config files.
         if var str = String(data: jsonData, encoding: .utf8) {
             str = str.replacingOccurrences(
                 of: ",\\s*([\\]}])",
@@ -277,6 +336,19 @@ class ConfigurationManager: ObservableObject {
         return projects.sorted { ($0.lastAccessed ?? .distantPast) > ($1.lastAccessed ?? .distantPast) }
     }
 
+    /// Decodes a Claude Code project ID back into a filesystem path.
+    ///
+    /// Claude Code encodes project paths by replacing `/`, `.`, and ` ` with `-`.
+    /// This is inherently ambiguous: a hyphen in the encoded string could be a literal
+    /// hyphen from the original directory name, or a separator that replaced `/`, `.`,
+    /// or ` `. For example, `my-project` and `my/project` both encode to `my-project`.
+    ///
+    /// The algorithm resolves ambiguity by greedily matching against the actual filesystem,
+    /// preferring the longest directory name that exists on disk. This works well in practice
+    /// but can fail if: (1) the directory no longer exists, (2) multiple directories share
+    /// the same encoded form, or (3) the path contains mixed separator types within a single
+    /// component (e.g. `my.project-name`). In those edge cases the fallback joins all
+    /// remaining parts with `/`.
     private func decodePath(_ encoded: String) -> String {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
@@ -393,6 +465,7 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveProjectClaudeMD(_ content: String, projectId: String) {
+        lastSaveTime = Date()
         let originalPath = decodePath(projectId)
         // Save to project root (where Claude Code reads it)
         let rootClaudeMD = URL(fileURLWithPath: originalPath).appendingPathComponent("CLAUDE.md")

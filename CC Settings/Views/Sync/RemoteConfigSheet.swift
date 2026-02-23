@@ -95,8 +95,10 @@ struct RemoteConfigSheet: View {
                         .glassContainer()
 
                         Button(role: .destructive) {
-                            _ = gitService.removeRemote()
-                            dismiss()
+                            Task {
+                                _ = await gitService.removeRemote()
+                                dismiss()
+                            }
                         } label: {
                             Label("Remove Remote", systemImage: "trash")
                                 .foregroundColor(.red)
@@ -156,12 +158,14 @@ struct RemoteConfigSheet: View {
         let trimmed = remoteURL.trimmingCharacters(in: .whitespacesAndNewlines)
         saveError = nil
         isSaving = true
-        let success = gitService.addRemote(url: trimmed)
-        isSaving = false
-        if success {
-            dismiss()
-        } else {
-            saveError = "Failed to add remote. Check that the URL is valid and git is accessible."
+        Task {
+            let success = await gitService.addRemote(url: trimmed)
+            isSaving = false
+            if success {
+                dismiss()
+            } else {
+                saveError = "Failed to add remote. Check that the URL is valid and git is accessible."
+            }
         }
     }
 }
