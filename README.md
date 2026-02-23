@@ -1,6 +1,10 @@
-# CC Settings
+<p align="center">
+  <img src="icon.png" width="128" alt="CC Settings icon">
+</p>
 
-A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.
+<h1 align="center">CC Settings</h1>
+
+<p align="center">A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.</p>
 
 [![License](https://img.shields.io/github/license/Rektoooooo/CC-Settings)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Rektoooooo/CC-Settings)](https://github.com/Rektoooooo/CC-Settings/stargazers)
