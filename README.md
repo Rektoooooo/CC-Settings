@@ -1,8 +1,5 @@
 <div align="center">
-  <table><tr>
-    <td><img src="icon.png" width="80" alt="CC Settings icon" style="border-radius:18px;"></td>
-    <td><h1 style="border-bottom:none;">CC Settings</h1></td>
-  </tr></table>
+  <h1><img src="icon-rounded.png" width="48" align="absmiddle">&nbsp; CC Settings</h1>
   <p>A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.</p>
   <p>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/Rektoooooo/CC-Settings" alt="License"></a>
