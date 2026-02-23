@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/github/license/Rektoooooo/CC-Settings)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Rektoooooo/CC-Settings)](https://github.com/Rektoooooo/CC-Settings/stargazers)
-[![macOS](https://img.shields.io/badge/macOS-15.0%2B-blue?logo=apple)](https://github.com/Rektoooooo/CC-Settings)
+[![macOS](https://img.shields.io/badge/macOS-26.0%2B-blue?logo=apple)](https://github.com/Rektoooooo/CC-Settings)
 [![Download](https://img.shields.io/github/v/release/Rektoooooo/CC-Settings?label=Download&color=orange)](https://github.com/Rektoooooo/CC-Settings/releases/latest)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://github.com/Rektoooooo/CC-Settings)
 
@@ -24,7 +24,7 @@ Grab the latest DMG from [**Releases**](https://github.com/Rektoooooo/CC-Setting
 
 ### Build from source
 
-**Requirements:** macOS 15.0+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+**Requirements:** macOS 26.0+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
 ```bash
 git clone https://github.com/Rektoooooo/CC-Settings.git
