@@ -144,6 +144,36 @@ Every toggle, picker, and text field saves immediately — no save button. Use `
 - App is not notarized — users must right-click → Open on first launch
 - Never write to paths outside `~/.claude/`, `~/.claude.json`, or user-selected directories
 
+## Release Process
+
+Every release **must** include a DMG uploaded to GitHub Releases. Steps:
+
+```bash
+# 1. Bump version in both files
+#    - project.yml: MARKETING_VERSION and CURRENT_PROJECT_VERSION
+#    - CC Settings/Resources/Info.plist: CFBundleShortVersionString and CFBundleVersion
+
+# 2. Build Release configuration
+xcodebuild -project "CC Settings.xcodeproj" -scheme "CC Settings" \
+  -configuration Release -derivedDataPath /tmp/cc-settings-build build
+
+# 3. Create DMG (app + Applications symlink for drag-to-install)
+DMG_DIR="/tmp/cc-settings-dmg"
+rm -rf "$DMG_DIR" && mkdir -p "$DMG_DIR"
+cp -R "/tmp/cc-settings-build/Build/Products/Release/CC Settings.app" "$DMG_DIR/"
+ln -s /Applications "$DMG_DIR/Applications"
+hdiutil create -volname "CC Settings" -srcfolder "$DMG_DIR" \
+  -ov -format UDZO "CC-Settings-<version>.dmg"
+
+# 4. Commit, push, create GitHub release with DMG
+git add -A && git commit -m "Prepare v<version> release"
+git push origin main
+gh release create v<version> --title "v<version>" --notes "..."
+gh release upload v<version> CC-Settings-<version>.dmg
+```
+
+**Important**: The DMG is for distribution only — do NOT commit it to the repo. It's listed in `.gitignore`. Always upload via `gh release upload`.
+
 ## What NOT to Do
 
 - Don't add external dependencies without strong justification

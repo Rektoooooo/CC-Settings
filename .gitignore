@@ -11,5 +11,8 @@ xcuserdata/
 *.swp
 *~
 
+# Release artifacts
+*.dmg
+
 # Tasks
 tasks/
