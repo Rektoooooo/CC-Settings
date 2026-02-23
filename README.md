@@ -1,16 +1,17 @@
-<p align="center">
-  <img src="icon.png" width="128" alt="CC Settings icon">
-</p>
-
-<h1 align="center">CC Settings</h1>
-
-<p align="center">A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.</p>
-
-[![License](https://img.shields.io/github/license/Rektoooooo/CC-Settings)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/Rektoooooo/CC-Settings)](https://github.com/Rektoooooo/CC-Settings/stargazers)
-[![macOS](https://img.shields.io/badge/macOS-26.0%2B-blue?logo=apple)](https://github.com/Rektoooooo/CC-Settings)
-[![Download](https://img.shields.io/github/v/release/Rektoooooo/CC-Settings?label=Download&color=orange)](https://github.com/Rektoooooo/CC-Settings/releases/latest)
-[![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://github.com/Rektoooooo/CC-Settings)
+<div align="center">
+  <table><tr>
+    <td><img src="icon.png" width="80" alt="CC Settings icon" style="border-radius:18px;"></td>
+    <td><h1 style="border-bottom:none;">CC Settings</h1></td>
+  </tr></table>
+  <p>A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.</p>
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/Rektoooooo/CC-Settings" alt="License"></a>
+    <a href="https://github.com/Rektoooooo/CC-Settings/stargazers"><img src="https://img.shields.io/github/stars/Rektoooooo/CC-Settings" alt="Stars"></a>
+    <a href="https://github.com/Rektoooooo/CC-Settings"><img src="https://img.shields.io/badge/macOS-26.0%2B-blue?logo=apple" alt="macOS"></a>
+    <a href="https://github.com/Rektoooooo/CC-Settings/releases/latest"><img src="https://img.shields.io/github/v/release/Rektoooooo/CC-Settings?label=Download&color=orange" alt="Download"></a>
+    <a href="https://github.com/Rektoooooo/CC-Settings"><img src="https://img.shields.io/badge/Swift-6.0-orange?logo=swift" alt="Swift"></a>
+  </p>
+</div>
 
 ![CC Settings screenshot](screenshot.png)
 

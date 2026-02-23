@@ -2,9 +2,35 @@ import SwiftUI
 
 struct HierarchicalModelPicker: View {
     @Binding var selectedModelId: String
-    @State private var selectedFamily: ModelFamily = .sonnet
-    @State private var isCustomMode: Bool = false
-    @State private var customModelId: String = ""
+    @State private var selectedFamily: ModelFamily
+    @State private var isCustomMode: Bool
+    @State private var customModelId: String
+
+    init(selectedModelId: Binding<String>) {
+        _selectedModelId = selectedModelId
+        let modelId = selectedModelId.wrappedValue
+        let initialFamily = family(for: modelId) ?? .sonnet
+        _selectedFamily = State(initialValue: initialFamily)
+        let knownModel = findModel(byModelId: modelId) != nil
+        let isCustom = !knownModel && !modelId.isEmpty && modelId != "__custom__"
+        _isCustomMode = State(initialValue: isCustom)
+        _customModelId = State(initialValue: isCustom ? modelId : "")
+    }
+
+    /// Versions to show in the dropdown — derived from selectedModelId when it
+    /// doesn't match selectedFamily, preventing the "invalid selection" warning
+    /// that occurs when @State is stale after a SwiftUI view identity reuse.
+    private var pickerVersions: [ModelVersion] {
+        let familyVersions = versions(for: selectedFamily)
+        if familyVersions.contains(where: { $0.modelId == selectedModelId })
+            || selectedModelId == "__custom__" {
+            return familyVersions
+        }
+        if let derivedFamily = family(for: selectedModelId) {
+            return versions(for: derivedFamily)
+        }
+        return familyVersions
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,8 +44,10 @@ struct HierarchicalModelPicker: View {
             .pickerStyle(.segmented)
             .onChange(of: selectedFamily) { _, newFamily in
                 if !isCustomMode {
-                    if let latest = versions(for: newFamily).first(where: { $0.isLatest }),
-                       selectedModelId != latest.modelId {
+                    let newVersions = versions(for: newFamily)
+                    // Only auto-switch if the current selection isn't already in this family
+                    if !newVersions.contains(where: { $0.modelId == selectedModelId }),
+                       let latest = newVersions.first(where: { $0.isLatest }) {
                         selectedModelId = latest.modelId
                     }
                 }
@@ -46,7 +74,7 @@ struct HierarchicalModelPicker: View {
                 }
             } else {
                 Picker("Version", selection: $selectedModelId) {
-                    ForEach(versions(for: selectedFamily)) { version in
+                    ForEach(pickerVersions) { version in
                         Text(version.displayName).tag(version.modelId)
                     }
                     Divider()
