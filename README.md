@@ -6,11 +6,13 @@
 
 <p align="center">A native macOS app for managing Claude Code configuration — settings, permissions, hooks, plugins, MCP servers, sessions, and more. No more hand-editing JSON files.</p>
 
+<div align="center">
 [![License](https://img.shields.io/github/license/Rektoooooo/CC-Settings)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Rektoooooo/CC-Settings)](https://github.com/Rektoooooo/CC-Settings/stargazers)
 [![macOS](https://img.shields.io/badge/macOS-15.0%2B-blue?logo=apple)](https://github.com/Rektoooooo/CC-Settings)
 [![Download](https://img.shields.io/github/v/release/Rektoooooo/CC-Settings?label=Download&color=orange)](https://github.com/Rektoooooo/CC-Settings/releases/latest)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://github.com/Rektoooooo/CC-Settings)
+</div>
 
 ![CC Settings screenshot](screenshot.png)
 
