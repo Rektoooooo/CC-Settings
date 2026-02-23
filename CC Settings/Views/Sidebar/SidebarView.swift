@@ -1,5 +1,21 @@
 import SwiftUI
 
+// MARK: - Themed Row Background
+
+private extension View {
+    @ViewBuilder
+    func themedRowBackground(isSelected: Bool, color: Color) -> some View {
+        if isSelected {
+            self.listRowBackground(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(color)
+            )
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: - SubfolderEntry
 
 struct SubfolderEntry: Identifiable, Sendable {
@@ -142,6 +158,7 @@ enum NavigationItem: Hashable {
 struct SidebarView: View {
     @Binding var selection: NavigationItem
     @EnvironmentObject var configManager: ConfigurationManager
+    @EnvironmentObject var themeManager: ThemeManager
     @State private var projects: [Project] = []
     @State private var isLoadingProjects = false
     @State private var filesExpanded = true
@@ -189,32 +206,26 @@ struct SidebarView: View {
 
             Divider()
 
-            List(selection: $selection) {
+            List {
                 if !isSearching || [NavigationItem.general, .permissions, .environment, .experimentalFeatures, .hooks, .hud].contains(where: matchesSearch) {
                     Section("Settings") {
                         if matchesSearch(.general) {
-                            Label("General", systemImage: "gearshape")
-                                .tag(NavigationItem.general)
+                            navItem(.general, label: "General", systemImage: "gearshape")
                         }
                         if matchesSearch(.permissions) {
-                            Label("Permissions", systemImage: "lock.shield")
-                                .tag(NavigationItem.permissions)
+                            navItem(.permissions, label: "Permissions", systemImage: "lock.shield")
                         }
                         if matchesSearch(.environment) {
-                            Label("Environment", systemImage: "terminal")
-                                .tag(NavigationItem.environment)
+                            navItem(.environment, label: "Environment", systemImage: "terminal")
                         }
                         if matchesSearch(.experimentalFeatures) {
-                            Label("Experimental", systemImage: "flask")
-                                .tag(NavigationItem.experimentalFeatures)
+                            navItem(.experimentalFeatures, label: "Experimental", systemImage: "flask")
                         }
                         if matchesSearch(.hooks) {
-                            Label("Hooks", systemImage: "arrow.triangle.branch")
-                                .tag(NavigationItem.hooks)
+                            navItem(.hooks, label: "Hooks", systemImage: "arrow.triangle.branch")
                         }
                         if matchesSearch(.hud) {
-                            Label("HUD", systemImage: "gauge.open.with.lines.needle.33percent")
-                                .tag(NavigationItem.hud)
+                            navItem(.hud, label: "HUD", systemImage: "gauge.open.with.lines.needle.33percent")
                         }
                     }
                 }
@@ -222,13 +233,11 @@ struct SidebarView: View {
                 if !isSearching || [NavigationItem.claudeMDEditor, .sessionHistory].contains(where: matchesSearch) {
                     Section("Content") {
                         if matchesSearch(.claudeMDEditor) {
-                            Label("CLAUDE.md", systemImage: "doc.richtext")
-                                .tag(NavigationItem.claudeMDEditor)
+                            navItem(.claudeMDEditor, label: "CLAUDE.md", systemImage: "doc.richtext")
                         }
 
                         if matchesSearch(.sessionHistory) {
-                            Label("Session History", systemImage: "clock.arrow.circlepath")
-                                .tag(NavigationItem.sessionHistory)
+                            navItem(.sessionHistory, label: "Session History", systemImage: "clock.arrow.circlepath")
                         }
                     }
                 }
@@ -236,20 +245,16 @@ struct SidebarView: View {
                 if !isSearching || [NavigationItem.commands, .skills, .plugins, .mcpServers].contains(where: matchesSearch) {
                     Section("Extensions") {
                         if matchesSearch(.commands) {
-                            sidebarRow(label: "Commands", icon: "command", count: commandsCount)
-                                .tag(NavigationItem.commands)
+                            navCountRow(.commands, label: "Commands", icon: "command", count: commandsCount)
                         }
                         if matchesSearch(.skills) {
-                            sidebarRow(label: "Skills", icon: "star", count: skillsCount)
-                                .tag(NavigationItem.skills)
+                            navCountRow(.skills, label: "Skills", icon: "star", count: skillsCount)
                         }
                         if matchesSearch(.plugins) {
-                            sidebarRow(label: "Plugins", icon: "puzzlepiece", count: pluginsCount)
-                                .tag(NavigationItem.plugins)
+                            navCountRow(.plugins, label: "Plugins", icon: "puzzlepiece", count: pluginsCount)
                         }
                         if matchesSearch(.mcpServers) {
-                            sidebarRow(label: "MCP Servers", icon: "server.rack", count: mcpServersCount)
-                                .tag(NavigationItem.mcpServers)
+                            navCountRow(.mcpServers, label: "MCP Servers", icon: "server.rack", count: mcpServersCount)
                         }
                     }
                 }
@@ -258,22 +263,14 @@ struct SidebarView: View {
                     Section("Folders") {
                         if !isSearching {
                             DisclosureGroup(isExpanded: $filesExpanded) {
-                                Label("Global", systemImage: "house")
-                                    .tag(NavigationItem.globalFiles)
+                                navItem(.globalFiles, label: "Global", systemImage: "house")
 
                                 if isLoadingProjects {
                                     ProgressView()
                                         .controlSize(.small)
                                 } else {
                                     ForEach(filteredProjects) { project in
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Label(project.displayName, systemImage: "folder")
-                                            Text(project.originalPath)
-                                                .font(.caption2)
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(1)
-                                        }
-                                        .tag(NavigationItem.projectFiles(project.id))
+                                        navProjectRow(project)
                                     }
                                 }
                             } label: {
@@ -281,8 +278,7 @@ struct SidebarView: View {
                             }
                         } else {
                             if matchesSearch(.globalFiles) {
-                                Label("Global Files", systemImage: "house")
-                                    .tag(NavigationItem.globalFiles)
+                                navItem(.globalFiles, label: "Global Files", systemImage: "house")
                             }
                         }
 
@@ -292,12 +288,12 @@ struct SidebarView: View {
                         } else {
                             ForEach(discoveredSubfolders) { subfolder in
                                 if matchesSearch(.folder(subfolder.name)) {
-                                    sidebarRow(
+                                    navCountRow(
+                                        .folder(subfolder.name),
                                         label: subfolder.name.capitalized,
                                         icon: SubfolderEntry.icon(for: subfolder.name),
                                         count: subfolder.itemCount
                                     )
-                                    .tag(NavigationItem.folder(subfolder.name))
                                 }
                             }
                         }
@@ -307,12 +303,10 @@ struct SidebarView: View {
                 if !isSearching || [NavigationItem.cleanup, .sync].contains(where: matchesSearch) {
                     Section("Maintenance") {
                         if matchesSearch(.cleanup) {
-                            Label("Cleanup", systemImage: "trash")
-                                .tag(NavigationItem.cleanup)
+                            navItem(.cleanup, label: "Cleanup", systemImage: "trash")
                         }
                         if matchesSearch(.sync) {
-                            Label("Version Control", systemImage: "arrow.triangle.branch")
-                                .tag(NavigationItem.sync)
+                            navItem(.sync, label: "Version Control", systemImage: "arrow.triangle.branch")
                         }
                     }
                 }
@@ -352,19 +346,57 @@ struct SidebarView: View {
         isLoadingProjects = false
     }
 
-    private func sidebarRow(label: String, icon: String, count: Int) -> some View {
+    // MARK: - Navigation Row Helpers
+
+    private var selectionColor: Color {
+        themeManager.resolvedAccentColor
+    }
+
+    private func navItem(_ item: NavigationItem, label: String, systemImage: String) -> some View {
+        Label(label, systemImage: systemImage)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(selection == item ? .white : .primary)
+            .contentShape(Rectangle())
+            .onTapGesture { selection = item }
+            .themedRowBackground(isSelected: selection == item, color: selectionColor)
+    }
+
+    private func navCountRow(_ item: NavigationItem, label: String, icon: String, count: Int) -> some View {
         HStack {
             Label(label, systemImage: icon)
             Spacer()
             if count > 0 {
                 Text("\(count)")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(selection == item ? .white.opacity(0.7) : .secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.15), in: Capsule())
+                    .background(
+                        (selection == item ? Color.white.opacity(0.2) : Color.secondary.opacity(0.15)),
+                        in: Capsule()
+                    )
             }
         }
+        .foregroundStyle(selection == item ? .white : .primary)
+        .contentShape(Rectangle())
+        .onTapGesture { selection = item }
+        .themedRowBackground(isSelected: selection == item, color: selectionColor)
+    }
+
+    private func navProjectRow(_ project: Project) -> some View {
+        let item = NavigationItem.projectFiles(project.id)
+        return VStack(alignment: .leading, spacing: 2) {
+            Label(project.displayName, systemImage: "folder")
+            Text(project.originalPath)
+                .font(.caption2)
+                .foregroundColor(selection == item ? .white.opacity(0.7) : .secondary)
+                .lineLimit(1)
+        }
+        .foregroundStyle(selection == item ? .white : .primary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { selection = item }
+        .themedRowBackground(isSelected: selection == item, color: selectionColor)
     }
 
     private func discoverSubfolders() {

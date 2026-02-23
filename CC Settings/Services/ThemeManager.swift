@@ -41,11 +41,13 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .system, .light, .dark:
             nil
         case .claude, .claudeLight:
-            Color(red: 224/255, green: 122/255, blue: 95/255) // #E07A5F
-        case .ocean, .darkDaltonized, .lightDaltonized:
-            Color(red: 74/255, green: 144/255, blue: 217/255) // #4A90D9
+            Color(red: 224/255, green: 122/255, blue: 95/255) // #E07A5F coral
+        case .ocean:
+            Color(red: 8/255, green: 145/255, blue: 178/255) // #0891B2 teal/cyan
         case .forest:
-            Color(red: 91/255, green: 165/255, blue: 91/255) // #5BA55B
+            Color(red: 91/255, green: 165/255, blue: 91/255) // #5BA55B green
+        case .darkDaltonized, .lightDaltonized:
+            Color(red: 100/255, green: 143/255, blue: 255/255) // #648FFF colorblind-safe blue
         }
     }
 

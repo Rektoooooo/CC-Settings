@@ -87,6 +87,7 @@ struct HUDView: View {
             activitySection
             gitStatusSection
             presetsSection
+            creditSection
         }
         .formStyle(.grouped)
         .navigationTitle("HUD")
@@ -518,6 +519,29 @@ struct HUDView: View {
     private func applyMinimalPreset() {
         config = HUDConfig()
         saveConfig()
+    }
+
+    // MARK: - Credit Section
+
+    private var creditSection: some View {
+        Section {
+            HStack(spacing: 10) {
+                Image(systemName: "person.circle")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Created by Jarrod Watts")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Link("github.com/jarrodwatts/claude-hud",
+                         destination: URL(string: "https://github.com/jarrodwatts/claude-hud")!)
+                        .font(.caption)
+                }
+                Spacer()
+            }
+        } header: {
+            Text("About")
+        }
     }
 
     // MARK: - Config I/O

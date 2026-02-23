@@ -12,6 +12,7 @@ struct CCSettingsApp: App {
                 .environmentObject(configManager)
                 .environmentObject(themeManager)
                 .tint(themeManager.resolvedAccentColor)
+                .accentColor(themeManager.resolvedAccentColor)
                 .frame(minWidth: 900, minHeight: 600)
                 .onAppear { themeManager.applyTheme() }
                 .onChange(of: themeManager.selectedThemeName) { themeManager.applyTheme() }
