@@ -1,0 +1,62 @@
+name: CC Settings
+options:
+  bundleIdPrefix: com.ae
+  deploymentTarget:
+    macOS: "26.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_ENTITLEMENTS: "CC Settings/Resources/CC_Settings.entitlements"
+    INFOPLIST_FILE: "CC Settings/Resources/Info.plist"
+    PRODUCT_BUNDLE_IDENTIFIER: com.ae.ccsettings
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "2"
+    ENABLE_APP_SANDBOX: "NO"
+
+packages:
+  swift-markdown:
+    url: https://github.com/apple/swift-markdown
+    exactVersion: 0.7.3
+
+targets:
+  CC Settings:
+    type: application
+    platform: macOS
+    sources:
+      - path: CC Settings
+        excludes:
+          - Resources/Info.plist
+          - Resources/CC_Settings.entitlements
+    resources:
+      - path: CC Settings/Resources/Assets.xcassets
+    dependencies:
+      - package: swift-markdown
+        product: Markdown
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: "NO"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+
+  CC SettingsTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: CC SettingsTests
+    dependencies:
+      - target: CC Settings
+
+  CC SettingsUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: CC SettingsUITests
+    dependencies:
+      - target: CC Settings

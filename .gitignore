@@ -1,0 +1,15 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserdata
+*.xcworkspace
+!*.xcodeproj/project.xcworkspace/
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Tasks
+tasks/
