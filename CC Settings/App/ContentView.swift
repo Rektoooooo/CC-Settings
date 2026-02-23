@@ -47,6 +47,8 @@ struct ContentView: View {
             PluginsView()
         case .mcpServers:
             MCPServersView()
+        case .stats:
+            StatsView()
         case .cleanup:
             CleanupView()
         case .sync:

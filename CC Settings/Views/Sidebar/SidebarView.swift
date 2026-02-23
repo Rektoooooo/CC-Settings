@@ -43,6 +43,7 @@ enum NavigationItem: Hashable {
     case skills
     case plugins
     case mcpServers
+    case stats
     case cleanup
     case sync
     case folder(String)
@@ -64,6 +65,7 @@ enum NavigationItem: Hashable {
         case .skills: return "Skills"
         case .plugins: return "Plugins"
         case .mcpServers: return "MCP Servers"
+        case .stats: return "Stats"
         case .cleanup: return "Cleanup"
         case .sync: return "Version Control"
         case .folder(let name): return name.capitalized
@@ -87,6 +89,7 @@ enum NavigationItem: Hashable {
         case .skills: return "star"
         case .plugins: return "puzzlepiece"
         case .mcpServers: return "server.rack"
+        case .stats: return "chart.bar.xaxis"
         case .cleanup: return "trash"
         case .sync: return "arrow.triangle.branch"
         case .folder(let name): return SubfolderEntry.icon(for: name)
@@ -127,6 +130,8 @@ enum NavigationItem: Hashable {
             return ["plugins", "marketplace", "extensions"]
         case .mcpServers:
             return ["mcp", "servers", "model context protocol", "tools", "stdio", "sse"]
+        case .stats:
+            return ["stats", "usage", "analytics", "tokens", "models", "tools"]
         case .cleanup:
             return ["cleanup", "delete", "sessions", "storage", "disk"]
         case .sync:
@@ -287,8 +292,11 @@ struct SidebarView: View {
                     }
                 }
 
-                if !isSearching || [NavigationItem.cleanup, .sync].contains(where: matchesSearch) {
+                if !isSearching || [NavigationItem.stats, .cleanup, .sync].contains(where: matchesSearch) {
                     Section("Maintenance") {
+                        if matchesSearch(.stats) {
+                            navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis")
+                        }
                         if matchesSearch(.cleanup) {
                             navItem(.cleanup, label: "Cleanup", systemImage: "trash")
                         }

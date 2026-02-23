@@ -80,22 +80,19 @@ struct MessageBubbleView: View {
 
                     Spacer()
 
-                    if isHovered {
-                        Button {
-                            copyMessageText()
-                        } label: {
-                            HStack(spacing: 3) {
-                                Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                                if showCopied {
-                                    Text("Copied")
-                                }
+                    Button {
+                        copyMessageText()
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                            if showCopied {
+                                Text("Copied")
                             }
-                            .font(.caption2)
-                            .foregroundColor(showCopied ? .green : .secondary)
                         }
-                        .buttonStyle(.plain)
-                        .transition(.opacity)
+                        .font(.caption2)
+                        .foregroundColor(showCopied ? .green : .secondary)
                     }
+                    .buttonStyle(.plain)
 
                     if let ts = message.timestamp {
                         Text(Self.timestampFormatter.string(from: ts))

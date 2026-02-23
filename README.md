@@ -47,6 +47,7 @@ Claude Code stores its configuration across multiple JSON files, markdown docs, 
 | **Permission matrix** | See and control tool permissions at a glance |
 | **Hook builder** | Create pre/post hooks with matcher patterns visually |
 | **Session browser** | Browse full conversation history with tool calls and thinking blocks |
+| **Usage stats** | Token usage, model distribution, tool frequency, daily activity — cached for instant loads |
 | **Plugin manager** | Browse marketplaces, view plugin details, copy install commands |
 | **MCP server config** | Add/edit/remove MCP servers with a form instead of JSON |
 | **Git integration** | Stage, commit, diff, push/pull — all built in |
@@ -94,6 +95,7 @@ Claude Code stores its configuration across multiple JSON files, markdown docs, 
 
 | Section | What It Does |
 |---|---|
+| **Stats** | Usage analytics dashboard — sessions, tokens, models, tools, daily activity charts, project rankings, all from local data |
 | **Cleanup** | Storage dashboard with charts, filter by age, bulk-delete old projects and sessions |
 | **Version Control** | Built-in git: status, staging, commits, history, diffs, pull/push, repo initialization |
 
@@ -182,7 +184,7 @@ open "CC Settings.xcodeproj"
 CC Settings/
 ├── App/                    # App entry point, ContentView
 ├── Models/                 # Data models (ClaudeSettings, Project, etc.)
-├── Services/               # ConfigurationManager, FileWatcher
+├── Services/               # ConfigurationManager, FileWatcher, StatsService
 ├── Views/
 │   ├── General/            # General settings
 │   ├── Permissions/        # Permission matrix
@@ -192,6 +194,7 @@ CC Settings/
 │   ├── HUD/                # HUD plugin config
 │   ├── ClaudeMD/           # CLAUDE.md editor
 │   ├── Sessions/           # Session history browser
+│   ├── Stats/              # Usage analytics dashboard
 │   ├── Commands/           # Slash commands
 │   ├── Skills/             # Skills browser
 │   ├── Plugins/            # Plugin marketplace

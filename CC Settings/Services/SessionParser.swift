@@ -112,6 +112,96 @@ struct SessionParser {
         )
     }
 
+    // MARK: - Token Usage
+
+    struct TokenUsage {
+        var inputTokens: Int = 0
+        var outputTokens: Int = 0
+        var cacheReadTokens: Int = 0
+        var cacheCreationTokens: Int = 0
+    }
+
+    // MARK: - Combined Single-Pass Scan
+
+    struct SessionScanResult {
+        var metadata: SessionMetadata
+        var tokens: TokenUsage
+    }
+
+    /// Single-pass scan that extracts both metadata and token usage from a JSONL file.
+    static func scanSession(at url: URL) -> SessionScanResult {
+        guard let data = try? Data(contentsOf: url),
+              let content = String(data: data, encoding: .utf8) else {
+            return SessionScanResult(
+                metadata: SessionMetadata(messageCount: 0, firstTimestamp: nil, lastTimestamp: nil, modelsUsed: [], toolsUsed: []),
+                tokens: TokenUsage()
+            )
+        }
+
+        let lines = content.components(separatedBy: "\n")
+        var messageCount = 0
+        var firstTimestamp: Date?
+        var lastTimestamp: Date?
+        var modelsUsed: Set<String> = []
+        var toolsUsed: Set<String> = []
+        var tokens = TokenUsage()
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            guard let lineData = trimmed.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                continue
+            }
+
+            messageCount += 1
+
+            if let ts = parseTimestamp(json["timestamp"]) {
+                if firstTimestamp == nil { firstTimestamp = ts }
+                lastTimestamp = ts
+            }
+
+            if let msg = json["message"] as? [String: Any] {
+                if let model = msg["model"] as? String {
+                    modelsUsed.insert(model)
+                }
+                if let contentArray = msg["content"] as? [[String: Any]] {
+                    for block in contentArray {
+                        if block["type"] as? String == "tool_use",
+                           let toolName = block["name"] as? String {
+                            toolsUsed.insert(toolName)
+                        }
+                    }
+                }
+                if let usageDict = msg["usage"] as? [String: Any] {
+                    if let input = usageDict["input_tokens"] as? Int {
+                        tokens.inputTokens += input
+                    }
+                    if let output = usageDict["output_tokens"] as? Int {
+                        tokens.outputTokens += output
+                    }
+                    if let cacheRead = usageDict["cache_read_input_tokens"] as? Int {
+                        tokens.cacheReadTokens += cacheRead
+                    }
+                    if let cacheCreation = usageDict["cache_creation_input_tokens"] as? Int {
+                        tokens.cacheCreationTokens += cacheCreation
+                    }
+                }
+            }
+        }
+
+        return SessionScanResult(
+            metadata: SessionMetadata(
+                messageCount: messageCount,
+                firstTimestamp: firstTimestamp,
+                lastTimestamp: lastTimestamp,
+                modelsUsed: modelsUsed,
+                toolsUsed: toolsUsed
+            ),
+            tokens: tokens
+        )
+    }
+
     // MARK: - Content Parsing
 
     private static func parseContent(_ content: Any?) -> [ContentBlock] {
