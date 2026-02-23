@@ -398,48 +398,52 @@ struct HUDView: View {
         // --- Build git suffix ---
         var gitSuffix = ""
         if config.gitStatus.enabled {
-            gitSuffix = " git:(main\(config.gitStatus.showDirty ? "*" : ""))"
+            var insideParens = "main"
+            if config.gitStatus.showDirty { insideParens += "*" }
+            if config.gitStatus.showFileStats { insideParens += " ?1" }
+            gitSuffix = " git:(\(insideParens))"
             if config.gitStatus.showAheadBehind {
                 gitSuffix += " \u{2191}2 \u{2193}1"
-            }
-            if config.gitStatus.showFileStats {
-                gitSuffix += " !2 +1"
             }
         }
 
         if isExpanded {
-            // Line 1: Project line — model + path + git on ONE line
-            var projectLine = ""
+            // Line 1: [Model | Budget] | project-name git:(main* ?1) ↑2 ↓1
+            var headerLine = ""
             if config.display.showModel {
-                projectLine += "[Opus 4.6 | Max] "
+                headerLine += "[Opus 4.6 | Max] | "
             }
-            projectLine += "my-project\(gitSuffix)"
-            lines.append(projectLine)
+            headerLine += "my-project\(gitSuffix)"
+            lines.append(headerLine)
 
-            // Line 2: Context (identity line)
+            // Line 2: Context + Usage bars combined on one line
+            var barParts: [String] = []
             if config.display.showContextBar {
                 if config.display.contextValue == "percent" {
-                    lines.append("Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 28%")
+                    barParts.append("Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%")
                 } else {
-                    lines.append("Context 28k/100k")
+                    barParts.append("Context 28k/100k")
                 }
             }
-
-            // Line 3: Usage (only shown when above threshold)
             if config.display.showUsage {
                 if config.display.usageBarEnabled {
-                    lines.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 18% (3h 39m / 5h)")
+                    barParts.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18% (3h 39m / 5h)")
+                    barParts.append("\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  42% (1h 25m / 7d)")
                 } else {
-                    lines.append("Usage 18% (3h 39m / 5h)")
+                    barParts.append("Usage 18% (3h 39m / 5h)")
+                    barParts.append("42% (1h 25m / 7d)")
                 }
             }
+            if !barParts.isEmpty {
+                lines.append(barParts.joined(separator: " | "))
+            }
 
-            // Line 4: Environment (config counts)
+            // Config counts (optional)
             if config.display.showConfigCounts {
                 lines.append("1 CLAUDE.md | 2 MCPs")
             }
 
-            // Duration and speed shown as extra info
+            // Duration + speed extras (optional)
             var extras: [String] = []
             if config.display.showDuration { extras.append("\u{23F1} 58m") }
             if config.display.showSpeed { extras.append("out: 85 tok/s") }
@@ -463,18 +467,18 @@ struct HUDView: View {
                 }
             }
 
-            parts.append("my-project\(gitSuffix)")
-
-            if config.display.showConfigCounts {
-                parts.append("1 CLAUDE.md | 2 MCPs")
-            }
-
             if config.display.showUsage {
                 if config.display.usageBarEnabled {
                     parts.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 18%")
                 } else {
                     parts.append("Usage 18%")
                 }
+            }
+
+            parts.append("my-project\(gitSuffix)")
+
+            if config.display.showConfigCounts {
+                parts.append("1 CLAUDE.md | 2 MCPs")
             }
 
             if config.display.showDuration { parts.append("\u{23F1} 58m") }
@@ -488,20 +492,20 @@ struct HUDView: View {
         // Separator between header and activity
         let hasActivity = config.display.showTools || config.display.showAgents || config.display.showTodos
         if config.showSeparators && hasActivity && !lines.isEmpty {
-            lines.append("\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}")
+            lines.append(String(repeating: "\u{2500}", count: 35))
         }
 
         // Activity lines (always separate lines in both modes)
         if config.display.showTools {
-            lines.append("\u{25D0} Edit: auth.ts | \u{2713} Read \u{00D7}3 | \u{2713} Grep \u{00D7}2")
+            lines.append("\u{25D0} Edit: auth.ts | \u{2713} Bash \u{00D7}10 | \u{2713} Read \u{00D7}3 | \u{2713} Write \u{00D7}2")
         }
 
         if config.display.showAgents {
-            lines.append("\u{25D0} explore [haiku]: Finding auth code (2m 15s)")
+            lines.append("\u{2713} Explore: Explore codebase patterns (1m 14s)")
         }
 
         if config.display.showTodos {
-            lines.append("\u{25B8} Fix authentication bug (2/5)")
+            lines.append("\u{25B8}\u{25B8} accept edits on (shift+tab to cycle)")
         }
 
         if lines.isEmpty {
