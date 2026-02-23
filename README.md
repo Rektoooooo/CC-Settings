@@ -7,7 +7,7 @@ A native macOS app for managing Claude Code configuration — settings, permissi
 [![macOS](https://img.shields.io/badge/macOS-26.0%2B-blue?logo=apple)](https://github.com/Rektoooooo/CC-Settings)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://github.com/Rektoooooo/CC-Settings)
 
-<!-- ![CC Settings screenshot](screenshot.png) -->
+![CC Settings screenshot](screenshot.png)
 
 ## Install
 
