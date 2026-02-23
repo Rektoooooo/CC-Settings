@@ -5,6 +5,8 @@ struct MessageBubbleView: View {
     var previousRole: MessageRole? = nil
     @State private var toolExpanded: [String: Bool] = [:]
     @State private var thinkingExpanded: [String: Bool] = [:]
+    @State private var isHovered = false
+    @State private var showCopied = false
 
     private var roleIcon: String {
         switch message.role {
@@ -78,6 +80,23 @@ struct MessageBubbleView: View {
 
                     Spacer()
 
+                    if isHovered {
+                        Button {
+                            copyMessageText()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                                if showCopied {
+                                    Text("Copied")
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundColor(showCopied ? .green : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.opacity)
+                    }
+
                     if let ts = message.timestamp {
                         Text(Self.timestampFormatter.string(from: ts))
                             .font(.caption2)
@@ -93,6 +112,11 @@ struct MessageBubbleView: View {
         }
         .padding(isToolOnly && isContinuation ? 6 : 10)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
         .modifier(MessageBackgroundModifier(role: message.role, compact: isToolOnly && isContinuation))
     }
 
@@ -203,6 +227,31 @@ struct MessageBubbleView: View {
                         .foregroundColor(.secondary)
                 }
             }
+        }
+    }
+
+    // MARK: - Copy
+
+    private func copyMessageText() {
+        var parts: [String] = []
+        for block in message.content {
+            switch block {
+            case .text(let text):
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { parts.append(trimmed) }
+            case .thinking(let text):
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { parts.append(trimmed) }
+            case .toolUse, .toolResult:
+                break
+            }
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(parts.joined(separator: "\n\n"), forType: .string)
+
+        showCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            showCopied = false
         }
     }
 
