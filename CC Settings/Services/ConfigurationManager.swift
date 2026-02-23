@@ -116,6 +116,11 @@ class ConfigurationManager: ObservableObject {
         "cleanupPeriodDays",
         "attribution",
         "teammateMode",
+        "enableWeakerSandbox", "unsandboxedCommands", "allowLocalBinding",
+        "allowAllUnixSockets", "allowedDomains",
+        "spinnerTipsEnabled", "spinnerVerbsMode", "spinnerVerbs",
+        "customTips", "excludeDefaultTips",
+        "statusLineCommand",
     ]
 
     func saveLocalSettings() {

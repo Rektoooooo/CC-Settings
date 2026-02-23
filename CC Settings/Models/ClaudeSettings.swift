@@ -42,6 +42,23 @@ struct ClaudeSettings: Codable, Equatable {
 
     // Teams
     var teammateMode: String?
+
+    // Experimental: Sandbox
+    var enableWeakerSandbox: Bool?
+    var unsandboxedCommands: [String]?
+    var allowLocalBinding: Bool?
+    var allowAllUnixSockets: Bool?
+    var allowedDomains: [String]?
+
+    // Experimental: Spinner
+    var spinnerTipsEnabled: Bool?
+    var spinnerVerbsMode: String?
+    var spinnerVerbs: [String]?
+    var customTips: [String]?
+    var excludeDefaultTips: Bool?
+
+    // Experimental: Status Line
+    var statusLineCommand: String?
 }
 
 struct AutoCompactConfig: Codable, Equatable {

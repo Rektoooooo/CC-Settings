@@ -12,6 +12,9 @@ struct ClaudeMDEditorView: View {
     @State private var showInsertPopover = false
     @State private var hasLoadedInitial = false
     @State private var isCreating = false
+    @State private var showUnsavedAlert = false
+    @State private var pendingScope: String?
+    @State private var previousScope: String = "global"
 
     private var hasChanges: Bool {
         content != originalContent
@@ -44,10 +47,41 @@ struct ClaudeMDEditorView: View {
             loadContent()
             hasLoadedInitial = true
         }
-        .onChange(of: selectedScope) { _, _ in
+        .onChange(of: selectedScope) { oldValue, newValue in
             if hasLoadedInitial {
-                loadContent()
+                if hasChanges {
+                    pendingScope = newValue
+                    selectedScope = oldValue
+                    showUnsavedAlert = true
+                } else {
+                    previousScope = newValue
+                    loadContent()
+                }
             }
+        }
+        .alert("Unsaved Changes", isPresented: $showUnsavedAlert) {
+            Button("Save & Switch") {
+                save()
+                if let scope = pendingScope {
+                    selectedScope = scope
+                    previousScope = scope
+                    loadContent()
+                    pendingScope = nil
+                }
+            }
+            Button("Discard & Switch", role: .destructive) {
+                if let scope = pendingScope {
+                    selectedScope = scope
+                    previousScope = scope
+                    loadContent()
+                    pendingScope = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingScope = nil
+            }
+        } message: {
+            Text("You have unsaved changes. What would you like to do?")
         }
         .sheet(isPresented: $showTemplateSheet) {
             ClaudeMDTemplateSheet { templateContent in

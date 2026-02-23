@@ -383,15 +383,11 @@ struct EnvironmentView: View {
             }
         }
 
-        // Preserve any env vars managed by Experimental view that we don't touch here
-        let experimentalKeys = [
-            "DISABLE_TELEMETRY", "DISABLE_ERROR_REPORTING",
-            "DISABLE_NON_ESSENTIAL_MODEL_CALLS", "DISABLE_AUTOUPDATER",
-            "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
-        ]
-        for key in experimentalKeys {
-            if let val = configManager.settings.env[key] {
-                env[key] = val
+        // Preserve any env vars not managed by this view
+        let currentEnv = configManager.settings.env
+        for (key, value) in currentEnv {
+            if !Self.managedKeys.contains(key) && env[key] == nil {
+                env[key] = value
             }
         }
 

@@ -304,17 +304,22 @@ struct ExperimentalFeaturesView: View {
         disableErrorReporting = env["DISABLE_ERROR_REPORTING"] == "1"
         disableAutoUpdater = env["DISABLE_AUTOUPDATER"] == "1"
 
-        // Sandbox - these need to be stored/loaded from settings
-        // For now they use local state; full implementation would need model updates
-        enableWeakerSandbox = false
-        allowLocalBinding = false
-        allowAllUnixSockets = false
+        // Sandbox
+        enableWeakerSandbox = s.enableWeakerSandbox ?? false
+        unsandboxedCommands = (s.unsandboxedCommands ?? []).joined(separator: ", ")
+        allowLocalBinding = s.allowLocalBinding ?? false
+        allowAllUnixSockets = s.allowAllUnixSockets ?? false
+        allowedDomains = (s.allowedDomains ?? []).joined(separator: ", ")
 
         // Spinner
-        spinnerTipsEnabled = true
+        spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
+        spinnerVerbsMode = s.spinnerVerbsMode ?? "append"
+        spinnerVerbs = (s.spinnerVerbs ?? []).joined(separator: ", ")
+        customTips = (s.customTips ?? []).joined(separator: ", ")
+        excludeDefaultTips = s.excludeDefaultTips ?? false
 
         // Status line
-        statusLineCommand = ""
+        statusLineCommand = s.statusLineCommand ?? ""
     }
 
     private func saveSettings() {
@@ -330,7 +335,29 @@ struct ExperimentalFeaturesView: View {
         setEnvFlag("DISABLE_ERROR_REPORTING", enabled: disableErrorReporting)
         setEnvFlag("DISABLE_AUTOUPDATER", enabled: disableAutoUpdater)
 
+        // Sandbox
+        configManager.settings.enableWeakerSandbox = enableWeakerSandbox ? true : nil
+        configManager.settings.allowLocalBinding = allowLocalBinding ? true : nil
+        configManager.settings.allowAllUnixSockets = allowAllUnixSockets ? true : nil
+        configManager.settings.unsandboxedCommands = parseCSV(unsandboxedCommands)
+        configManager.settings.allowedDomains = parseCSV(allowedDomains)
+
+        // Spinner
+        configManager.settings.spinnerTipsEnabled = spinnerTipsEnabled ? nil : false
+        configManager.settings.spinnerVerbsMode = spinnerVerbsMode != "append" ? spinnerVerbsMode : nil
+        configManager.settings.spinnerVerbs = parseCSV(spinnerVerbs)
+        configManager.settings.customTips = parseCSV(customTips)
+        configManager.settings.excludeDefaultTips = excludeDefaultTips ? true : nil
+
+        // Status line
+        configManager.settings.statusLineCommand = statusLineCommand.isEmpty ? nil : statusLineCommand
+
         configManager.saveSettings()
+    }
+
+    private func parseCSV(_ text: String) -> [String]? {
+        let items = text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return items.isEmpty ? nil : items
     }
 
     private func setEnvFlag(_ key: String, enabled: Bool) {

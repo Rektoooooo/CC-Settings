@@ -340,10 +340,12 @@ class GitService: ObservableObject {
             return ("", 1)
         }
 
-        process.waitUntilExit()
-
+        // Read pipe data BEFORE waitUntilExit to avoid deadlock when
+        // git output exceeds the 64KB pipe buffer.
         let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
         let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
         let output = String(data: outData, encoding: .utf8) ?? ""
         let errOutput = String(data: errData, encoding: .utf8) ?? ""
 
