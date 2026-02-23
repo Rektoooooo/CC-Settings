@@ -92,12 +92,12 @@ enum FileType: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .markdown: return .blue
+        case .markdown: return .themeAccent
         case .json: return .orange
         case .pdf: return .red
         case .text: return .gray
         case .binary: return .purple
-        case .directory: return .blue
+        case .directory: return .themeAccent
         case .unknown: return .secondary
         }
     }

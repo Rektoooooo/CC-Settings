@@ -36,7 +36,7 @@ struct MCPServersView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "server.rack")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.themeAccent)
                             .font(.title3)
                         Text("MCP Servers")
                             .font(.headline)
@@ -238,7 +238,7 @@ struct MCPServerItemRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: server.transportType.icon)
-                .foregroundColor(server.transportType == .stdio ? .blue : .purple)
+                .foregroundColor(server.transportType == .stdio ? .themeAccent : .purple)
                 .font(.body)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -251,7 +251,7 @@ struct MCPServerItemRow: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(server.transportType == .stdio ? Color.blue.opacity(0.8) : Color.purple.opacity(0.8))
+                        .background(server.transportType == .stdio ? Color.themeAccent.opacity(0.8) : Color.purple.opacity(0.8))
                         .cornerRadius(3)
                     if let command = server.command {
                         Text(command)

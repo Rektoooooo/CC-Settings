@@ -13,7 +13,7 @@ struct MCPServerDetailView: View {
                 // Toolbar
                 HStack(spacing: 8) {
                     Image(systemName: server.transportType.icon)
-                        .foregroundColor(server.transportType == .stdio ? .blue : .purple)
+                        .foregroundColor(server.transportType == .stdio ? .themeAccent : .purple)
                         .font(.title3)
 
                     Text(server.id)
@@ -25,7 +25,7 @@ struct MCPServerDetailView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(server.transportType == .stdio ? Color.blue : Color.purple)
+                        .background(server.transportType == .stdio ? Color.themeAccent : Color.purple)
                         .cornerRadius(4)
 
                     Spacer()

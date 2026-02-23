@@ -81,7 +81,7 @@ struct CleanupView: View {
         VStack(spacing: 0) {
             // Header with stats
             HStack(spacing: 16) {
-                StatBox(icon: "internaldrive", iconColor: .blue, value: formattedSize(totalStorage), title: "Total Storage")
+                StatBox(icon: "internaldrive", iconColor: .themeAccent, value: formattedSize(totalStorage), title: "Total Storage")
                 StatBox(icon: "folder", iconColor: .orange, value: "\(projects.count)", title: "Projects")
                 StatBox(icon: "doc.text", iconColor: .green, value: "\(totalSessions)", title: "Sessions")
                 if !selectedProjectIds.isEmpty {
@@ -392,7 +392,7 @@ private struct StorageChart: View {
                         x: .value("Size", project.totalSize),
                         y: .value("Project", project.displayName)
                     )
-                    .foregroundStyle(Color.accentColor.gradient)
+                    .foregroundStyle(Color.themeAccent.gradient)
                 }
                 .chartXAxis {
                     AxisMarks { value in
@@ -452,7 +452,7 @@ private struct AgeDistributionView: View {
 
         return [
             AgeBucket(id: "1", label: "< 1 week", count: lessThanWeek, color: .green),
-            AgeBucket(id: "2", label: "1-4 weeks", count: oneToFourWeeks, color: .blue),
+            AgeBucket(id: "2", label: "1-4 weeks", count: oneToFourWeeks, color: .themeAccent),
             AgeBucket(id: "3", label: "1-3 months", count: oneToThreeMonths, color: .orange),
             AgeBucket(id: "4", label: "> 3 months", count: moreThanThreeMonths, color: .red),
         ]

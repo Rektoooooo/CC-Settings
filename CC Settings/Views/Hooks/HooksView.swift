@@ -30,7 +30,7 @@ enum HookType: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .preToolUse: return .blue
+        case .preToolUse: return .themeAccent
         case .postToolUse: return .purple
         case .prePromptSubmit: return .green
         case .postPromptSubmit: return .orange
@@ -127,7 +127,7 @@ struct HooksView: View {
             Section {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeAccent)
                     Text("Hooks run shell commands at different stages of Claude Code's execution. Use them for linting, logging, notifications, and more.")
                         .font(.subheadline)
                 }

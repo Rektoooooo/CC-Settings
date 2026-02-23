@@ -83,7 +83,7 @@ enum SkillFileType: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .markdown: return .blue
+        case .markdown: return .themeAccent
         case .json: return .orange
         case .python: return .green
         case .shell: return .purple
@@ -153,7 +153,7 @@ struct SkillsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "sparkles")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.themeAccent)
                             .font(.title3)
                         Text("Skills")
                             .font(.headline)
@@ -396,7 +396,7 @@ private struct SkillItemRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: skill.isSymlink ? "link" : "sparkles")
-                .foregroundColor(skill.isSymlink ? .orange : .accentColor)
+                .foregroundColor(skill.isSymlink ? .orange : .themeAccent)
                 .font(.body)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
@@ -433,7 +433,7 @@ private struct SkillDetailView: View {
             // Header
             HStack(spacing: 8) {
                 Image(systemName: skill.isSymlink ? "link" : "sparkles")
-                    .foregroundColor(skill.isSymlink ? .orange : .accentColor)
+                    .foregroundColor(skill.isSymlink ? .orange : .themeAccent)
                     .font(.title3)
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -537,7 +537,7 @@ private struct SkillFileViewer: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
-                        .background(Color.accentColor)
+                        .background(Color.themeAccent)
                         .cornerRadius(3)
                 }
 

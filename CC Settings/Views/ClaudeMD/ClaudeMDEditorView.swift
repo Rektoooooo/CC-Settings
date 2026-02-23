@@ -64,7 +64,7 @@ struct ClaudeMDEditorView: View {
     private var toolbar: some View {
         HStack(spacing: 8) {
             Image(systemName: "doc.richtext")
-                .foregroundColor(.blue)
+                .foregroundColor(.themeAccent)
                 .font(.title3)
 
             Text("CLAUDE.md")

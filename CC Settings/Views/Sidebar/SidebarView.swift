@@ -1,21 +1,5 @@
 import SwiftUI
 
-// MARK: - Themed Row Background
-
-private extension View {
-    @ViewBuilder
-    func themedRowBackground(isSelected: Bool, color: Color) -> some View {
-        if isSelected {
-            self.listRowBackground(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(color)
-            )
-        } else {
-            self
-        }
-    }
-}
-
 // MARK: - SubfolderEntry
 
 struct SubfolderEntry: Identifiable, Sendable {
@@ -158,7 +142,6 @@ enum NavigationItem: Hashable {
 struct SidebarView: View {
     @Binding var selection: NavigationItem
     @EnvironmentObject var configManager: ConfigurationManager
-    @EnvironmentObject var themeManager: ThemeManager
     @State private var projects: [Project] = []
     @State private var isLoadingProjects = false
     @State private var filesExpanded = true
@@ -206,7 +189,7 @@ struct SidebarView: View {
 
             Divider()
 
-            List {
+            List(selection: $selection) {
                 if !isSearching || [NavigationItem.general, .permissions, .environment, .experimentalFeatures, .hooks, .hud].contains(where: matchesSearch) {
                     Section("Settings") {
                         if matchesSearch(.general) {
@@ -242,6 +225,29 @@ struct SidebarView: View {
                     }
                 }
 
+                if !isSearching || matchesSearch(.globalFiles) || matchesSearchForAnyProject() {
+                    Section("Configuration") {
+                        if matchesSearch(.globalFiles) {
+                            navItem(.globalFiles, label: "Global", systemImage: "house")
+                        }
+
+                        if !isSearching || matchesSearchForAnyProject() {
+                            DisclosureGroup(isExpanded: $filesExpanded) {
+                                if isLoadingProjects {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    ForEach(filteredProjects) { project in
+                                        navProjectRow(project)
+                                    }
+                                }
+                            } label: {
+                                navCountRow(.none, label: "Projects", icon: "folder", count: filteredProjects.count)
+                            }
+                        }
+                    }
+                }
+
                 if !isSearching || [NavigationItem.commands, .skills, .plugins, .mcpServers].contains(where: matchesSearch) {
                     Section("Extensions") {
                         if matchesSearch(.commands) {
@@ -259,33 +265,14 @@ struct SidebarView: View {
                     }
                 }
 
-                if !isSearching || matchesSearch(.globalFiles) || matchesSearchForAnyProject() || matchesSearchForAnySubfolder() {
-                    Section("Folders") {
-                        if !isSearching {
-                            DisclosureGroup(isExpanded: $filesExpanded) {
-                                navItem(.globalFiles, label: "Global", systemImage: "house")
-
-                                if isLoadingProjects {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    ForEach(filteredProjects) { project in
-                                        navProjectRow(project)
-                                    }
-                                }
-                            } label: {
-                                Label("Files", systemImage: "folder")
-                            }
-                        } else {
-                            if matchesSearch(.globalFiles) {
-                                navItem(.globalFiles, label: "Global Files", systemImage: "house")
-                            }
-                        }
-
-                        if isLoadingSubfolders {
+                if !isSearching || matchesSearchForAnySubfolder() {
+                    if isLoadingSubfolders {
+                        Section("Storage") {
                             ProgressView()
                                 .controlSize(.small)
-                        } else {
+                        }
+                    } else if !discoveredSubfolders.isEmpty {
+                        Section("Storage") {
                             ForEach(discoveredSubfolders) { subfolder in
                                 if matchesSearch(.folder(subfolder.name)) {
                                     navCountRow(
@@ -348,17 +335,9 @@ struct SidebarView: View {
 
     // MARK: - Navigation Row Helpers
 
-    private var selectionColor: Color {
-        themeManager.resolvedAccentColor
-    }
-
     private func navItem(_ item: NavigationItem, label: String, systemImage: String) -> some View {
         Label(label, systemImage: systemImage)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(selection == item ? .white : .primary)
-            .contentShape(Rectangle())
-            .onTapGesture { selection = item }
-            .themedRowBackground(isSelected: selection == item, color: selectionColor)
+            .tag(item)
     }
 
     private func navCountRow(_ item: NavigationItem, label: String, icon: String, count: Int) -> some View {
@@ -368,35 +347,24 @@ struct SidebarView: View {
             if count > 0 {
                 Text("\(count)")
                     .font(.caption2)
-                    .foregroundColor(selection == item ? .white.opacity(0.7) : .secondary)
+                    .foregroundColor(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(
-                        (selection == item ? Color.white.opacity(0.2) : Color.secondary.opacity(0.15)),
-                        in: Capsule()
-                    )
+                    .background(Color.secondary.opacity(0.15), in: Capsule())
             }
         }
-        .foregroundStyle(selection == item ? .white : .primary)
-        .contentShape(Rectangle())
-        .onTapGesture { selection = item }
-        .themedRowBackground(isSelected: selection == item, color: selectionColor)
+        .tag(item)
     }
 
     private func navProjectRow(_ project: Project) -> some View {
-        let item = NavigationItem.projectFiles(project.id)
-        return VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
             Label(project.displayName, systemImage: "folder")
             Text(project.originalPath)
                 .font(.caption2)
-                .foregroundColor(selection == item ? .white.opacity(0.7) : .secondary)
+                .foregroundColor(.secondary)
                 .lineLimit(1)
         }
-        .foregroundStyle(selection == item ? .white : .primary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { selection = item }
-        .themedRowBackground(isSelected: selection == item, color: selectionColor)
+        .tag(NavigationItem.projectFiles(project.id))
     }
 
     private func discoverSubfolders() {

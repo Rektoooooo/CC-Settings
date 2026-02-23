@@ -57,7 +57,7 @@ enum GitFileStatus: String, CaseIterable, Sendable {
         case .modified: return .orange
         case .added: return .green
         case .deleted: return .red
-        case .renamed: return .blue
+        case .renamed: return .themeAccent
         case .untracked: return .secondary
         }
     }

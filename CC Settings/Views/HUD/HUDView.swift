@@ -3,16 +3,19 @@ import SwiftUI
 // MARK: - HUD Config Model
 
 /// Represents the claude-hud plugin configuration at ~/.claude/plugins/claude-hud/config.json
+/// The plugin expects usage fields inside `display`, and `autocompactBuffer` as "enabled"/"disabled".
 struct HUDConfig: Codable, Equatable {
     var display: HUDDisplayConfig
-    var layout: HUDLayoutConfig
-    var usage: HUDUsageConfig
+    var lineLayout: String
+    var showSeparators: Bool
+    var pathLevels: Int
     var gitStatus: HUDGitConfig
 
     init() {
         display = HUDDisplayConfig()
-        layout = HUDLayoutConfig()
-        usage = HUDUsageConfig()
+        lineLayout = "expanded"
+        showSeparators = true
+        pathLevels = 2
         gitStatus = HUDGitConfig()
     }
 
@@ -24,24 +27,15 @@ struct HUDConfig: Codable, Equatable {
         var showConfigCounts: Bool = false
         var showDuration: Bool = false
         var showSpeed: Bool = false
-        var autocompactBuffer: Bool = true
+        var autocompactBuffer: String = "enabled"
         var showTools: Bool = true
         var showAgents: Bool = true
         var showTodos: Bool = true
-    }
-
-    struct HUDLayoutConfig: Codable, Equatable {
-        var lineLayout: String = "expanded"
-        var showSeparators: Bool = true
-        var pathLevels: Int = 2
-    }
-
-    struct HUDUsageConfig: Codable, Equatable {
         var showUsage: Bool = true
         var usageBarEnabled: Bool = true
-        var usageThreshold: Int = 80
-        var sevenDayThreshold: Int = 80
-        var environmentThreshold: Int = 80
+        var usageThreshold: Int = 0
+        var sevenDayThreshold: Int = 0
+        var environmentThreshold: Int = 0
     }
 
     struct HUDGitConfig: Codable, Equatable {
@@ -160,23 +154,23 @@ struct HUDView: View {
 
     private var layoutSection: some View {
         Section {
-            Picker("Line Layout", selection: $config.layout.lineLayout) {
+            Picker("Line Layout", selection: $config.lineLayout) {
                 Text("Expanded").tag("expanded")
                 Text("Compact").tag("compact")
             }
-            .onChange(of: config.layout.lineLayout) { _, _ in saveConfig() }
+            .onChange(of: config.lineLayout) { _, _ in saveConfig() }
 
-            if config.layout.lineLayout == "compact" {
-                Toggle("Show Separators", isOn: $config.layout.showSeparators)
-                    .onChange(of: config.layout.showSeparators) { _, _ in saveConfig() }
+            if config.lineLayout == "compact" {
+                Toggle("Show Separators", isOn: $config.showSeparators)
+                    .onChange(of: config.showSeparators) { _, _ in saveConfig() }
             }
 
-            Picker("Path Levels", selection: $config.layout.pathLevels) {
+            Picker("Path Levels", selection: $config.pathLevels) {
                 Text("1").tag(1)
                 Text("2").tag(2)
                 Text("3").tag(3)
             }
-            .onChange(of: config.layout.pathLevels) { _, _ in saveConfig() }
+            .onChange(of: config.pathLevels) { _, _ in saveConfig() }
         } header: {
             Text("Layout")
         } footer: {
@@ -217,8 +211,8 @@ struct HUDView: View {
                 .onChange(of: config.display.showSpeed) { _, _ in saveConfig() }
 
             Picker("Auto-Compact Buffer", selection: $config.display.autocompactBuffer) {
-                Text("Enabled").tag(true)
-                Text("Disabled").tag(false)
+                Text("Enabled").tag("enabled")
+                Text("Disabled").tag("disabled")
             }
             .onChange(of: config.display.autocompactBuffer) { _, _ in saveConfig() }
         } header: {
@@ -234,68 +228,68 @@ struct HUDView: View {
 
     private var usageSection: some View {
         Section {
-            Toggle("Show Usage Rate Limits", isOn: $config.usage.showUsage)
-                .onChange(of: config.usage.showUsage) { _, _ in saveConfig() }
+            Toggle("Show Usage Rate Limits", isOn: $config.display.showUsage)
+                .onChange(of: config.display.showUsage) { _, _ in saveConfig() }
 
-            if config.usage.showUsage {
-                Toggle("Visual Bar", isOn: $config.usage.usageBarEnabled)
-                    .onChange(of: config.usage.usageBarEnabled) { _, _ in saveConfig() }
+            if config.display.showUsage {
+                Toggle("Visual Bar", isOn: $config.display.usageBarEnabled)
+                    .onChange(of: config.display.usageBarEnabled) { _, _ in saveConfig() }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("5-Hour Threshold")
                         Spacer()
-                        Text("\(config.usage.usageThreshold)%")
+                        Text("\(config.display.usageThreshold)%")
                             .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
                     Slider(
                         value: Binding(
-                            get: { Double(config.usage.usageThreshold) },
-                            set: { config.usage.usageThreshold = Int($0) }
+                            get: { Double(config.display.usageThreshold) },
+                            set: { config.display.usageThreshold = Int($0) }
                         ),
                         in: 0...100,
                         step: 5
                     )
-                    .onChange(of: config.usage.usageThreshold) { _, _ in saveConfig() }
+                    .onChange(of: config.display.usageThreshold) { _, _ in saveConfig() }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("7-Day Threshold")
                         Spacer()
-                        Text("\(config.usage.sevenDayThreshold)%")
+                        Text("\(config.display.sevenDayThreshold)%")
                             .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
                     Slider(
                         value: Binding(
-                            get: { Double(config.usage.sevenDayThreshold) },
-                            set: { config.usage.sevenDayThreshold = Int($0) }
+                            get: { Double(config.display.sevenDayThreshold) },
+                            set: { config.display.sevenDayThreshold = Int($0) }
                         ),
                         in: 0...100,
                         step: 5
                     )
-                    .onChange(of: config.usage.sevenDayThreshold) { _, _ in saveConfig() }
+                    .onChange(of: config.display.sevenDayThreshold) { _, _ in saveConfig() }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Environment Threshold")
                         Spacer()
-                        Text("\(config.usage.environmentThreshold)%")
+                        Text("\(config.display.environmentThreshold)%")
                             .foregroundColor(.secondary)
                             .monospacedDigit()
                     }
                     Slider(
                         value: Binding(
-                            get: { Double(config.usage.environmentThreshold) },
-                            set: { config.usage.environmentThreshold = Int($0) }
+                            get: { Double(config.display.environmentThreshold) },
+                            set: { config.display.environmentThreshold = Int($0) }
                         ),
                         in: 0...100,
                         step: 5
                     )
-                    .onChange(of: config.usage.environmentThreshold) { _, _ in saveConfig() }
+                    .onChange(of: config.display.environmentThreshold) { _, _ in saveConfig() }
                 }
             }
         } header: {
@@ -395,76 +389,116 @@ struct HUDView: View {
     // MARK: - Preview Builder
 
     private func buildPreview() -> String {
+        let isExpanded = config.lineLayout == "expanded"
         var lines: [String] = []
 
-        // Line 1: Header
-        var header = ""
-        if config.display.showModel {
-            header += "[Opus | Max]"
+        // --- Build git suffix ---
+        var gitSuffix = ""
+        if config.gitStatus.enabled {
+            gitSuffix = " git:(main\(config.gitStatus.showDirty ? "*" : ""))"
+            if config.gitStatus.showAheadBehind {
+                gitSuffix += " \u{2191}2 \u{2193}1"
+            }
+            if config.gitStatus.showFileStats {
+                gitSuffix += " !2 +1"
+            }
         }
-        let gitPart = config.gitStatus.enabled
-            ? "git:(main\(config.gitStatus.showDirty ? "*" : ""))"
-            : ""
-        let pathPart = "my-project"
-        if !header.isEmpty && !gitPart.isEmpty {
-            header += " | \(pathPart) \(gitPart)"
-        } else if !header.isEmpty {
-            header += " | \(pathPart)"
-        } else if !gitPart.isEmpty {
-            header = "\(pathPart) \(gitPart)"
+
+        if isExpanded {
+            // Line 1: Project line — model + path + git on ONE line
+            var projectLine = ""
+            if config.display.showModel {
+                projectLine += "[Opus 4.6 | Max] "
+            }
+            projectLine += "my-project\(gitSuffix)"
+            lines.append(projectLine)
+
+            // Line 2: Context (identity line)
+            if config.display.showContextBar {
+                if config.display.contextValue == "percent" {
+                    lines.append("Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 28%")
+                } else {
+                    lines.append("Context 28k/100k")
+                }
+            }
+
+            // Line 3: Usage (only shown when above threshold)
+            if config.display.showUsage {
+                if config.display.usageBarEnabled {
+                    lines.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 18% (3h 39m / 5h)")
+                } else {
+                    lines.append("Usage 18% (3h 39m / 5h)")
+                }
+            }
+
+            // Line 4: Environment (config counts)
+            if config.display.showConfigCounts {
+                lines.append("1 CLAUDE.md | 2 MCPs")
+            }
+
+            // Duration and speed shown as extra info
+            var extras: [String] = []
+            if config.display.showDuration { extras.append("\u{23F1} 58m") }
+            if config.display.showSpeed { extras.append("out: 85 tok/s") }
+            if !extras.isEmpty {
+                lines.append(extras.joined(separator: " | "))
+            }
         } else {
-            header = pathPart
-        }
-        if config.gitStatus.enabled && config.gitStatus.showAheadBehind {
-            header += " +2/-1"
-        }
-        lines.append(header)
+            // Compact: single line with all header info
+            var parts: [String] = []
+            let sep = config.showSeparators ? " | " : "  "
 
-        // Line 2: Context + Usage
-        var statusParts: [String] = []
-        if config.display.showContextBar {
-            if config.display.contextValue == "percent" {
-                statusParts.append("Context \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 45%")
-            } else {
-                statusParts.append("Context 45k/100k tokens")
+            if config.display.showModel {
+                parts.append("[Opus 4.6 | Max]")
+            }
+
+            if config.display.showContextBar {
+                if config.display.contextValue == "percent" {
+                    parts.append("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 28%")
+                } else {
+                    parts.append("28k/100k")
+                }
+            }
+
+            parts.append("my-project\(gitSuffix)")
+
+            if config.display.showConfigCounts {
+                parts.append("1 CLAUDE.md | 2 MCPs")
+            }
+
+            if config.display.showUsage {
+                if config.display.usageBarEnabled {
+                    parts.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 18%")
+                } else {
+                    parts.append("Usage 18%")
+                }
+            }
+
+            if config.display.showDuration { parts.append("\u{23F1} 58m") }
+            if config.display.showSpeed { parts.append("out: 85 tok/s") }
+
+            if !parts.isEmpty {
+                lines.append(parts.joined(separator: sep))
             }
         }
-        if config.usage.showUsage {
-            if config.usage.usageBarEnabled {
-                statusParts.append("Usage \u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 25% (1h 30m / 5h)")
-            } else {
-                statusParts.append("Usage 25% (1h 30m / 5h)")
-            }
-        }
-        if config.display.showDuration {
-            statusParts.append("12m 34s")
-        }
-        if config.display.showSpeed {
-            statusParts.append("~85 tok/s")
-        }
-        if !statusParts.isEmpty {
-            let sep = config.layout.lineLayout == "compact" && config.layout.showSeparators ? " | " : " | "
-            lines.append(statusParts.joined(separator: sep))
+
+        // Separator between header and activity
+        let hasActivity = config.display.showTools || config.display.showAgents || config.display.showTodos
+        if config.showSeparators && hasActivity && !lines.isEmpty {
+            lines.append("\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}")
         }
 
-        // Line 3: Tool activity
+        // Activity lines (always separate lines in both modes)
         if config.display.showTools {
             lines.append("\u{25D0} Edit: auth.ts | \u{2713} Read \u{00D7}3 | \u{2713} Grep \u{00D7}2")
         }
 
-        // Line 4: Agent status
         if config.display.showAgents {
             lines.append("\u{25D0} explore [haiku]: Finding auth code (2m 15s)")
         }
 
-        // Line 5: Todos
         if config.display.showTodos {
             lines.append("\u{25B8} Fix authentication bug (2/5)")
-        }
-
-        // Line 6: Git file stats
-        if config.gitStatus.enabled && config.gitStatus.showFileStats {
-            lines.append("+42 -18 across 5 files")
         }
 
         if lines.isEmpty {
@@ -480,16 +514,13 @@ struct HUDView: View {
         config.display = HUDConfig.HUDDisplayConfig(
             showModel: true, showContextBar: true, contextValue: "percent",
             showTokenBreakdown: true, showConfigCounts: true, showDuration: true,
-            showSpeed: true, autocompactBuffer: true, showTools: true,
-            showAgents: true, showTodos: true
+            showSpeed: true, autocompactBuffer: "enabled", showTools: true,
+            showAgents: true, showTodos: true, showUsage: true, usageBarEnabled: true,
+            usageThreshold: 0, sevenDayThreshold: 0, environmentThreshold: 0
         )
-        config.layout = HUDConfig.HUDLayoutConfig(
-            lineLayout: "expanded", showSeparators: true, pathLevels: 2
-        )
-        config.usage = HUDConfig.HUDUsageConfig(
-            showUsage: true, usageBarEnabled: true, usageThreshold: 80,
-            sevenDayThreshold: 80, environmentThreshold: 80
-        )
+        config.lineLayout = "expanded"
+        config.showSeparators = true
+        config.pathLevels = 2
         config.gitStatus = HUDConfig.HUDGitConfig(
             enabled: true, showDirty: true, showAheadBehind: true, showFileStats: true
         )
@@ -500,16 +531,13 @@ struct HUDView: View {
         config.display = HUDConfig.HUDDisplayConfig(
             showModel: true, showContextBar: true, contextValue: "percent",
             showTokenBreakdown: true, showConfigCounts: false, showDuration: true,
-            showSpeed: false, autocompactBuffer: true, showTools: true,
-            showAgents: true, showTodos: true
+            showSpeed: false, autocompactBuffer: "enabled", showTools: true,
+            showAgents: true, showTodos: true, showUsage: false, usageBarEnabled: true,
+            usageThreshold: 0, sevenDayThreshold: 0, environmentThreshold: 0
         )
-        config.layout = HUDConfig.HUDLayoutConfig(
-            lineLayout: "expanded", showSeparators: true, pathLevels: 2
-        )
-        config.usage = HUDConfig.HUDUsageConfig(
-            showUsage: false, usageBarEnabled: true, usageThreshold: 80,
-            sevenDayThreshold: 80, environmentThreshold: 80
-        )
+        config.lineLayout = "expanded"
+        config.showSeparators = true
+        config.pathLevels = 2
         config.gitStatus = HUDConfig.HUDGitConfig(
             enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false
         )
@@ -581,7 +609,7 @@ struct HUDView: View {
             return
         }
 
-        // Merge display
+        // Merge display (plugin stores usage fields here too)
         if let display = json["display"] as? [String: Any] {
             if let v = display["showModel"] as? Bool { config.display.showModel = v }
             if let v = display["showContextBar"] as? Bool { config.display.showContextBar = v }
@@ -590,26 +618,36 @@ struct HUDView: View {
             if let v = display["showConfigCounts"] as? Bool { config.display.showConfigCounts = v }
             if let v = display["showDuration"] as? Bool { config.display.showDuration = v }
             if let v = display["showSpeed"] as? Bool { config.display.showSpeed = v }
-            if let v = display["autocompactBuffer"] as? Bool { config.display.autocompactBuffer = v }
+            if let v = display["autocompactBuffer"] as? String { config.display.autocompactBuffer = v }
             if let v = display["showTools"] as? Bool { config.display.showTools = v }
             if let v = display["showAgents"] as? Bool { config.display.showAgents = v }
             if let v = display["showTodos"] as? Bool { config.display.showTodos = v }
+            if let v = display["showUsage"] as? Bool { config.display.showUsage = v }
+            if let v = display["usageBarEnabled"] as? Bool { config.display.usageBarEnabled = v }
+            if let v = display["usageThreshold"] as? Int { config.display.usageThreshold = v }
+            if let v = display["sevenDayThreshold"] as? Int { config.display.sevenDayThreshold = v }
+            if let v = display["environmentThreshold"] as? Int { config.display.environmentThreshold = v }
         }
 
-        // Merge layout
+        // Merge layout (top-level fields)
+        if let v = json["lineLayout"] as? String { config.lineLayout = v }
+        if let v = json["showSeparators"] as? Bool { config.showSeparators = v }
+        if let v = json["pathLevels"] as? Int { config.pathLevels = v }
+
+        // Legacy: migrate old nested "layout" key
         if let layout = json["layout"] as? [String: Any] {
-            if let v = layout["lineLayout"] as? String { config.layout.lineLayout = v }
-            if let v = layout["showSeparators"] as? Bool { config.layout.showSeparators = v }
-            if let v = layout["pathLevels"] as? Int { config.layout.pathLevels = v }
+            if json["lineLayout"] == nil, let v = layout["lineLayout"] as? String { config.lineLayout = v }
+            if json["showSeparators"] == nil, let v = layout["showSeparators"] as? Bool { config.showSeparators = v }
+            if json["pathLevels"] == nil, let v = layout["pathLevels"] as? Int { config.pathLevels = v }
         }
 
-        // Merge usage
+        // Legacy: migrate old separate "usage" section into display
         if let usage = json["usage"] as? [String: Any] {
-            if let v = usage["showUsage"] as? Bool { config.usage.showUsage = v }
-            if let v = usage["usageBarEnabled"] as? Bool { config.usage.usageBarEnabled = v }
-            if let v = usage["usageThreshold"] as? Int { config.usage.usageThreshold = v }
-            if let v = usage["sevenDayThreshold"] as? Int { config.usage.sevenDayThreshold = v }
-            if let v = usage["environmentThreshold"] as? Int { config.usage.environmentThreshold = v }
+            if let v = usage["showUsage"] as? Bool { config.display.showUsage = v }
+            if let v = usage["usageBarEnabled"] as? Bool { config.display.usageBarEnabled = v }
+            if let v = usage["usageThreshold"] as? Int { config.display.usageThreshold = v }
+            if let v = usage["sevenDayThreshold"] as? Int { config.display.sevenDayThreshold = v }
+            if let v = usage["environmentThreshold"] as? Int { config.display.environmentThreshold = v }
         }
 
         // Merge gitStatus

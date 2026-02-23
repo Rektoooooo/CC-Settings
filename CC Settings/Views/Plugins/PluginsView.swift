@@ -169,7 +169,7 @@ struct PluginsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "puzzlepiece")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.themeAccent)
                             .font(.title3)
                         Text("Plugins")
                             .font(.headline)
@@ -493,7 +493,7 @@ private struct PluginItemRow: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
-                    .background(Color.accentColor.opacity(0.8))
+                    .background(Color.themeAccent.opacity(0.8))
                     .cornerRadius(3)
                 if !plugin.category.isEmpty {
                     Text(plugin.category)
@@ -523,7 +523,7 @@ private struct PluginDetailView: View {
             // Toolbar
             HStack(spacing: 8) {
                 Image(systemName: "puzzlepiece")
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.themeAccent)
                     .font(.title3)
 
                 Text(plugin.name)
@@ -535,7 +535,7 @@ private struct PluginDetailView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor)
+                    .background(Color.themeAccent)
                     .cornerRadius(4)
 
                 if !plugin.category.isEmpty {
@@ -608,7 +608,7 @@ private struct PluginDetailView: View {
                                 ForEach(plugin.skills) { skill in
                                     HStack(spacing: 6) {
                                         Image(systemName: "sparkle")
-                                            .foregroundColor(.accentColor)
+                                            .foregroundColor(.themeAccent)
                                             .font(.caption2)
                                         Text(skill.name)
                                             .font(.caption.monospaced())
@@ -631,7 +631,7 @@ private struct PluginDetailView: View {
                                 ForEach(plugin.commands) { command in
                                     HStack(spacing: 6) {
                                         Image(systemName: "terminal")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.themeAccent)
                                             .font(.caption2)
                                         Text("/\(command.name)")
                                             .font(.caption.monospaced())
@@ -693,7 +693,7 @@ private struct PluginDetailView: View {
                             .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.accentColor.opacity(0.1))
+                            .background(Color.themeAccent.opacity(0.1))
                             .cornerRadius(4)
                     }
                 }

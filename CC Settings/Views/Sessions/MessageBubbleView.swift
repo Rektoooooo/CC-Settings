@@ -24,7 +24,7 @@ struct MessageBubbleView: View {
 
     private var roleColor: Color {
         switch message.role {
-        case .user: return .blue
+        case .user: return .themeAccent
         case .assistant: return .purple
         case .toolResult: return .green
         }
@@ -245,7 +245,7 @@ private struct MessageBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         switch role {
         case .user:
-            content.glassBanner(tint: .blue)
+            content.glassBanner(tint: .themeAccent)
         case .assistant:
             if compact {
                 content

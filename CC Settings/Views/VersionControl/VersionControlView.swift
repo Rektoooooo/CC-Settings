@@ -157,7 +157,7 @@ struct VersionControlView: View {
             HStack {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.triangle.branch")
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.themeAccent)
                         .font(.title3)
                     Text("Version Control")
                         .font(.headline)
@@ -383,7 +383,7 @@ struct VersionControlView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-        .background(selectedFile?.path == file.path ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background(selectedFile?.path == file.path ? Color.themeAccent.opacity(0.15) : Color.clear)
         .onTapGesture {
             selectedFile = file
         }
@@ -474,7 +474,7 @@ struct VersionControlView: View {
     private func commitRow(_ commit: GitCommit) -> some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(Color.blue)
+                .fill(Color.themeAccent)
                 .frame(width: 6, height: 6)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -484,7 +484,7 @@ struct VersionControlView: View {
                 HStack(spacing: 4) {
                     Text(commit.shortHash)
                         .font(.caption2.monospaced())
-                        .foregroundColor(.blue)
+                        .foregroundColor(.themeAccent)
                     Text(commit.author)
                         .font(.caption2)
                         .foregroundColor(.secondary)
@@ -505,7 +505,7 @@ struct VersionControlView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .background(selectedCommit?.id == commit.id ? Color.accentColor.opacity(0.15) : Color.clear)
+        .background(selectedCommit?.id == commit.id ? Color.themeAccent.opacity(0.15) : Color.clear)
         .onTapGesture {
             selectedCommit = commit
         }

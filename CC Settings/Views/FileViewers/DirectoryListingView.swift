@@ -11,7 +11,7 @@ struct DirectoryListingView: View {
             // Header toolbar
             HStack(spacing: 8) {
                 Image(systemName: "folder.fill")
-                    .foregroundColor(.blue)
+                    .foregroundColor(.themeAccent)
                     .font(.title3)
 
                 Text(file.name)
@@ -88,7 +88,7 @@ struct DirectoryListingView: View {
                 size: size,
                 path: item.path,
                 fileIcon: isDir ? "folder.fill" : type.icon,
-                iconColor: isDir ? .blue : type.color
+                iconColor: isDir ? .themeAccent : type.color
             ))
         }
 

@@ -154,7 +154,7 @@ struct CommandsView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Image(systemName: "terminal")
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(.themeAccent)
                             .font(.title3)
                         Text("Commands")
                             .font(.headline)
@@ -341,7 +341,7 @@ private struct CommandItemRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: command.isSymlink ? "link" : "terminal")
-                .foregroundColor(command.isSymlink ? .orange : .blue)
+                .foregroundColor(command.isSymlink ? .orange : .themeAccent)
                 .font(.body)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -417,7 +417,7 @@ private struct CommandDetailEditor: View {
             // Toolbar
             HStack(spacing: 8) {
                 Image(systemName: command.isSymlink ? "link" : "terminal")
-                    .foregroundColor(command.isSymlink ? .orange : .blue)
+                    .foregroundColor(command.isSymlink ? .orange : .themeAccent)
                     .font(.title3)
 
                 Text("/\(command.name)")
@@ -658,7 +658,7 @@ private struct CommandDetailEditor: View {
                                         .font(.caption2)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color.accentColor.opacity(0.1))
+                                        .background(Color.themeAccent.opacity(0.1))
                                         .cornerRadius(4)
                                 }
                                 .buttonStyle(.plain)

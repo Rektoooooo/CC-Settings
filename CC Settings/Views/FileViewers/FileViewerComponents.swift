@@ -132,14 +132,14 @@ struct ReadOnlyBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle")
-                .foregroundColor(.blue)
+                .foregroundColor(.themeAccent)
             Text(message)
                 .font(.caption)
                 .foregroundColor(.primary)
         }
         .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassBanner(tint: .blue)
+        .glassBanner(tint: .themeAccent)
         .padding(.horizontal, 12)
     }
 }

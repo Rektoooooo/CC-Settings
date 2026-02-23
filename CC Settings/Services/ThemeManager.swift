@@ -41,7 +41,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         case .system, .light, .dark:
             nil
         case .claude, .claudeLight:
-            Color(red: 224/255, green: 122/255, blue: 95/255) // #E07A5F coral
+            Color(red: 218/255, green: 119/255, blue: 86/255) // #DA7756 Claude brand orange
         case .ocean:
             Color(red: 8/255, green: 145/255, blue: 178/255) // #0891B2 teal/cyan
         case .forest:
@@ -66,12 +66,13 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - ThemeManager
+
 @MainActor
 final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
 
     private static let themeKey = "appTheme"
-
     @Published var selectedThemeName: String {
         didSet {
             UserDefaults.standard.set(selectedThemeName, forKey: Self.themeKey)
@@ -94,5 +95,21 @@ final class ThemeManager: ObservableObject {
 
     func applyTheme() {
         NSApp?.appearance = currentTheme.appearance
+
+        // Clean up any previously-set AppleAccentColor so it doesn't
+        // override SwiftUI's .tint() for sidebar selection highlights.
+        UserDefaults.standard.removeObject(forKey: "AppleAccentColor")
+    }
+}
+
+// MARK: - Color Extension
+
+extension Color {
+    /// The current theme's accent color. Use this instead of `.blue` or `Color.accentColor`
+    /// for any UI element that should follow the selected theme.
+    static var themeAccent: Color {
+        MainActor.assumeIsolated {
+            ThemeManager.shared.resolvedAccentColor
+        }
     }
 }

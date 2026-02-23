@@ -257,7 +257,7 @@ struct ExperimentalFeaturesView: View {
     private var budgetColor: Color {
         switch Int(thinkingBudget) {
         case ...10000: return .green
-        case ...25000: return .blue
+        case ...25000: return .themeAccent
         case ...50000: return .orange
         default: return .red
         }
@@ -374,7 +374,7 @@ enum WarningLevel {
 
     var color: Color {
         switch self {
-        case .info: return .blue
+        case .info: return .themeAccent
         case .caution: return .orange
         case .danger: return .red
         }
