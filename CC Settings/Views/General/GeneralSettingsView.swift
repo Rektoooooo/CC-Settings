@@ -310,6 +310,8 @@ struct GeneralSettingsView: View {
     @ViewBuilder
     private var autoSaveObservers: some View {
         Color.clear
+            .onChange(of: configManager.settings.model) { save() }
+            .onChange(of: themeManager.selectedThemeName) { save() }
             .onChange(of: prefersReducedMotion) { save() }
             .onChange(of: language) { save() }
             .onChange(of: effortLevel) { save() }
