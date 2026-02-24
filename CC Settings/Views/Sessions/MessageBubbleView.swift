@@ -107,7 +107,8 @@ struct MessageBubbleView: View {
                 contentBlockView(block)
             }
         }
-        .padding(isToolOnly && isContinuation ? 6 : 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, isToolOnly && isContinuation ? 4 : 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
