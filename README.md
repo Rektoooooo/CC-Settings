@@ -219,4 +219,4 @@ MIT — see [LICENSE](LICENSE)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Rektoooooo/CC-Settings&type=Date)](https://star-history.com/#Rektoooooo/CC-Settings&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Rektoooooo/CC-Settings&type=date&legend=top-left)](https://www.star-history.com/#Rektoooooo/CC-Settings&type=date&legend=top-left)
