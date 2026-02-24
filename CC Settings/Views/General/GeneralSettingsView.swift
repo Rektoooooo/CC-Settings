@@ -49,233 +49,295 @@ struct GeneralSettingsView: View {
     // API Key Helper
     @State private var apiKeyHelper: String = ""
 
+    // Prevents onChange from firing during initial load
+    @State private var isLoaded: Bool = false
+
     var body: some View {
         Form {
-            // MARK: - Model
-            Section("Model") {
-                HierarchicalModelPicker(selectedModelId: $configManager.settings.model)
-            }
-
-            // MARK: - Appearance
-            Section("Appearance") {
-                Picker("Theme", selection: $themeManager.selectedThemeName) {
-                    ForEach(AppTheme.allCases) { theme in
-                        HStack(spacing: 6) {
-                            if let color = theme.accentColor {
-                                Circle()
-                                    .fill(color)
-                                    .frame(width: 10, height: 10)
-                            }
-                            Text(theme.displayName)
-                        }
-                        .tag(theme.rawValue)
-                    }
-                }
-
-                Toggle("Reduce Motion", isOn: $prefersReducedMotion)
-                Text("Reduce or disable UI animations for accessibility.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - Language & Output
-            Section("Language & Output") {
-                TextField("Response Language", text: $language, prompt: Text("English"))
-                    .textFieldStyle(.roundedBorder)
-                Text("Claude's preferred response language (e.g. Japanese, Spanish).")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Picker("Effort Level", selection: $effortLevel) {
-                    Text("Low").tag("low")
-                    Text("Medium").tag("medium")
-                    Text("High").tag("high")
-                }
-                .pickerStyle(.segmented)
-                Text("Controls Opus 4.6 adaptive reasoning effort.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
-                    .textFieldStyle(.roundedBorder)
-                Text("Controls response verbosity (e.g. Explanatory, Concise).")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Toggle("Verbose Output", isOn: $verbose)
-                Text("Show full bash and command outputs.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - Behavior
-            Section("Behavior") {
-                Toggle("Show Turn Duration", isOn: $showTurnDuration)
-                Text("Display how long each turn takes.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Toggle("Respect .gitignore", isOn: $respectGitignore)
-                Text("Whether the @ file picker respects .gitignore rules.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Auto-Compact", isOn: $autoCompactEnabled)
-                    Text("Automatically summarize conversation when context limit is reached.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    if autoCompactEnabled {
-                        TextField("Custom Instructions", text: $autoCompactInstructions, prompt: Text("e.g. Preserve all file paths, function names..."), axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .lineLimit(2...4)
-                        Text("Custom instructions for auto-compact summaries.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    TextField("Plans Directory", text: $plansDirectory, prompt: Text("~/.claude/plans"))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                    Button("Browse...") {
-                        choosePlansDirectory()
-                    }
-                }
-                Text("Directory where plan files are stored.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - Git
-            Section("Git") {
-                TextField("Main Branch", text: $mainBranch, prompt: Text("main"))
-                    .textFieldStyle(.roundedBorder)
-
-                Picker("Git Application", selection: $selectedGitApp) {
-                    Text("System Default").tag("system")
-                    Divider()
-                    ForEach(GitAppPreference.allCases) { app in
-                        Label(app.rawValue, systemImage: app.icon)
-                            .tag(app.rawValue)
-                    }
-                }
-
-                if selectedGitApp == GitAppPreference.custom.rawValue {
-                    HStack {
-                        TextField("Custom Git App Path", text: $customGitAppPath)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                        Button("Browse...") {
-                            chooseCustomGitApp()
-                        }
-                    }
-                }
-            }
-
-            // MARK: - Updates
-            Section("Updates") {
-                Toggle("Automatic Updates", isOn: $autoUpdates)
-                Text("Allow Claude Code to update automatically.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                if autoUpdates {
-                    Picker("Update Channel", selection: $autoUpdatesChannel) {
-                        Text("Stable").tag("stable")
-                        Text("Latest").tag("latest")
-                    }
-                }
-            }
-
-            // MARK: - Notifications
-            Section("Notifications") {
-                Picker("Notification Channel", selection: $preferredNotifChannel) {
-                    Text("iTerm2").tag("iterm2")
-                    Text("iTerm2 with Bell").tag("iterm2_with_bell")
-                    Text("Terminal Bell").tag("terminal_bell")
-                    Text("Disabled").tag("notifications_disabled")
-                }
-            }
-
-            // MARK: - Data Retention
-            Section("Data Retention") {
-                HStack {
-                    Text("Keep sessions for")
-                    Spacer()
-                    Text("\(Int(cleanupPeriodDays)) days")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.secondary)
-                }
-                Slider(value: $cleanupPeriodDays, in: 1...365, step: 1)
-                Text("Number of days to retain chat transcripts locally.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - Attribution
-            Section("Attribution") {
-                TextField("Commit Attribution", text: $commitAttribution, prompt: Text("Default co-authored-by"))
-                    .textFieldStyle(.roundedBorder)
-                Text("Text appended to git commits. Leave empty to use default, set to a space to hide.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                TextField("PR Attribution", text: $prAttribution, prompt: Text("Default PR text"))
-                    .textFieldStyle(.roundedBorder)
-                Text("Text appended to pull request descriptions.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - Teams
-            Section("Teams") {
-                Picker("Teammate Display Mode", selection: $teammateMode) {
-                    Text("Auto").tag("auto")
-                    Text("In-Process").tag("in-process")
-                    Text("Tmux").tag("tmux")
-                }
-                Text("How teammate agents are displayed in the terminal.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            // MARK: - API Key Helper
-            Section("API Key Helper") {
-                HStack {
-                    TextField("Path to API key helper script", text: $apiKeyHelper)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
-                    Button("Choose...") {
-                        chooseApiKeyHelper()
-                    }
-                }
-                Text("A script or executable that returns an API key on stdout.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            modelSection
+            appearanceSection
+            languageSection
+            behaviorSection
+            gitSection
+            updatesSection
+            notificationsSection
+            dataRetentionSection
+            attributionSection
+            teamsSection
+            apiKeyHelperSection
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    save()
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .keyboardShortcut("s", modifiers: .command)
-            }
-        }
         .onAppear {
             loadFromSettings()
         }
+        .background {
+            autoSaveObservers
+        }
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder
+    private var modelSection: some View {
+        Section("Model") {
+            HierarchicalModelPicker(selectedModelId: $configManager.settings.model)
+        }
+    }
+
+    @ViewBuilder
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            Picker("Theme", selection: $themeManager.selectedThemeName) {
+                ForEach(AppTheme.allCases) { theme in
+                    HStack(spacing: 6) {
+                        if let color = theme.accentColor {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 10, height: 10)
+                        }
+                        Text(theme.displayName)
+                    }
+                    .tag(theme.rawValue)
+                }
+            }
+
+            Toggle("Reduce Motion", isOn: $prefersReducedMotion)
+            Text("Reduce or disable UI animations for accessibility.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var languageSection: some View {
+        Section("Language & Output") {
+            TextField("Response Language", text: $language, prompt: Text("English"))
+                .textFieldStyle(.roundedBorder)
+            Text("Claude's preferred response language (e.g. Japanese, Spanish).")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Picker("Effort Level", selection: $effortLevel) {
+                Text("Low").tag("low")
+                Text("Medium").tag("medium")
+                Text("High").tag("high")
+            }
+            .pickerStyle(.segmented)
+            Text("Controls Opus 4.6 adaptive reasoning effort.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
+                .textFieldStyle(.roundedBorder)
+            Text("Controls response verbosity (e.g. Explanatory, Concise).")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Verbose Output", isOn: $verbose)
+            Text("Show full bash and command outputs.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var behaviorSection: some View {
+        Section("Behavior") {
+            Toggle("Show Turn Duration", isOn: $showTurnDuration)
+            Text("Display how long each turn takes.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Respect .gitignore", isOn: $respectGitignore)
+            Text("Whether the @ file picker respects .gitignore rules.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Auto-Compact", isOn: $autoCompactEnabled)
+                Text("Automatically summarize conversation when context limit is reached.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                if autoCompactEnabled {
+                    TextField("Custom Instructions", text: $autoCompactInstructions, prompt: Text("e.g. Preserve all file paths, function names..."), axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(2...4)
+                    Text("Custom instructions for auto-compact summaries.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack {
+                TextField("Plans Directory", text: $plansDirectory, prompt: Text("~/.claude/plans"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Button("Browse...") {
+                    choosePlansDirectory()
+                }
+            }
+            Text("Directory where plan files are stored.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var gitSection: some View {
+        Section("Git") {
+            TextField("Main Branch", text: $mainBranch, prompt: Text("main"))
+                .textFieldStyle(.roundedBorder)
+
+            Picker("Git Application", selection: $selectedGitApp) {
+                Text("System Default").tag("system")
+                Divider()
+                ForEach(GitAppPreference.allCases) { app in
+                    Label(app.rawValue, systemImage: app.icon)
+                        .tag(app.rawValue)
+                }
+            }
+
+            if selectedGitApp == GitAppPreference.custom.rawValue {
+                HStack {
+                    TextField("Custom Git App Path", text: $customGitAppPath)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                    Button("Browse...") {
+                        chooseCustomGitApp()
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var updatesSection: some View {
+        Section("Updates") {
+            Toggle("Automatic Updates", isOn: $autoUpdates)
+            Text("Allow Claude Code to update automatically.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if autoUpdates {
+                Picker("Update Channel", selection: $autoUpdatesChannel) {
+                    Text("Stable").tag("stable")
+                    Text("Latest").tag("latest")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var notificationsSection: some View {
+        Section("Notifications") {
+            Picker("Notification Channel", selection: $preferredNotifChannel) {
+                Text("iTerm2").tag("iterm2")
+                Text("iTerm2 with Bell").tag("iterm2_with_bell")
+                Text("Terminal Bell").tag("terminal_bell")
+                Text("Disabled").tag("notifications_disabled")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dataRetentionSection: some View {
+        Section("Data Retention") {
+            HStack {
+                Text("Keep sessions for")
+                Spacer()
+                Text("\(Int(cleanupPeriodDays)) days")
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
+            Slider(value: $cleanupPeriodDays, in: 1...365, step: 1)
+            Text("Number of days to retain chat transcripts locally.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var attributionSection: some View {
+        Section("Attribution") {
+            TextField("Commit Attribution", text: $commitAttribution, prompt: Text("Default co-authored-by"))
+                .textFieldStyle(.roundedBorder)
+            Text("Text appended to git commits. Leave empty to use default, set to a space to hide.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("PR Attribution", text: $prAttribution, prompt: Text("Default PR text"))
+                .textFieldStyle(.roundedBorder)
+            Text("Text appended to pull request descriptions.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var teamsSection: some View {
+        Section("Teams") {
+            Picker("Teammate Display Mode", selection: $teammateMode) {
+                Text("Auto").tag("auto")
+                Text("In-Process").tag("in-process")
+                Text("Tmux").tag("tmux")
+            }
+            Text("How teammate agents are displayed in the terminal.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var apiKeyHelperSection: some View {
+        Section("API Key Helper") {
+            HStack {
+                TextField("Path to API key helper script", text: $apiKeyHelper)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Button("Choose...") {
+                    chooseApiKeyHelper()
+                }
+            }
+            Text("A script or executable that returns an API key on stdout.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - Auto-Save Observers
+
+    @ViewBuilder
+    private var autoSaveObservers: some View {
+        Color.clear
+            .onChange(of: prefersReducedMotion) { save() }
+            .onChange(of: language) { save() }
+            .onChange(of: effortLevel) { save() }
+            .onChange(of: outputStyle) { save() }
+            .onChange(of: verbose) { save() }
+            .onChange(of: showTurnDuration) { save() }
+            .onChange(of: respectGitignore) { save() }
+            .onChange(of: autoCompactEnabled) { save() }
+            .onChange(of: autoCompactInstructions) { save() }
+            .onChange(of: plansDirectory) { save() }
+        Color.clear
+            .onChange(of: mainBranch) { save() }
+            .onChange(of: selectedGitApp) { save() }
+            .onChange(of: customGitAppPath) { save() }
+            .onChange(of: autoUpdates) { save() }
+            .onChange(of: autoUpdatesChannel) { save() }
+            .onChange(of: preferredNotifChannel) { save() }
+            .onChange(of: cleanupPeriodDays) { save() }
+            .onChange(of: commitAttribution) { save() }
+            .onChange(of: prAttribution) { save() }
+            .onChange(of: teammateMode) { save() }
+            .onChange(of: apiKeyHelper) { save() }
     }
 
     // MARK: - Data Sync
 
     private func loadFromSettings() {
+        isLoaded = false
         let s = configManager.settings
 
         // Appearance
@@ -322,9 +384,13 @@ struct GeneralSettingsView: View {
 
         // API Key Helper
         apiKeyHelper = s.apiKeyHelper ?? ""
+
+        isLoaded = true
     }
 
     private func save() {
+        guard isLoaded else { return }
+
         // Appearance
         configManager.settings.theme = themeManager.currentTheme.cliTheme
         configManager.settings.prefersReducedMotion = prefersReducedMotion ? true : nil
