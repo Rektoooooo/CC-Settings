@@ -16,8 +16,8 @@ settings:
     CODE_SIGN_ENTITLEMENTS: "CC Settings/Resources/CC_Settings.entitlements"
     INFOPLIST_FILE: "CC Settings/Resources/Info.plist"
     PRODUCT_BUNDLE_IDENTIFIER: com.ae.ccsettings
-    MARKETING_VERSION: "1.0.1"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "1.0.2"
+    CURRENT_PROJECT_VERSION: "4"
     ENABLE_APP_SANDBOX: "NO"
 
 packages:

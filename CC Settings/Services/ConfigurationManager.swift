@@ -44,6 +44,11 @@ class ConfigurationManager: ObservableObject {
         skillsDir = claudeDir.appendingPathComponent("skills")
         pluginsDir = claudeDir.appendingPathComponent("plugins")
         mcpConfigURL = home.appendingPathComponent(".claude.json")
+
+        // Load settings immediately so they're available before any view renders.
+        // This prevents a race where onAppear fires before applicationDidFinishLaunching,
+        // causing loadFromSettings() to read defaults and then save() to overwrite real values.
+        loadAll()
     }
 
     func loadAll() {
@@ -338,10 +343,10 @@ class ConfigurationManager: ObservableObject {
 
     /// Decodes a Claude Code project ID back into a filesystem path.
     ///
-    /// Claude Code encodes project paths by replacing `/`, `.`, and ` ` with `-`.
+    /// Claude Code encodes project paths by replacing `/`, `.`, ` `, and `_` with `-`.
     /// This is inherently ambiguous: a hyphen in the encoded string could be a literal
     /// hyphen from the original directory name, or a separator that replaced `/`, `.`,
-    /// or ` `. For example, `my-project` and `my/project` both encode to `my-project`.
+    /// ` `, or `_`. For example, `my-project` and `my/project` both encode to `my-project`.
     ///
     /// The algorithm resolves ambiguity by greedily matching against the actual filesystem,
     /// preferring the longest directory name that exists on disk. This works well in practice
@@ -351,46 +356,16 @@ class ConfigurationManager: ObservableObject {
     /// remaining parts with `/`.
     private func decodePath(_ encoded: String) -> String {
         let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser.path
-        let homeComponents = home.split(separator: "/").map(String.init)
+        let parts = encoded.split(separator: "-").map(String.init)
 
-        // The encoded path replaces / with -
-        // Problem: directory names can also contain hyphens (e.g. "Autoskola-Trefa")
-        // Solution: greedily match filesystem paths to resolve ambiguity
-        var parts = encoded.split(separator: "-").map(String.init)
-
-        // Remove leading empty component if encoded starts with "-"
-        if parts.first == "" {
-            parts.removeFirst()
-        }
-
-        // Try to match home directory prefix
-        guard parts.count >= homeComponents.count else {
-            return "/" + parts.joined(separator: "/")
-        }
-
-        var matchesHome = true
-        for (i, comp) in homeComponents.enumerated() {
-            let encodedComp = comp.replacingOccurrences(of: "_", with: "-")
-            if parts[i] != comp && parts[i] != encodedComp {
-                matchesHome = false
-                break
-            }
-        }
-
-        guard matchesHome else {
-            return "/" + parts.joined(separator: "/")
-        }
-
-        // Greedily resolve remaining parts by checking filesystem
-        let remaining = Array(parts[homeComponents.count...])
-        let resolvedPath = resolvePathComponents(remaining, basePath: home, fileManager: fm)
-        return resolvedPath
+        // Resolve the full path greedily from root, handling all encoded separators
+        // (/, ., space, _) uniformly via filesystem matching.
+        return resolvePathComponents(parts, basePath: "/", fileManager: fm)
     }
 
     /// Greedily resolve encoded path components by checking which combinations exist on disk.
-    /// Claude Code encodes paths by replacing /, ., and space with -
-    /// So "Autoskola-Trefa" could be "Autoskola-Trefa", "Autoskola.Trefa", or "Autoskola Trefa"
+    /// Claude Code encodes paths by replacing /, ., space, and _ with -
+    /// So "Autoskola-Trefa" could be "Autoskola-Trefa", "Autoskola.Trefa", "Autoskola Trefa", or "Autoskola_Trefa"
     private func resolvePathComponents(_ parts: [String], basePath: String, fileManager fm: FileManager) -> String {
         guard !parts.isEmpty else { return basePath }
 
@@ -398,11 +373,12 @@ class ConfigurationManager: ObservableObject {
         for joinCount in stride(from: parts.count, through: 1, by: -1) {
             let segment = Array(parts[0..<joinCount])
 
-            // Try different separators: -, ., and space
+            // Try different separators: -, ., space, and _
             let candidates = [
                 segment.joined(separator: "-"),
                 segment.joined(separator: "."),
                 segment.joined(separator: " "),
+                segment.joined(separator: "_"),
             ]
 
             for candidate in candidates {
@@ -427,6 +403,7 @@ class ConfigurationManager: ObservableObject {
                     let entryNormalized = entry
                         .replacingOccurrences(of: ".", with: "-")
                         .replacingOccurrences(of: " ", with: "-")
+                        .replacingOccurrences(of: "_", with: "-")
                         .lowercased()
                     if entryNormalized == normalized {
                         let candidatePath = (basePath as NSString).appendingPathComponent(entry)
