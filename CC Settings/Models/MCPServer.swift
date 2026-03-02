@@ -1,13 +1,5 @@
 import Foundation
 
-struct MCPDesktopConfig: Codable {
-    var mcpServers: [String: MCPServerConfig]
-
-    init(mcpServers: [String: MCPServerConfig] = [:]) {
-        self.mcpServers = mcpServers
-    }
-}
-
 enum MCPTransportType: String, Codable, CaseIterable {
     case stdio
     case sse

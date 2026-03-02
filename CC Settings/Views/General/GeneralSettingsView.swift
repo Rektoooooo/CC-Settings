@@ -65,6 +65,7 @@ struct GeneralSettingsView: View {
             attributionSection
             teamsSection
             apiKeyHelperSection
+            aboutSection
         }
         .formStyle(.grouped)
         .onAppear {
@@ -305,6 +306,27 @@ struct GeneralSettingsView: View {
         }
     }
 
+    @ViewBuilder
+    private var aboutSection: some View {
+        Section("About") {
+            LabeledContent("Version") {
+                Text("\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
+                    .foregroundColor(.secondary)
+            }
+            LabeledContent("Author") {
+                Text("Sebastian Kucera")
+                    .foregroundColor(.secondary)
+            }
+            LabeledContent("GitHub") {
+                Link("Rektoooooo/CC-Settings", destination: URL(string: "https://github.com/Rektoooooo/CC-Settings")!)
+            }
+            LabeledContent("License") {
+                Text("MIT")
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
     // MARK: - Auto-Save Observers
 
     @ViewBuilder
@@ -440,15 +462,13 @@ struct GeneralSettingsView: View {
         // Data
         configManager.settings.cleanupPeriodDays = Int(cleanupPeriodDays) == 30 ? nil : Int(cleanupPeriodDays)
 
-        // Attribution
-        let trimmedCommit = commitAttribution.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPR = prAttribution.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedCommit.isEmpty && trimmedPR.isEmpty {
+        // Attribution — don't trim; a single space is intentional (hides co-author line)
+        if commitAttribution.isEmpty && prAttribution.isEmpty {
             configManager.settings.attribution = nil
         } else {
             configManager.settings.attribution = AttributionConfig(
-                commit: trimmedCommit.isEmpty ? nil : trimmedCommit,
-                pr: trimmedPR.isEmpty ? nil : trimmedPR
+                commit: commitAttribution.isEmpty ? nil : commitAttribution,
+                pr: prAttribution.isEmpty ? nil : prAttribution
             )
         }
 

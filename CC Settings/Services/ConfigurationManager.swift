@@ -196,14 +196,19 @@ class ConfigurationManager: ObservableObject {
             return [:]
         }
         let fixed = validateAndFix(jsonData: data)
-        guard let config = try? decoder.decode(MCPDesktopConfig.self, from: fixed) else {
+        guard let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any],
+              let serversDict = json["mcpServers"] as? [String: [String: Any]] else {
             return [:]
         }
-        // Assign dictionary keys as id
+
         var result: [String: MCPServerConfig] = [:]
-        for (key, var value) in config.mcpServers {
-            value.id = key
-            result[key] = value
+        for (key, serverJSON) in serversDict {
+            guard let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
+                  var config = try? decoder.decode(MCPServerConfig.self, from: serverData) else {
+                continue
+            }
+            config.id = key
+            result[key] = config
         }
         return result
     }

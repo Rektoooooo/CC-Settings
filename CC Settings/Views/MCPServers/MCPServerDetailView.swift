@@ -57,6 +57,14 @@ struct MCPServerDetailView: View {
                         // Server Info Grid
                         serverInfoGrid
 
+                        // Quick Actions
+                        quickActionsBar
+
+                        // Full Command
+                        if server.transportType == .stdio, let command = server.command {
+                            fullCommandSection(command: command, args: server.args)
+                        }
+
                         // Arguments
                         if let args = server.args, !args.isEmpty {
                             argumentsSection(args)
@@ -133,6 +141,97 @@ struct MCPServerDetailView: View {
         }
         .padding(12)
         .glassContainer()
+    }
+
+    // MARK: - Quick Actions
+
+    /// Extracts an npm package name from the args list (e.g. "@modelcontextprotocol/server-github" or "xcodebuildmcp@latest").
+    private var npmPackageName: String? {
+        guard server.command == "npx", let args = server.args else { return nil }
+        return args.first(where: { !$0.hasPrefix("-") })?.replacingOccurrences(of: "@latest", with: "")
+    }
+
+    @ViewBuilder
+    private var quickActionsBar: some View {
+        HStack(spacing: 8) {
+            if let packageName = npmPackageName,
+               let url = URL(string: "https://www.npmjs.com/package/\(packageName)") {
+                Link(destination: url) {
+                    Label("npm", systemImage: "shippingbox")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            if let url = server.url, let linkURL = URL(string: url) {
+                Link(destination: linkURL) {
+                    Label("Open URL", systemImage: "globe")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            Button {
+                let json = formatServerJSON()
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(json, forType: .string)
+            } label: {
+                Label("Copy JSON", systemImage: "doc.on.doc")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            Spacer()
+        }
+    }
+
+    private func formatServerJSON() -> String {
+        var dict: [String: Any] = [:]
+        if let type = server.type { dict["type"] = type }
+        if let command = server.command { dict["command"] = command }
+        if let args = server.args { dict["args"] = args }
+        if let env = server.env, !env.isEmpty { dict["env"] = env }
+        if let url = server.url { dict["url"] = url }
+        let wrapper: [String: Any] = [server.id: dict]
+        guard let data = try? JSONSerialization.data(withJSONObject: wrapper, options: [.prettyPrinted, .sortedKeys]),
+              let str = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return str
+    }
+
+    // MARK: - Full Command
+
+    @ViewBuilder
+    private func fullCommandSection(command: String, args: [String]?) -> some View {
+        let fullCommand = ([command] + (args ?? [])).joined(separator: " ")
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Full Command")
+                .font(.subheadline.bold())
+
+            HStack {
+                Text(fullCommand)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .lineLimit(3)
+                Spacer()
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(fullCommand, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .help("Copy command")
+            }
+            .padding(12)
+            .glassContainer()
+        }
     }
 
     // MARK: - Arguments Section
