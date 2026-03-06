@@ -112,8 +112,8 @@ extension Color {
     /// Uses `assumeIsolated` because all call sites are SwiftUI view bodies
     /// which always run on the main actor.
     static var themeAccent: Color {
-        MainActor.assumeIsolated {
-            ThemeManager.shared.resolvedAccentColor
-        }
+        let themeName = UserDefaults.standard.string(forKey: "appTheme") ?? "system"
+        guard let theme = AppTheme(rawValue: themeName) else { return .accentColor }
+        return theme.accentColor ?? .accentColor
     }
 }
