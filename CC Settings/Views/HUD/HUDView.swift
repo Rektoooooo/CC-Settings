@@ -9,13 +9,17 @@ struct HUDConfig: Codable, Equatable {
     var lineLayout: String
     var showSeparators: Bool
     var pathLevels: Int
+    var elementOrder: [String]
     var gitStatus: HUDGitConfig
+
+    static let allElementKeys = ["project", "context", "usage", "environment", "tools", "agents", "todos"]
 
     init() {
         display = HUDDisplayConfig()
         lineLayout = "expanded"
         showSeparators = true
         pathLevels = 2
+        elementOrder = Self.allElementKeys
         gitStatus = HUDGitConfig()
     }
 
@@ -46,6 +50,39 @@ struct HUDConfig: Codable, Equatable {
     }
 }
 
+// MARK: - Element Item
+
+struct ElementItem: Identifiable, Equatable {
+    let id: String
+    var isEnabled: Bool
+
+    var label: String {
+        switch id {
+        case "project": return "Project"
+        case "context": return "Context Bar"
+        case "usage": return "Usage"
+        case "environment": return "Environment"
+        case "tools": return "Tools"
+        case "agents": return "Agents"
+        case "todos": return "Todos"
+        default: return id
+        }
+    }
+
+    var icon: String {
+        switch id {
+        case "project": return "folder"
+        case "context": return "chart.bar"
+        case "usage": return "gauge.medium"
+        case "environment": return "gearshape.2"
+        case "tools": return "wrench.and.screwdriver"
+        case "agents": return "person.2"
+        case "todos": return "checklist"
+        default: return "questionmark"
+        }
+    }
+}
+
 // MARK: - Installed Plugins Model
 
 private struct InstalledPlugins: Codable {
@@ -65,6 +102,9 @@ struct HUDView: View {
     @State private var isInstalled = false
     @State private var installedVersion: String?
     @State private var hasLoadedOnce = false
+    @State private var allElements: [ElementItem] = []
+    @State private var draggedElementID: String?
+    @State private var hoveredElementID: String?
 
     /// Hardcoded path matching the claude-hud plugin's expected config location.
     /// This is the canonical path used by the plugin itself; deriving it from install
@@ -91,6 +131,7 @@ struct HUDView: View {
         .onAppear {
             checkInstallation()
             loadConfig()
+            buildElementItems()
         }
     }
 
@@ -135,21 +176,127 @@ struct HUDView: View {
 
     private var previewSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 0) {
+            if config.lineLayout == "expanded" {
+                expandedPreviewContent
+            } else {
                 Text(buildPreview())
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.primary)
                     .lineSpacing(2)
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
             }
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
         } header: {
             Text("Preview")
         } footer: {
-            Text("Live preview of how the HUD will appear in Claude Code.")
+            Text(config.lineLayout == "expanded"
+                ? "Drag to reorder elements. Toggle visibility in Display and Activity sections."
+                : "Live preview of how the HUD will appear in Claude Code.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var expandedPreviewContent: some View {
+        let gitSuffix = buildGitSuffix()
+        let visible = visibleElements
+        let activityKeys: Set<String> = ["tools", "agents", "todos"]
+        let headerElements = visible.filter { !activityKeys.contains($0.id) }
+        let activityElements = visible.filter { activityKeys.contains($0.id) }
+
+        VStack(alignment: .leading, spacing: 0) {
+            if visible.isEmpty {
+                Text("(nothing to display)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                let pairKeys: Set<String> = ["context", "usage"]
+
+                ForEach(headerElements) { element in
+                    let idx = headerElements.firstIndex(where: { $0.id == element.id })!
+                    let isFirstOfPair = pairKeys.contains(element.id)
+                        && idx + 1 < headerElements.count
+                        && pairKeys.contains(headerElements[idx + 1].id)
+                    let isSecondOfPair = pairKeys.contains(element.id)
+                        && idx > 0
+                        && pairKeys.contains(headerElements[idx - 1].id)
+
+                    if isFirstOfPair {
+                        combinedPreviewRow(first: element, second: headerElements[idx + 1], gitSuffix: gitSuffix)
+                    } else if isSecondOfPair {
+                        EmptyView()
+                    } else {
+                        previewRowView(for: element, gitSuffix: gitSuffix)
+                    }
+                }
+
+                if config.showSeparators && !headerElements.isEmpty && !activityElements.isEmpty {
+                    Text(String(repeating: "\u{2500}", count: 35))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 2)
+                }
+
+                ForEach(activityElements) { element in
+                    previewRowView(for: element, gitSuffix: gitSuffix)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func previewRowView(for element: ElementItem, gitSuffix: String) -> some View {
+        previewElementView(for: element, text: previewLine(for: element.id, gitSuffix: gitSuffix) ?? "")
+    }
+
+    @ViewBuilder
+    private func combinedPreviewRow(first: ElementItem, second: ElementItem, gitSuffix: String) -> some View {
+        HStack(spacing: 0) {
+            previewElementView(for: first, text: previewLine(for: first.id, gitSuffix: gitSuffix) ?? "", inline: true)
+            Text(" \u{2502} ")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+            previewElementView(for: second, text: previewLine(for: second.id, gitSuffix: gitSuffix) ?? "", inline: true)
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func previewElementView(for element: ElementItem, text: String, inline: Bool = false) -> some View {
+        if !text.isEmpty {
+            Text(text)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.primary)
+                .padding(.horizontal, inline ? 4 : 10)
+                .padding(.vertical, 3)
+                .frame(maxWidth: inline ? nil : .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(hoveredElementID == element.id ? Color.primary.opacity(0.06) : Color.clear)
+                )
+                .opacity(draggedElementID == element.id ? 0.4 : 1.0)
+                .onHover { hovering in
+                    hoveredElementID = hovering ? element.id : nil
+                }
+                .onDrag {
+                    draggedElementID = element.id
+                    return NSItemProvider(object: element.id as NSString)
+                }
+                .onDrop(of: [.text], delegate: PreviewDropDelegate(
+                    item: element,
+                    allElements: $allElements,
+                    draggedElementID: $draggedElementID,
+                    onReorder: syncElementOrder
+                ))
         }
     }
 
@@ -191,7 +338,7 @@ struct HUDView: View {
                 .onChange(of: config.display.showModel) { _, _ in saveConfig() }
 
             Toggle("Show Context Bar", isOn: $config.display.showContextBar)
-                .onChange(of: config.display.showContextBar) { _, _ in saveConfig() }
+                .onChange(of: config.display.showContextBar) { _, _ in syncElementOrder() }
 
             if config.display.showContextBar {
                 Picker("Context Value", selection: $config.display.contextValue) {
@@ -205,7 +352,7 @@ struct HUDView: View {
             }
 
             Toggle("Show Config Counts", isOn: $config.display.showConfigCounts)
-                .onChange(of: config.display.showConfigCounts) { _, _ in saveConfig() }
+                .onChange(of: config.display.showConfigCounts) { _, _ in syncElementOrder() }
 
             Toggle("Show Session Duration", isOn: $config.display.showDuration)
                 .onChange(of: config.display.showDuration) { _, _ in saveConfig() }
@@ -232,7 +379,7 @@ struct HUDView: View {
     private var usageSection: some View {
         Section {
             Toggle("Show Usage Rate Limits", isOn: $config.display.showUsage)
-                .onChange(of: config.display.showUsage) { _, _ in saveConfig() }
+                .onChange(of: config.display.showUsage) { _, _ in syncElementOrder() }
 
             if config.display.showUsage {
                 Toggle("Visual Bar", isOn: $config.display.usageBarEnabled)
@@ -309,13 +456,13 @@ struct HUDView: View {
     private var activitySection: some View {
         Section {
             Toggle("Show Tool Activity", isOn: $config.display.showTools)
-                .onChange(of: config.display.showTools) { _, _ in saveConfig() }
+                .onChange(of: config.display.showTools) { _, _ in syncElementOrder() }
 
             Toggle("Show Agent Status", isOn: $config.display.showAgents)
-                .onChange(of: config.display.showAgents) { _, _ in saveConfig() }
+                .onChange(of: config.display.showAgents) { _, _ in syncElementOrder() }
 
             Toggle("Show Todo Progress", isOn: $config.display.showTodos)
-                .onChange(of: config.display.showTodos) { _, _ in saveConfig() }
+                .onChange(of: config.display.showTodos) { _, _ in syncElementOrder() }
         } header: {
             Text("Activity Lines")
         } footer: {
@@ -389,6 +536,62 @@ struct HUDView: View {
         .buttonStyle(.bordered)
     }
 
+    // MARK: - Element Order Helpers
+
+    private func buildElementItems() {
+        let knownKeys = HUDConfig.allElementKeys
+        var items: [ElementItem] = []
+        var seen = Set<String>()
+
+        for key in config.elementOrder where knownKeys.contains(key) && !seen.contains(key) {
+            items.append(ElementItem(id: key, isEnabled: isElementVisible(key)))
+            seen.insert(key)
+        }
+
+        for key in knownKeys where !seen.contains(key) {
+            items.append(ElementItem(id: key, isEnabled: isElementVisible(key)))
+            seen.insert(key)
+        }
+
+        allElements = items
+    }
+
+    private func syncElementOrder() {
+        config.elementOrder = allElements.filter { isElementVisible($0.id) }.map(\.id)
+        saveConfig()
+    }
+
+    private func isElementVisible(_ id: String) -> Bool {
+        switch id {
+        case "project": return true
+        case "context": return config.display.showContextBar
+        case "usage": return config.display.showUsage
+        case "environment": return config.display.showConfigCounts
+        case "tools": return config.display.showTools
+        case "agents": return config.display.showAgents
+        case "todos": return config.display.showTodos
+        default: return false
+        }
+    }
+
+    private var visibleElements: [ElementItem] {
+        allElements.filter { isElementVisible($0.id) }
+    }
+
+    private func buildGitSuffix() -> String {
+        var gitSuffix = ""
+        if config.gitStatus.enabled {
+            var insideParens = "main"
+            if config.gitStatus.showDirty { insideParens += "*" }
+            if config.gitStatus.showFileStats { insideParens += " ?1" }
+            gitSuffix = " git:(\(insideParens))"
+            if config.gitStatus.showAheadBehind {
+                gitSuffix += " \u{2191}2 \u{2193}1"
+            }
+        }
+        return gitSuffix
+    }
+
     // MARK: - Preview Builder
 
     private func buildPreview() -> String {
@@ -408,42 +611,51 @@ struct HUDView: View {
         }
 
         if isExpanded {
-            // Line 1: [Model | Budget] | project-name git:(main* ?1) ↑2 ↓1
-            var headerLine = ""
-            if config.display.showModel {
-                headerLine += "[Opus 4.6 | Max] | "
-            }
-            headerLine += "my-project\(gitSuffix)"
-            lines.append(headerLine)
+            let order = config.elementOrder.isEmpty ? HUDConfig.allElementKeys : config.elementOrder
+            let activityKeys: Set<String> = ["tools", "agents", "todos"]
+            var headerLines: [String] = []
+            var activityLines: [String] = []
+            var usedElements = Set<String>()
 
-            // Line 2: Context + Usage bars combined on one line
-            var barParts: [String] = []
-            if config.display.showContextBar {
-                if config.display.contextValue == "percent" {
-                    barParts.append("Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%")
-                } else {
-                    barParts.append("Context 28k/100k")
+            for (i, element) in order.enumerated() {
+                guard !usedElements.contains(element) else { continue }
+                usedElements.insert(element)
+
+                let next = i + 1 < order.count ? order[i + 1] : nil
+                let companion = element == "context" ? "usage" : (element == "usage" ? "context" : nil)
+                let isAdjacent = companion != nil && next == companion && !usedElements.contains(companion!)
+
+                if isAdjacent, let comp = companion {
+                    usedElements.insert(comp)
+                    let first = element == "context" ? contextPreviewString() : usagePreviewString()
+                    let second = element == "context" ? usagePreviewString() : contextPreviewString()
+                    var parts: [String] = []
+                    if let f = first { parts.append(f) }
+                    if let s = second { parts.append(s) }
+                    if !parts.isEmpty {
+                        headerLines.append(parts.joined(separator: " \u{2502} "))
+                    }
+                    continue
+                }
+
+                if let line = previewLine(for: element, gitSuffix: gitSuffix) {
+                    if activityKeys.contains(element) {
+                        activityLines.append(line)
+                    } else {
+                        headerLines.append(line)
+                    }
                 }
             }
-            if config.display.showUsage {
-                if config.display.usageBarEnabled {
-                    barParts.append("Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18% (3h 39m / 5h)")
-                    barParts.append("\u{2588}\u{2588}\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  42% (1h 25m / 7d)")
-                } else {
-                    barParts.append("Usage 18% (3h 39m / 5h)")
-                    barParts.append("42% (1h 25m / 7d)")
-                }
-            }
-            if !barParts.isEmpty {
-                lines.append(barParts.joined(separator: " | "))
+
+            lines.append(contentsOf: headerLines)
+
+            if config.showSeparators && !activityLines.isEmpty && !headerLines.isEmpty {
+                lines.append(String(repeating: "\u{2500}", count: 35))
             }
 
-            // Config counts (optional)
-            if config.display.showConfigCounts {
-                lines.append("1 CLAUDE.md | 2 MCPs")
-            }
+            lines.append(contentsOf: activityLines)
 
-            // Duration + speed extras (optional)
+            // Duration + speed extras
             var extras: [String] = []
             if config.display.showDuration { extras.append("\u{23F1} 58m") }
             if config.display.showSpeed { extras.append("out: 85 tok/s") }
@@ -487,25 +699,25 @@ struct HUDView: View {
             if !parts.isEmpty {
                 lines.append(parts.joined(separator: sep))
             }
-        }
 
-        // Separator between header and activity
-        let hasActivity = config.display.showTools || config.display.showAgents || config.display.showTodos
-        if config.showSeparators && hasActivity && !lines.isEmpty {
-            lines.append(String(repeating: "\u{2500}", count: 35))
-        }
+            // Separator between header and activity
+            let hasActivity = config.display.showTools || config.display.showAgents || config.display.showTodos
+            if config.showSeparators && hasActivity {
+                lines.append(String(repeating: "\u{2500}", count: 35))
+            }
 
-        // Activity lines (always separate lines in both modes)
-        if config.display.showTools {
-            lines.append("\u{25D0} Edit: auth.ts | \u{2713} Bash \u{00D7}10 | \u{2713} Read \u{00D7}3 | \u{2713} Write \u{00D7}2")
-        }
+            // Activity lines (always separate lines in both modes)
+            if config.display.showTools {
+                lines.append("\u{25D0} Edit: auth.ts | \u{2713} Bash \u{00D7}10 | \u{2713} Read \u{00D7}3 | \u{2713} Write \u{00D7}2")
+            }
 
-        if config.display.showAgents {
-            lines.append("\u{2713} Explore: Explore codebase patterns (1m 14s)")
-        }
+            if config.display.showAgents {
+                lines.append("\u{2713} Explore: Explore codebase patterns (1m 14s)")
+            }
 
-        if config.display.showTodos {
-            lines.append("\u{25B8}\u{25B8} accept edits on (shift+tab to cycle)")
+            if config.display.showTodos {
+                lines.append("\u{25B8}\u{25B8} accept edits on (shift+tab to cycle)")
+            }
         }
 
         if lines.isEmpty {
@@ -513,6 +725,61 @@ struct HUDView: View {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    private func contextPreviewString() -> String? {
+        guard config.display.showContextBar else { return nil }
+        if config.display.contextValue == "percent" {
+            return "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%"
+        } else {
+            return "Context 28k/100k"
+        }
+    }
+
+    private func usagePreviewString() -> String? {
+        guard config.display.showUsage else { return nil }
+        if config.display.usageBarEnabled {
+            return "Usage \u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18% (3h 39m / 5h)"
+        } else {
+            return "Usage 18% (3h 39m / 5h)"
+        }
+    }
+
+    private func previewLine(for element: String, gitSuffix: String) -> String? {
+        switch element {
+        case "project":
+            var headerLine = ""
+            if config.display.showModel {
+                headerLine += "[Opus 4.6 | Max] | "
+            }
+            headerLine += "my-project\(gitSuffix)"
+            return headerLine
+
+        case "context":
+            return contextPreviewString()
+
+        case "usage":
+            return usagePreviewString()
+
+        case "environment":
+            guard config.display.showConfigCounts else { return nil }
+            return "1 CLAUDE.md | 2 MCPs"
+
+        case "tools":
+            guard config.display.showTools else { return nil }
+            return "\u{25D0} Edit: auth.ts | \u{2713} Bash \u{00D7}10 | \u{2713} Read \u{00D7}3 | \u{2713} Write \u{00D7}2"
+
+        case "agents":
+            guard config.display.showAgents else { return nil }
+            return "\u{2713} Explore: Explore codebase patterns (1m 14s)"
+
+        case "todos":
+            guard config.display.showTodos else { return nil }
+            return "\u{25B8}\u{25B8} accept edits on (shift+tab to cycle)"
+
+        default:
+            return nil
+        }
     }
 
     // MARK: - Presets
@@ -528,10 +795,12 @@ struct HUDView: View {
         config.lineLayout = "expanded"
         config.showSeparators = true
         config.pathLevels = 2
+        config.elementOrder = HUDConfig.allElementKeys
         config.gitStatus = HUDConfig.HUDGitConfig(
             enabled: true, showDirty: true, showAheadBehind: true, showFileStats: true
         )
         saveConfig()
+        buildElementItems()
     }
 
     private func applyEssentialPreset() {
@@ -545,15 +814,18 @@ struct HUDView: View {
         config.lineLayout = "expanded"
         config.showSeparators = true
         config.pathLevels = 2
+        config.elementOrder = ["project", "context", "tools", "agents", "todos"]
         config.gitStatus = HUDConfig.HUDGitConfig(
             enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false
         )
         saveConfig()
+        buildElementItems()
     }
 
     private func applyMinimalPreset() {
         config = HUDConfig()
         saveConfig()
+        buildElementItems()
     }
 
     // MARK: - Credit Section
@@ -641,6 +913,15 @@ struct HUDView: View {
         if let v = json["showSeparators"] as? Bool { config.showSeparators = v }
         if let v = json["pathLevels"] as? Int { config.pathLevels = v }
 
+        // Merge elementOrder
+        if let v = json["elementOrder"] as? [String] {
+            let known = Set(HUDConfig.allElementKeys)
+            let filtered = v.filter { known.contains($0) }
+            if !filtered.isEmpty {
+                config.elementOrder = filtered
+            }
+        }
+
         // Legacy: migrate old nested "layout" key
         if let layout = json["layout"] as? [String: Any] {
             if json["lineLayout"] == nil, let v = layout["lineLayout"] as? String { config.lineLayout = v }
@@ -668,7 +949,7 @@ struct HUDView: View {
 
     /// Top-level keys that HUDConfig models — used to merge without destroying unknown plugin keys.
     private static let knownHUDConfigKeys: Set<String> = [
-        "display", "lineLayout", "showSeparators", "pathLevels", "gitStatus",
+        "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus",
     ]
 
     private func saveConfig() {
@@ -706,5 +987,41 @@ struct HUDView: View {
         if let outputData = try? JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys]) {
             try? outputData.write(to: configURL, options: .atomic)
         }
+    }
+}
+
+// MARK: - Preview Drop Delegate
+
+struct PreviewDropDelegate: DropDelegate {
+    let item: ElementItem
+    @Binding var allElements: [ElementItem]
+    @Binding var draggedElementID: String?
+    let onReorder: () -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedElementID = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedID = draggedElementID,
+              draggedID != item.id,
+              let fromIndex = allElements.firstIndex(where: { $0.id == draggedID }),
+              let toIndex = allElements.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            allElements.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+        }
+        onReorder()
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool {
+        draggedElementID != nil
     }
 }
