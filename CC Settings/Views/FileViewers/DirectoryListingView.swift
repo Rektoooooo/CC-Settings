@@ -72,7 +72,7 @@ struct DirectoryListingView: View {
         guard let contents = try? fm.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey, .contentModificationDateKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else { return [] }
 
         var entries: [DirectoryEntry] = []
