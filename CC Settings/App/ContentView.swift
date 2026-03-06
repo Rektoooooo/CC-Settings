@@ -56,6 +56,8 @@ struct ContentView: View {
         case .folder(let name):
             if name == "file-history" {
                 FileHistoryView()
+            } else if name == "tasks" {
+                TasksView()
             } else {
                 FilesEditorView(contentItem: .folder(name))
             }
