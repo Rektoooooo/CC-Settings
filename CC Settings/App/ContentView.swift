@@ -54,7 +54,11 @@ struct ContentView: View {
         case .sync:
             VersionControlView()
         case .folder(let name):
-            FilesEditorView(contentItem: .folder(name))
+            if name == "file-history" {
+                FileHistoryView()
+            } else {
+                FilesEditorView(contentItem: .folder(name))
+            }
         case .none:
             Text("Select an item from the sidebar")
                 .font(.title2)
