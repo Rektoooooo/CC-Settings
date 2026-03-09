@@ -74,6 +74,11 @@ struct MCPServerDetailView: View {
                         if let env = server.env, !env.isEmpty {
                             envVarsSection(env)
                         }
+
+                        // Headers
+                        if let headers = server.headers, !headers.isEmpty {
+                            headersSection(headers)
+                        }
                     }
                     .padding(16)
                 }
@@ -195,6 +200,7 @@ struct MCPServerDetailView: View {
         if let args = server.args { dict["args"] = args }
         if let env = server.env, !env.isEmpty { dict["env"] = env }
         if let url = server.url { dict["url"] = url }
+        if let headers = server.headers, !headers.isEmpty { dict["headers"] = headers }
         let wrapper: [String: Any] = [server.id: dict]
         guard let data = try? JSONSerialization.data(withJSONObject: wrapper, options: [.prettyPrinted, .sortedKeys]),
               let str = String(data: data, encoding: .utf8) else {
@@ -286,6 +292,40 @@ struct MCPServerDetailView: View {
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
                     Text(env[key] ?? "")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                }
+            }
+            .padding(12)
+            .glassContainer()
+        }
+    }
+
+    // MARK: - Headers Section
+
+    @ViewBuilder
+    private func headersSection(_ headers: [String: String]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Headers (\(headers.count))")
+                .font(.subheadline.bold())
+
+            LazyVGrid(columns: [
+                GridItem(.fixed(150), alignment: .leading),
+                GridItem(.flexible(), alignment: .leading)
+            ], spacing: 6) {
+                Text("Key")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+                Text("Value")
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+
+                ForEach(headers.keys.sorted(), id: \.self) { key in
+                    Text(key)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                    Text(headers[key] ?? "")
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
                         .lineLimit(1)

@@ -43,7 +43,7 @@ struct MCPServerEditorSheet: View {
         switch transportType {
         case .stdio:
             return !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .sse:
+        case .sse, .http:
             return !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
@@ -74,6 +74,13 @@ struct MCPServerEditorSheet: View {
             return MCPServerConfig(
                 id: name,
                 type: "sse",
+                env: envDict.isEmpty ? nil : envDict,
+                url: url.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        case .http:
+            return MCPServerConfig(
+                id: name,
+                type: "http",
                 env: envDict.isEmpty ? nil : envDict,
                 url: url.trimmingCharacters(in: .whitespacesAndNewlines)
             )
@@ -160,7 +167,7 @@ struct MCPServerEditorSheet: View {
                     if transportType == .stdio {
                         stdioFields
                     } else {
-                        sseFields
+                        urlFields
                     }
 
                     Divider()
@@ -270,17 +277,17 @@ struct MCPServerEditorSheet: View {
         }
     }
 
-    // MARK: - SSE Fields
+    // MARK: - URL Fields (SSE / HTTP)
 
     @ViewBuilder
-    private var sseFields: some View {
+    private var urlFields: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Server URL")
                 .font(.subheadline.bold())
-            TextField("https://example.com/mcp/sse", text: $url)
+            TextField("https://example.com/mcp", text: $url)
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
-            Text("The SSE endpoint URL for the MCP server.")
+            Text("The endpoint URL for the MCP server.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

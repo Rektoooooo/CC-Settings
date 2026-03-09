@@ -203,12 +203,27 @@ class ConfigurationManager: ObservableObject {
 
         var result: [String: MCPServerConfig] = [:]
         for (key, serverJSON) in serversDict {
-            guard let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
-                  var config = try? decoder.decode(MCPServerConfig.self, from: serverData) else {
-                continue
+            if let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
+               var config = try? decoder.decode(MCPServerConfig.self, from: serverData) {
+                config.id = key
+                result[key] = config
+            } else {
+                // Fallback: build config manually from raw JSON for maximum resilience
+                var config = MCPServerConfig(id: key)
+                config.type = serverJSON["type"] as? String
+                config.command = serverJSON["command"] as? String
+                config.url = serverJSON["url"] as? String
+                if let args = serverJSON["args"] as? [Any] {
+                    config.args = args.map { "\($0)" }
+                }
+                if let env = serverJSON["env"] as? [String: Any] {
+                    config.env = env.mapValues { "\($0)" }
+                }
+                if let headers = serverJSON["headers"] as? [String: Any] {
+                    config.headers = headers.mapValues { "\($0)" }
+                }
+                result[key] = config
             }
-            config.id = key
-            result[key] = config
         }
         return result
     }
