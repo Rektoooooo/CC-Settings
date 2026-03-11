@@ -127,6 +127,14 @@ struct FilesEditorView: View {
                 List(displayedFiles, id: \.id, selection: $selectedFile) { file in
                     FileListRow(file: file)
                         .tag(file)
+                        .contextMenu {
+                            Button("Show in Finder") {
+                                NSWorkspace.shared.selectFile(
+                                    file.path.path,
+                                    inFileViewerRootedAtPath: file.path.deletingLastPathComponent().path
+                                )
+                            }
+                        }
                 }
                 .listStyle(.sidebar)
 

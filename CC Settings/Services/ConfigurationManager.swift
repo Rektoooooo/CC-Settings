@@ -255,6 +255,184 @@ class ConfigurationManager: ObservableObject {
         }
     }
 
+    // MARK: - Project Settings (hooks, permissions, etc.)
+
+    /// Loads a project's `.claude/settings.json` for hooks and other project-level settings.
+    func loadProjectSettings(projectPath: String) -> ClaudeSettings? {
+        let settingsURL = URL(fileURLWithPath: projectPath)
+            .appendingPathComponent(".claude")
+            .appendingPathComponent("settings.json")
+        guard let data = try? Data(contentsOf: settingsURL) else { return nil }
+        let fixed = validateAndFix(jsonData: data)
+        return try? decoder.decode(ClaudeSettings.self, from: fixed)
+    }
+
+    /// Saves project-level settings to `<project>/.claude/settings.json`, preserving unknown keys.
+    func saveProjectSettings(_ settings: ClaudeSettings, projectPath: String) {
+        lastSaveTime = Date()
+        let claudeDir = URL(fileURLWithPath: projectPath).appendingPathComponent(".claude")
+        let settingsURL = claudeDir.appendingPathComponent("settings.json")
+        do {
+            try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
+
+            var existingJSON: [String: Any] = [:]
+            if let data = try? Data(contentsOf: settingsURL) {
+                let fixed = validateAndFix(jsonData: data)
+                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
+                    existingJSON = json
+                }
+            }
+
+            let settingsData = try encoder.encode(settings)
+            if let settingsJSON = try JSONSerialization.jsonObject(with: settingsData) as? [String: Any] {
+                for (key, value) in settingsJSON {
+                    existingJSON[key] = value
+                }
+                for key in existingJSON.keys {
+                    if settingsJSON[key] == nil, knownSettingsKeys.contains(key) {
+                        existingJSON.removeValue(forKey: key)
+                    }
+                }
+            }
+
+            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
+            let fixedOutput = fixIntegerFormatting(outputData)
+            try fixedOutput.write(to: settingsURL, options: .atomic)
+        } catch {
+            lastError = error
+        }
+    }
+
+    // MARK: - Project MCP Servers
+
+    /// Loads MCP servers from a project's `.mcp.json` file.
+    func loadProjectMCPServers(projectPath: String) -> [String: MCPServerConfig] {
+        let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
+        guard let data = try? Data(contentsOf: mcpURL) else {
+            return [:]
+        }
+        let fixed = validateAndFix(jsonData: data)
+        guard let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any],
+              let serversDict = json["mcpServers"] as? [String: [String: Any]] else {
+            return [:]
+        }
+
+        var result: [String: MCPServerConfig] = [:]
+        for (key, serverJSON) in serversDict {
+            if let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
+               var config = try? decoder.decode(MCPServerConfig.self, from: serverData) {
+                config.id = key
+                result[key] = config
+            } else {
+                var config = MCPServerConfig(id: key)
+                config.type = serverJSON["type"] as? String
+                config.command = serverJSON["command"] as? String
+                config.url = serverJSON["url"] as? String
+                if let args = serverJSON["args"] as? [Any] {
+                    config.args = args.map { "\($0)" }
+                }
+                if let env = serverJSON["env"] as? [String: Any] {
+                    config.env = env.mapValues { "\($0)" }
+                }
+                if let headers = serverJSON["headers"] as? [String: Any] {
+                    config.headers = headers.mapValues { "\($0)" }
+                }
+                result[key] = config
+            }
+        }
+        return result
+    }
+
+    /// Saves MCP servers to a project's `.mcp.json` file, preserving other keys.
+    func saveProjectMCPServers(_ servers: [String: MCPServerConfig], projectPath: String) {
+        lastSaveTime = Date()
+        let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
+        do {
+            var existingJSON: [String: Any] = [:]
+            if let data = try? Data(contentsOf: mcpURL) {
+                let fixed = validateAndFix(jsonData: data)
+                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
+                    existingJSON = json
+                }
+            }
+
+            let serversData = try encoder.encode(servers)
+            if let serversJSON = try JSONSerialization.jsonObject(with: serversData) as? [String: Any] {
+                existingJSON["mcpServers"] = serversJSON
+            }
+
+            // Remove mcpServers key entirely if empty
+            if servers.isEmpty {
+                existingJSON.removeValue(forKey: "mcpServers")
+            }
+
+            // If nothing left, delete the file
+            if existingJSON.isEmpty {
+                try? FileManager.default.removeItem(at: mcpURL)
+                return
+            }
+
+            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
+            try outputData.write(to: mcpURL, options: .atomic)
+        } catch {
+            lastError = error
+        }
+    }
+
+    /// Loads all MCP servers from global config and all known project `.mcp.json` files.
+    func loadAllScopedMCPServers() -> [ScopedMCPServer] {
+        var result: [ScopedMCPServer] = []
+
+        // Global servers from ~/.claude.json
+        let globalServers = loadMCPServers()
+        for (_, config) in globalServers {
+            result.append(ScopedMCPServer(config: config, scope: .global))
+        }
+
+        // Project servers from each known project's .mcp.json
+        let projects = loadProjects()
+        for project in projects {
+            let projectPath = project.originalPath
+            let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
+            guard FileManager.default.fileExists(atPath: mcpURL.path) else { continue }
+
+            let projectServers = loadProjectMCPServers(projectPath: projectPath)
+            let scope = ConfigScope.project(id: project.id, path: projectPath)
+            for (_, config) in projectServers {
+                result.append(ScopedMCPServer(config: config, scope: scope))
+            }
+        }
+
+        return result.sorted { $0.config.id.localizedCaseInsensitiveCompare($1.config.id) == .orderedAscending }
+    }
+
+    /// Moves an MCP server from one scope to another (copy then delete from source).
+    func moveMCPServer(_ server: MCPServerConfig, from sourceScope: ConfigScope, to targetScope: ConfigScope) {
+        // Add to target
+        switch targetScope {
+        case .global:
+            var dict = loadMCPServers()
+            dict[server.id] = server
+            saveMCPServers(dict)
+        case .project(_, let path):
+            var dict = loadProjectMCPServers(projectPath: path)
+            dict[server.id] = server
+            saveProjectMCPServers(dict, projectPath: path)
+        }
+
+        // Remove from source
+        switch sourceScope {
+        case .global:
+            var dict = loadMCPServers()
+            dict.removeValue(forKey: server.id)
+            saveMCPServers(dict)
+        case .project(_, let path):
+            var dict = loadProjectMCPServers(projectPath: path)
+            dict.removeValue(forKey: server.id)
+            saveProjectMCPServers(dict, projectPath: path)
+        }
+    }
+
     /// JSONSerialization converts Swift Int values to Double (e.g. 10000 becomes 10000.0).
     /// This post-processes the JSON text to restore whole-number doubles back to plain integers.
     private func fixIntegerFormatting(_ data: Data) -> Data {

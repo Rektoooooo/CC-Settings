@@ -56,6 +56,25 @@ enum HookType: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Scoped Hook Group
+
+/// A hook group tagged with its source scope, type, and position for editing.
+struct ScopedHookGroup: Identifiable {
+    let id: String
+    let hookType: HookType
+    let group: HookGroup
+    let scope: ConfigScope
+    let indexInScope: Int
+
+    init(hookType: HookType, group: HookGroup, scope: ConfigScope, indexInScope: Int) {
+        self.id = "\(scope.id):\(hookType.rawValue):\(indexInScope)"
+        self.hookType = hookType
+        self.group = group
+        self.scope = scope
+        self.indexInScope = indexInScope
+    }
+}
+
 // MARK: - Hook Group Model
 
 struct HookGroupModel: Identifiable, Equatable {
@@ -107,22 +126,88 @@ struct HookGroupModel: Identifiable, Equatable {
 struct HooksView: View {
     @EnvironmentObject var configManager: ConfigurationManager
 
-    // Inline add state — which hook type is currently showing the add form
+    // All scoped hooks
+    @State private var allHooks: [ScopedHookGroup] = []
+    @State private var projects: [Project] = []
+    @State private var projectSettingsCache: [String: ClaudeSettings] = [:]
+
+    // Scope filter
+    @State private var scopeFilter: ScopeFilter = .all
+
+    // Add hook state
     @State private var addingForType: HookType?
+    @State private var addScope: ConfigScope = .global
     @State private var newTool: String = ""
     @State private var newPattern: String = ""
     @State private var newCommands: [String] = [""]
 
-    // Inline edit state
-    @State private var editingId: UUID?
+    // Edit state
+    @State private var editingId: String?
     @State private var editTool: String = ""
     @State private var editPattern: String = ""
     @State private var editCommands: [String] = [""]
-    @State private var editType: HookType = .preToolUse
-    @State private var editIndex: Int = 0
+    @State private var editScopedGroup: ScopedHookGroup?
+
+    private var availableScopes: [ConfigScope] {
+        var scopes: [ConfigScope] = [.global]
+        let seen = Set(allHooks.compactMap { h -> String? in
+            if case .project(let id, _) = h.scope { return id }
+            return nil
+        })
+        for project in filteredProjects {
+            if seen.contains(project.id) {
+                scopes.append(.project(id: project.id, path: project.originalPath))
+            }
+        }
+        return scopes
+    }
+
+    private var filteredProjects: [Project] {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return projects.filter { project in
+            guard project.originalPath != home else { return false }
+            return !project.sessions.isEmpty || project.settings != nil || project.claudeMD != nil
+        }
+    }
+
+    private func hooksForType(_ type: HookType) -> [ScopedHookGroup] {
+        allHooks.filter { hook in
+            guard hook.hookType == type else { return false }
+            switch scopeFilter {
+            case .all: return true
+            case .global: return hook.scope.isGlobal
+            case .project(let id):
+                if case .project(let pid, _) = hook.scope { return pid == id }
+                return false
+            }
+        }
+    }
 
     var body: some View {
         Form {
+            // MARK: - Scope Filter
+            if availableScopes.count > 1 {
+                Section {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            ScopeFilterChip(label: "All", icon: "tray.2", isSelected: scopeFilter == .all) {
+                                scopeFilter = .all
+                            }
+                            ScopeFilterChip(label: "Global", icon: "globe", isSelected: scopeFilter == .global) {
+                                scopeFilter = .global
+                            }
+                            ForEach(availableScopes.filter { !$0.isGlobal }) { scope in
+                                if case .project(let id, _) = scope {
+                                    ScopeFilterChip(label: scope.displayName, icon: "folder", isSelected: scopeFilter == .project(id: id)) {
+                                        scopeFilter = .project(id: id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // MARK: - Info
             Section {
                 HStack(spacing: 8) {
@@ -139,6 +224,9 @@ struct HooksView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            loadAllHooks()
+        }
     }
 
     // MARK: - Section for Each Hook Type
@@ -146,14 +234,19 @@ struct HooksView: View {
     @ViewBuilder
     private func hookSection(for hookType: HookType) -> some View {
         Section {
-            // Existing hook groups
-            let groups = groupsForType(hookType)
-            ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
-                if editingId == group.id {
-                    // Inline edit form
-                    inlineEditForm(hookType: hookType, index: index)
-                } else {
-                    hookGroupRow(group: group, hookType: hookType, index: index)
+            let hooks = hooksForType(hookType)
+            if hooks.isEmpty && addingForType != hookType {
+                Text("No hooks configured")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+            } else {
+                ForEach(hooks) { scopedHook in
+                    if editingId == scopedHook.id {
+                        inlineEditForm(hookType: hookType)
+                    } else {
+                        hookGroupRow(scopedHook: scopedHook)
+                    }
                 }
             }
 
@@ -173,6 +266,16 @@ struct HooksView: View {
                 Image(systemName: hookType.icon)
                     .foregroundColor(hookType.color)
                 Text(hookType.displayName)
+                Spacer()
+                let count = hooksForType(hookType).count
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                }
             }
         } footer: {
             Text(hookType.description)
@@ -181,14 +284,16 @@ struct HooksView: View {
         }
     }
 
-    // MARK: - Hook Group Row (Display)
+    // MARK: - Hook Group Row
 
     @ViewBuilder
-    private func hookGroupRow(group: HookGroup, hookType: HookType, index: Int) -> some View {
+    private func hookGroupRow(scopedHook: ScopedHookGroup) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Matcher line
+            // Scope badge + matcher line
             HStack(spacing: 6) {
-                if let matcher = group.matcher {
+                ScopeBadge(scope: scopedHook.scope)
+
+                if let matcher = scopedHook.group.matcher {
                     if let tool = matcher.tool {
                         Text("Tool:")
                             .font(.caption)
@@ -220,7 +325,7 @@ struct HooksView: View {
                 Spacer()
 
                 Button {
-                    startEditing(group: group, hookType: hookType, index: index)
+                    startEditing(scopedHook: scopedHook)
                 } label: {
                     Image(systemName: "pencil")
                         .foregroundColor(.secondary)
@@ -229,7 +334,7 @@ struct HooksView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    deleteGroup(at: index, for: hookType)
+                    deleteHook(scopedHook)
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
@@ -239,12 +344,12 @@ struct HooksView: View {
             }
 
             // Commands
-            ForEach(group.hooks.indices, id: \.self) { i in
+            ForEach(scopedHook.group.hooks.indices, id: \.self) { i in
                 HStack(spacing: 4) {
                     Text("$")
                         .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(hookType.color)
-                    Text(group.hooks[i].command)
+                        .foregroundColor(scopedHook.hookType.color)
+                    Text(scopedHook.group.hooks[i].command)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
                         .lineLimit(2)
@@ -252,6 +357,22 @@ struct HooksView: View {
             }
         }
         .padding(.vertical, 2)
+        .contextMenu {
+            Button("Show in Finder") {
+                let settingsPath: String
+                if scopedHook.scope.isGlobal {
+                    settingsPath = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent(".claude/settings.json").path
+                } else if case .project(_, let path) = scopedHook.scope {
+                    settingsPath = URL(fileURLWithPath: path)
+                        .appendingPathComponent(".claude/settings.json").path
+                } else {
+                    return
+                }
+                NSWorkspace.shared.selectFile(settingsPath,
+                    inFileViewerRootedAtPath: URL(fileURLWithPath: settingsPath).deletingLastPathComponent().path)
+            }
+        }
     }
 
     // MARK: - Inline Add Form
@@ -259,6 +380,22 @@ struct HooksView: View {
     @ViewBuilder
     private func inlineAddForm(hookType: HookType) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Scope picker
+            HStack(spacing: 8) {
+                Text("Add to:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("", selection: $addScope) {
+                    Label("Global", systemImage: "globe").tag(ConfigScope.global)
+                    ForEach(filteredProjects) { project in
+                        Label(project.displayName, systemImage: "folder")
+                            .tag(ConfigScope.project(id: project.id, path: project.originalPath))
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+            }
+
             // Matcher fields
             GroupBox("Matcher (optional)") {
                 VStack(spacing: 6) {
@@ -334,7 +471,7 @@ struct HooksView: View {
     // MARK: - Inline Edit Form
 
     @ViewBuilder
-    private func inlineEditForm(hookType: HookType, index: Int) -> some View {
+    private func inlineEditForm(hookType: HookType) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             GroupBox("Matcher (optional)") {
                 VStack(spacing: 6) {
@@ -393,6 +530,7 @@ struct HooksView: View {
                 Spacer()
                 Button("Cancel") {
                     editingId = nil
+                    editScopedGroup = nil
                 }
                 Button("Save") {
                     saveEdit()
@@ -421,16 +559,16 @@ struct HooksView: View {
         newTool = ""
         newPattern = ""
         newCommands = [""]
+        addScope = .global
     }
 
-    private func startEditing(group: HookGroup, hookType: HookType, index: Int) {
-        editingId = group.id
-        editTool = group.matcher?.tool ?? ""
-        editPattern = group.matcher?.pattern ?? ""
-        editCommands = group.hooks.map(\.command)
+    private func startEditing(scopedHook: ScopedHookGroup) {
+        editingId = scopedHook.id
+        editScopedGroup = scopedHook
+        editTool = scopedHook.group.matcher?.tool ?? ""
+        editPattern = scopedHook.group.matcher?.pattern ?? ""
+        editCommands = scopedHook.group.hooks.map(\.command)
         if editCommands.isEmpty { editCommands = [""] }
-        editType = hookType
-        editIndex = index
     }
 
     private func saveNewHook(for hookType: HookType) {
@@ -441,15 +579,16 @@ struct HooksView: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
-        var groups = groupsForType(hookType)
-        groups.append(model.toHookGroup())
-        setGroups(groups, for: hookType)
+        let newGroup = model.toHookGroup()
+        appendGroup(newGroup, for: hookType, scope: addScope)
 
         addingForType = nil
         resetAddForm()
     }
 
     private func saveEdit() {
+        guard let scopedHook = editScopedGroup else { return }
+
         var model = HookGroupModel()
         model.matcherTool = editTool
         model.matcherPattern = editPattern
@@ -457,18 +596,70 @@ struct HooksView: View {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
-        var groups = groupsForType(editType)
-        guard editIndex < groups.count else { return }
-        groups[editIndex] = model.toHookGroup()
-        setGroups(groups, for: editType)
+        replaceGroup(at: scopedHook.indexInScope, with: model.toHookGroup(),
+                     for: scopedHook.hookType, scope: scopedHook.scope)
 
         editingId = nil
+        editScopedGroup = nil
     }
 
-    // MARK: - Data Access
+    private func deleteHook(_ scopedHook: ScopedHookGroup) {
+        removeGroup(at: scopedHook.indexInScope, for: scopedHook.hookType, scope: scopedHook.scope)
+    }
 
-    private func groupsForType(_ type: HookType) -> [HookGroup] {
-        let hooks = configManager.settings.hooks
+    // MARK: - Data Loading
+
+    private func loadAllHooks() {
+        projects = configManager.loadProjects()
+        projectSettingsCache = [:]
+        var result: [ScopedHookGroup] = []
+
+        // Global hooks
+        let globalHooks = configManager.settings.hooks
+        result += collectScopedGroups(from: globalHooks, scope: .global)
+
+        // Project hooks
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        for project in filteredProjects {
+            guard project.originalPath != home else { continue }
+            let scope = ConfigScope.project(id: project.id, path: project.originalPath)
+            if let settings = configManager.loadProjectSettings(projectPath: project.originalPath) {
+                projectSettingsCache[project.originalPath] = settings
+                result += collectScopedGroups(from: settings.hooks, scope: scope)
+            }
+        }
+
+        allHooks = result
+    }
+
+    private func collectScopedGroups(from hooks: HooksConfig?, scope: ConfigScope) -> [ScopedHookGroup] {
+        var result: [ScopedHookGroup] = []
+        for hookType in HookType.allCases {
+            let groups: [HookGroup]
+            switch hookType {
+            case .preToolUse: groups = hooks?.PreToolUse ?? []
+            case .postToolUse: groups = hooks?.PostToolUse ?? []
+            case .prePromptSubmit: groups = hooks?.PrePromptSubmit ?? []
+            case .postPromptSubmit: groups = hooks?.PostPromptSubmit ?? []
+            }
+            for (index, group) in groups.enumerated() {
+                result.append(ScopedHookGroup(hookType: hookType, group: group, scope: scope, indexInScope: index))
+            }
+        }
+        return result
+    }
+
+    // MARK: - Data Mutation
+
+    private func getGroups(for type: HookType, scope: ConfigScope) -> [HookGroup] {
+        let hooks: HooksConfig?
+        if scope.isGlobal {
+            hooks = configManager.settings.hooks
+        } else if case .project(_, let path) = scope {
+            hooks = projectSettingsCache[path]?.hooks
+        } else {
+            hooks = nil
+        }
         switch type {
         case .preToolUse: return hooks?.PreToolUse ?? []
         case .postToolUse: return hooks?.PostToolUse ?? []
@@ -477,7 +668,36 @@ struct HooksView: View {
         }
     }
 
-    private func setGroups(_ groups: [HookGroup], for type: HookType) {
+    private func setGroups(_ groups: [HookGroup], for type: HookType, scope: ConfigScope) {
+        if scope.isGlobal {
+            setGlobalGroups(groups, for: type)
+        } else if case .project(_, let path) = scope {
+            setProjectGroups(groups, for: type, projectPath: path)
+        }
+        loadAllHooks()
+    }
+
+    private func appendGroup(_ group: HookGroup, for type: HookType, scope: ConfigScope) {
+        var groups = getGroups(for: type, scope: scope)
+        groups.append(group)
+        setGroups(groups, for: type, scope: scope)
+    }
+
+    private func replaceGroup(at index: Int, with group: HookGroup, for type: HookType, scope: ConfigScope) {
+        var groups = getGroups(for: type, scope: scope)
+        guard index < groups.count else { return }
+        groups[index] = group
+        setGroups(groups, for: type, scope: scope)
+    }
+
+    private func removeGroup(at index: Int, for type: HookType, scope: ConfigScope) {
+        var groups = getGroups(for: type, scope: scope)
+        guard index < groups.count else { return }
+        groups.remove(at: index)
+        setGroups(groups, for: type, scope: scope)
+    }
+
+    private func setGlobalGroups(_ groups: [HookGroup], for type: HookType) {
         if configManager.settings.hooks == nil {
             configManager.settings.hooks = HooksConfig()
         }
@@ -496,11 +716,25 @@ struct HooksView: View {
         configManager.saveSettings()
     }
 
-    private func deleteGroup(at index: Int, for type: HookType) {
-        var groups = groupsForType(type)
-        guard index < groups.count else { return }
-        groups.remove(at: index)
-        setGroups(groups, for: type)
+    private func setProjectGroups(_ groups: [HookGroup], for type: HookType, projectPath: String) {
+        var settings = projectSettingsCache[projectPath] ?? ClaudeSettings()
+        if settings.hooks == nil {
+            settings.hooks = HooksConfig()
+        }
+        let value = groups.isEmpty ? nil : groups
+        switch type {
+        case .preToolUse: settings.hooks?.PreToolUse = value
+        case .postToolUse: settings.hooks?.PostToolUse = value
+        case .prePromptSubmit: settings.hooks?.PrePromptSubmit = value
+        case .postPromptSubmit: settings.hooks?.PostPromptSubmit = value
+        }
+        if let hooks = settings.hooks,
+           hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
+           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil {
+            settings.hooks = nil
+        }
+        configManager.saveProjectSettings(settings, projectPath: projectPath)
+        projectSettingsCache[projectPath] = settings
     }
 }
 

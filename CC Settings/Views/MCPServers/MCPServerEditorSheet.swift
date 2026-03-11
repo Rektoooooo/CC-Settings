@@ -5,7 +5,9 @@ struct MCPServerEditorSheet: View {
 
     let existingServer: MCPServerConfig?
     let existingNames: Set<String>
-    let onSave: (MCPServerConfig) -> Void
+    let targetScope: ConfigScope
+    let availableScopes: [ConfigScope]
+    let onSave: (MCPServerConfig, ConfigScope) -> Void
 
     @State private var name: String = ""
     @State private var transportType: MCPTransportType = .stdio
@@ -14,13 +16,23 @@ struct MCPServerEditorSheet: View {
     @State private var url: String = ""
     @State private var envVars: [EnvEntry] = [EnvEntry()]
     @State private var nameError: String?
+    @State private var selectedScope: ConfigScope
 
     private var isEditing: Bool { existingServer != nil }
 
-    init(existingServer: MCPServerConfig? = nil, existingNames: Set<String> = [], onSave: @escaping (MCPServerConfig) -> Void) {
+    init(
+        existingServer: MCPServerConfig? = nil,
+        existingNames: Set<String> = [],
+        targetScope: ConfigScope = .global,
+        availableScopes: [ConfigScope] = [.global],
+        onSave: @escaping (MCPServerConfig, ConfigScope) -> Void
+    ) {
         self.existingServer = existingServer
         self.existingNames = existingNames
+        self.targetScope = targetScope
+        self.availableScopes = availableScopes
         self.onSave = onSave
+        _selectedScope = State(initialValue: targetScope)
 
         if let server = existingServer {
             _name = State(initialValue: server.id)
@@ -125,6 +137,24 @@ struct MCPServerEditorSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Scope picker
+                    if availableScopes.count > 1 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Location")
+                                .font(.subheadline.bold())
+                            Picker("Scope", selection: $selectedScope) {
+                                ForEach(availableScopes) { scope in
+                                    Label(scope.displayName, systemImage: scope.icon)
+                                        .tag(scope)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            Text(selectedScope.mcpPathDescription)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
                     // Name field
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Server Name")
@@ -204,6 +234,9 @@ struct MCPServerEditorSheet: View {
 
             // Footer
             HStack {
+                if !isEditing {
+                    ScopeBadge(scope: selectedScope)
+                }
                 Spacer()
                 Button("Cancel") {
                     dismiss()
@@ -211,7 +244,7 @@ struct MCPServerEditorSheet: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button(isEditing ? "Save Changes" : "Add Server") {
-                    onSave(builtServer)
+                    onSave(builtServer, selectedScope)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -220,7 +253,7 @@ struct MCPServerEditorSheet: View {
             .padding()
         }
         .frame(minWidth: 450, idealWidth: 600, maxWidth: 800,
-               minHeight: 450, idealHeight: 600, maxHeight: 800)
+               minHeight: 450, idealHeight: 650, maxHeight: 850)
     }
 
     // MARK: - Stdio Fields

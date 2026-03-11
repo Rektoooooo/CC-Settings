@@ -10,6 +10,7 @@ struct Skill: Identifiable, Hashable {
     let symlinkTarget: String?
     let isSymlink: Bool
     var files: [SkillFile]
+    var scope: ConfigScope
 
     static func == (lhs: Skill, rhs: Skill) -> Bool {
         lhs.id == rhs.id
@@ -124,125 +125,64 @@ struct SkillsView: View {
     @State private var selectedSkill: Skill?
     @State private var searchText = ""
     @State private var isLoading = false
+    @State private var scopeFilter: ScopeFilter = .all
+    @State private var projects: [Project] = []
 
-    private let skillsPath: String = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".claude/skills").path
-    }()
+    private var globalSkillsURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/skills")
+    }
 
-    private var skillsURL: URL {
-        URL(fileURLWithPath: skillsPath)
+    private var availableScopes: [ConfigScope] {
+        var scopes: [ConfigScope] = [.global]
+        let seen = Set(skills.compactMap { s -> String? in
+            if case .project(let id, _) = s.scope { return id }
+            return nil
+        })
+        for project in projects {
+            if seen.contains(project.id) {
+                scopes.append(.project(id: project.id, path: project.originalPath))
+            }
+        }
+        return scopes
     }
 
     private var filteredSkills: [Skill] {
-        if searchText.isEmpty {
-            return skills
+        var result = skills
+
+        switch scopeFilter {
+        case .all: break
+        case .global: result = result.filter { $0.scope.isGlobal }
+        case .project(let id):
+            result = result.filter {
+                if case .project(let pid, _) = $0.scope { return pid == id }
+                return false
+            }
         }
-        let query = searchText.lowercased()
-        return skills.filter {
-            $0.name.lowercased().contains(query) ||
-            $0.description.lowercased().contains(query)
+
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = result.filter {
+                $0.name.lowercased().contains(query) ||
+                $0.description.lowercased().contains(query) ||
+                $0.scope.displayName.lowercased().contains(query)
+            }
         }
+        return result
     }
 
     var body: some View {
         HSplitView {
             // Left column - Skills list
             VStack(spacing: 0) {
-                // Header
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "sparkles")
-                            .foregroundColor(.themeAccent)
-                            .font(.title3)
-                        Text("Skills")
-                            .font(.headline)
-                        Spacer()
-                        Button {
-                            loadSkills()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .buttonStyle(.plain)
-                        .help("Reload")
-                    }
-                    Text("~/.claude/skills")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .textSelection(.enabled)
-                }
-                .padding(12)
-
-                // Search field
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Search skills...", text: $searchText)
-                        .textFieldStyle(.plain)
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(8)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-
+                headerSection
+                searchAndFilterSection
                 Divider()
-
-                // Skills list
-                if isLoading {
-                    Spacer()
-                    ProgressView("Loading skills...")
-                        .font(.caption)
-                    Spacer()
-                } else if filteredSkills.isEmpty {
-                    Spacer()
-                    EmptyContentPlaceholder(
-                        icon: "sparkles",
-                        title: skills.isEmpty ? "No Skills" : "No Results",
-                        subtitle: skills.isEmpty ? "Skills will appear in ~/.claude/skills/" : "No skills match your search"
-                    )
-                    Spacer()
-                } else {
-                    List(selection: $selectedSkill) {
-                        ForEach(filteredSkills) { skill in
-                            SkillItemRow(skill: skill)
-                                .tag(skill)
-                                .contextMenu {
-                                    Button("Show in Finder") {
-                                        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: skill.path.path)
-                                    }
-                                    if skill.isSymlink, let target = skill.symlinkTarget {
-                                        Button("Show Symlink Target") {
-                                            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: target)
-                                        }
-                                    }
-                                }
-                        }
-                    }
-                    .listStyle(.sidebar)
-                }
-
+                skillsListSection
                 Divider()
-
-                // Footer
-                HStack {
-                    Text("\(filteredSkills.count) skill\(filteredSkills.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                footerSection
             }
-            .frame(minWidth: 200, idealWidth: 280, maxWidth: 350)
+            .frame(minWidth: 200, idealWidth: 300, maxWidth: 380)
 
             // Right column - Skill detail
             if let skill = selectedSkill,
@@ -261,60 +201,237 @@ struct SkillsView: View {
         }
     }
 
+    // MARK: - Header
+
+    @ViewBuilder
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.themeAccent)
+                    .font(.title3)
+                Text("Skills")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    loadSkills()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Reload")
+            }
+            Text("Global + Project skills")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+    }
+
+    // MARK: - Search & Filter
+
+    @ViewBuilder
+    private var searchAndFilterSection: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search skills...", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+
+            if availableScopes.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ScopeFilterChip(label: "All", icon: "tray.2", isSelected: scopeFilter == .all) {
+                            scopeFilter = .all
+                        }
+                        ScopeFilterChip(label: "Global", icon: "globe", isSelected: scopeFilter == .global) {
+                            scopeFilter = .global
+                        }
+                        ForEach(availableScopes.filter { !$0.isGlobal }) { scope in
+                            if case .project(let id, _) = scope {
+                                ScopeFilterChip(label: scope.displayName, icon: "folder", isSelected: scopeFilter == .project(id: id)) {
+                                    scopeFilter = .project(id: id)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Skills List
+
+    @ViewBuilder
+    private var skillsListSection: some View {
+        if isLoading {
+            Spacer()
+            ProgressView("Loading skills...")
+                .font(.caption)
+            Spacer()
+        } else if filteredSkills.isEmpty {
+            Spacer()
+            EmptyContentPlaceholder(
+                icon: "sparkles",
+                title: skills.isEmpty ? "No Skills" : "No Results",
+                subtitle: skills.isEmpty ? "Skills will appear in ~/.claude/skills/ or project .claude/skills/" : "No skills match your search"
+            )
+            Spacer()
+        } else {
+            List(selection: $selectedSkill) {
+                ForEach(filteredSkills) { skill in
+                    SkillItemRow(skill: skill)
+                        .tag(skill)
+                        .contextMenu {
+                            Button("Show in Finder") {
+                                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: skill.path.path)
+                            }
+                            if skill.isSymlink, let target = skill.symlinkTarget {
+                                Button("Show Symlink Target") {
+                                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: target)
+                                }
+                            }
+                        }
+                }
+            }
+            .listStyle(.sidebar)
+        }
+    }
+
+    // MARK: - Footer
+
+    @ViewBuilder
+    private var footerSection: some View {
+        HStack {
+            Text("\(filteredSkills.count) skill\(filteredSkills.count == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if scopeFilter != .all {
+                Text("(filtered)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Data
+
     private func loadSkills() {
         isLoading = true
+        projects = configManager.loadProjects()
         let fm = FileManager.default
         var loaded: [Skill] = []
 
-        guard let contents = try? fm.contentsOfDirectory(
-            at: skillsURL,
-            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            skills = []
-            isLoading = false
-            return
-        }
+        // Global skills
+        loaded += loadSkillsFrom(url: globalSkillsURL, scope: .global, fm: fm)
 
-        for url in contents {
-            let isSymlink = (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
-            let resolvedURL: URL
-            if isSymlink {
-                resolvedURL = url.resolvingSymlinksInPath()
-            } else {
-                resolvedURL = url
-            }
-
-            guard (try? resolvedURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else {
-                continue
-            }
-
-            let symlinkTarget: String? = isSymlink
-                ? (try? fm.destinationOfSymbolicLink(atPath: url.path))
-                : nil
-
-            let files = loadFilesRecursively(from: resolvedURL, basePath: resolvedURL)
-
-            var description = ""
-            let mainFile = files.first(where: { $0.name.lowercased() == "skill.md" && $0.isRootLevel }) ??
-                           files.first(where: { $0.name.lowercased() == "readme.md" && $0.isRootLevel })
-            if let mainFile = mainFile {
-                description = extractDescription(from: mainFile.path)
-            }
-
-            loaded.append(Skill(
-                id: url.path,
-                name: url.lastPathComponent,
-                description: description,
-                path: url,
-                symlinkTarget: symlinkTarget,
-                isSymlink: isSymlink,
-                files: files
-            ))
+        // Project skills
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        for project in projects {
+            guard project.originalPath != home else { continue }
+            let projectSkillsURL = URL(fileURLWithPath: project.originalPath)
+                .appendingPathComponent(".claude/skills")
+            let scope = ConfigScope.project(id: project.id, path: project.originalPath)
+            loaded += loadSkillsFrom(url: projectSkillsURL, scope: scope, fm: fm)
         }
 
         skills = loaded.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         isLoading = false
+
+        if let sel = selectedSkill, !skills.contains(where: { $0.id == sel.id }) {
+            selectedSkill = nil
+        }
+    }
+
+    private func loadSkillsFrom(url: URL, scope: ConfigScope, fm: FileManager) -> [Skill] {
+        guard let contents = try? fm.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var result: [Skill] = []
+        for itemURL in contents {
+            let isSymlink = (try? itemURL.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+            let resolvedURL = isSymlink ? itemURL.resolvingSymlinksInPath() : itemURL
+            let isDirectory = (try? resolvedURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+
+            let symlinkTarget: String? = isSymlink
+                ? (try? fm.destinationOfSymbolicLink(atPath: itemURL.path))
+                : nil
+
+            if isDirectory {
+                // Directory-based skill (standard layout with SKILL.md inside)
+                let files = loadFilesRecursively(from: resolvedURL, basePath: resolvedURL)
+
+                var description = ""
+                let mainFile = files.first(where: { $0.name.lowercased() == "skill.md" && $0.isRootLevel }) ??
+                               files.first(where: { $0.name.lowercased() == "readme.md" && $0.isRootLevel })
+                if let mainFile = mainFile {
+                    description = extractDescription(from: mainFile.path)
+                }
+
+                result.append(Skill(
+                    id: itemURL.path,
+                    name: itemURL.lastPathComponent,
+                    description: description,
+                    path: itemURL,
+                    symlinkTarget: symlinkTarget,
+                    isSymlink: isSymlink,
+                    files: files,
+                    scope: scope
+                ))
+            } else if itemURL.pathExtension.lowercased() == "md" {
+                // Standalone .md file skill
+                let name = itemURL.deletingPathExtension().lastPathComponent
+                let attrs = try? itemURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+                let fileSize = Int64(attrs?.fileSize ?? 0)
+                let description = extractDescription(from: itemURL)
+
+                let file = SkillFile(
+                    id: itemURL.path,
+                    name: itemURL.lastPathComponent,
+                    path: itemURL,
+                    relativePath: itemURL.lastPathComponent,
+                    type: .markdown,
+                    size: fileSize,
+                    modificationDate: attrs?.contentModificationDate,
+                    isRootLevel: true
+                )
+
+                result.append(Skill(
+                    id: itemURL.path,
+                    name: name,
+                    description: description,
+                    path: itemURL,
+                    symlinkTarget: symlinkTarget,
+                    isSymlink: isSymlink,
+                    files: [file],
+                    scope: scope
+                ))
+            }
+        }
+        return result
     }
 
     private func loadFilesRecursively(from url: URL, basePath: URL) -> [SkillFile] {
@@ -409,11 +526,14 @@ private struct SkillItemRow: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                if !skill.description.isEmpty {
-                    Text(skill.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                HStack(spacing: 4) {
+                    ScopeBadge(scope: skill.scope)
+                    if !skill.description.isEmpty {
+                        Text(skill.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
                 }
             }
         }
@@ -451,6 +571,8 @@ private struct SkillDetailView: View {
                         .foregroundColor(.secondary)
                     }
                 }
+
+                ScopeBadge(scope: skill.scope)
 
                 Spacer()
 

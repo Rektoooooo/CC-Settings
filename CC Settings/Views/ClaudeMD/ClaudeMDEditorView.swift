@@ -157,6 +157,13 @@ struct ClaudeMDEditorView: View {
                 }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!hasChanges)
+
+                Button {
+                    revealInFinder()
+                } label: {
+                    Image(systemName: "folder")
+                }
+                .help("Show in Finder")
             }
         }
         .padding(.horizontal, 12)
@@ -280,6 +287,27 @@ struct ClaudeMDEditorView: View {
             let loaded = configManager.loadProjectClaudeMD(projectId: selectedScope) ?? ""
             content = loaded
             originalContent = loaded
+        }
+    }
+
+    private func revealInFinder() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        if isGlobal {
+            let file = home.appendingPathComponent(".claude/CLAUDE.md").path
+            let dir = home.appendingPathComponent(".claude").path
+            NSWorkspace.shared.selectFile(file, inFileViewerRootedAtPath: dir)
+        } else if let project = currentProject {
+            let projectURL = URL(fileURLWithPath: project.originalPath)
+            // Check project root first, then .claude/
+            let rootMD = projectURL.appendingPathComponent("CLAUDE.md")
+            let claudeMD = projectURL.appendingPathComponent(".claude/CLAUDE.md")
+            if FileManager.default.fileExists(atPath: rootMD.path) {
+                NSWorkspace.shared.selectFile(rootMD.path, inFileViewerRootedAtPath: project.originalPath)
+            } else if FileManager.default.fileExists(atPath: claudeMD.path) {
+                NSWorkspace.shared.selectFile(claudeMD.path, inFileViewerRootedAtPath: projectURL.appendingPathComponent(".claude").path)
+            } else {
+                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: project.originalPath)
+            }
         }
     }
 

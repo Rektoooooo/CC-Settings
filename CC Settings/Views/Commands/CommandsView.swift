@@ -12,6 +12,7 @@ struct SlashCommand: Identifiable, Hashable {
     let fileURL: URL
     let isSymlink: Bool
     let fileSize: Int64
+    var scope: ConfigScope
 
     var symlinkTarget: String? {
         guard isSymlink else { return nil }
@@ -27,14 +28,18 @@ struct SlashCommand: Identifiable, Hashable {
     }
 
     /// Parse a .md file into a SlashCommand
-    static func parse(from url: URL) -> SlashCommand? {
+    /// - Parameters:
+    ///   - url: The file URL to parse
+    ///   - scope: The config scope (global or project)
+    ///   - nameOverride: Optional name override for nested commands (e.g. "subdir:cmd")
+    static func parse(from url: URL, scope: ConfigScope = .global, nameOverride: String? = nil) -> SlashCommand? {
         guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let fm = FileManager.default
         let attrs = try? fm.attributesOfItem(atPath: url.path)
         let fileSize = (attrs?[.size] as? Int64) ?? 0
         let isSymlink = (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
 
-        let name = url.deletingPathExtension().lastPathComponent
+        let name = nameOverride ?? url.deletingPathExtension().lastPathComponent
 
         var description = ""
         var argumentHint = ""
@@ -81,7 +86,8 @@ struct SlashCommand: Identifiable, Hashable {
             body: bodyContent,
             fileURL: url,
             isSymlink: isSymlink,
-            fileSize: fileSize
+            fileSize: fileSize,
+            scope: scope
         )
     }
 
@@ -125,132 +131,75 @@ struct CommandsView: View {
     @State private var searchText = ""
     @State private var showNewCommandSheet = false
     @State private var isLoading = false
+    @State private var scopeFilter: ScopeFilter = .all
+    @State private var projects: [Project] = []
+    @State private var editorTargetScope: ConfigScope = .global
 
-    private let commandsPath: String = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".claude/commands").path
-    }()
+    private var globalCommandsURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/commands")
+    }
 
-    private var commandsURL: URL {
-        URL(fileURLWithPath: commandsPath)
+    private var availableScopes: [ConfigScope] {
+        var scopes: [ConfigScope] = [.global]
+        let seen = Set(commands.compactMap { cmd -> String? in
+            if case .project(let id, _) = cmd.scope { return id }
+            return nil
+        })
+        for project in projects {
+            if seen.contains(project.id) {
+                scopes.append(.project(id: project.id, path: project.originalPath))
+            }
+        }
+        return scopes
+    }
+
+    private var allAvailableScopes: [ConfigScope] {
+        var scopes: [ConfigScope] = [.global]
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        for project in projects {
+            guard project.originalPath != home else { continue }
+            scopes.append(.project(id: project.id, path: project.originalPath))
+        }
+        return scopes
     }
 
     private var filteredCommands: [SlashCommand] {
-        if searchText.isEmpty {
-            return commands
+        var result = commands
+
+        switch scopeFilter {
+        case .all: break
+        case .global: result = result.filter { $0.scope.isGlobal }
+        case .project(let id):
+            result = result.filter {
+                if case .project(let pid, _) = $0.scope { return pid == id }
+                return false
+            }
         }
-        let query = searchText.lowercased()
-        return commands.filter {
-            $0.name.lowercased().contains(query) ||
-            $0.description.lowercased().contains(query)
+
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = result.filter {
+                $0.name.lowercased().contains(query) ||
+                $0.description.lowercased().contains(query) ||
+                $0.scope.displayName.lowercased().contains(query)
+            }
         }
+        return result
     }
 
     var body: some View {
         HSplitView {
             // Left column - Command list
             VStack(spacing: 0) {
-                // Header
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "terminal")
-                            .foregroundColor(.themeAccent)
-                            .font(.title3)
-                        Text("Commands")
-                            .font(.headline)
-                        Spacer()
-                        Button {
-                            showNewCommandSheet = true
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                        }
-                        .buttonStyle(.plain)
-                        .help("New Command")
-
-                        Button {
-                            loadCommands()
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .buttonStyle(.plain)
-                        .help("Reload")
-                    }
-                    Text("~/.claude/commands")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .textSelection(.enabled)
-                }
-                .padding(12)
-
-                // Search field
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    TextField("Search commands...", text: $searchText)
-                        .textFieldStyle(.plain)
-                    if !searchText.isEmpty {
-                        Button {
-                            searchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(8)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-
+                headerSection
+                searchAndFilterSection
                 Divider()
-
-                // Command list
-                if isLoading {
-                    Spacer()
-                    ProgressView("Loading commands...")
-                        .font(.caption)
-                    Spacer()
-                } else if filteredCommands.isEmpty {
-                    Spacer()
-                    EmptyContentPlaceholder(
-                        icon: "command",
-                        title: commands.isEmpty ? "No Commands" : "No Results",
-                        subtitle: commands.isEmpty ? "Add slash commands to ~/.claude/commands/" : "No commands match your search"
-                    )
-                    Spacer()
-                } else {
-                    List(selection: $selectedCommand) {
-                        ForEach(filteredCommands) { command in
-                            CommandItemRow(command: command)
-                                .tag(command)
-                                .contextMenu {
-                                    Button("Show in Finder") {
-                                        NSWorkspace.shared.selectFile(command.fileURL.path, inFileViewerRootedAtPath: command.fileURL.deletingLastPathComponent().path)
-                                    }
-                                    Divider()
-                                    Button("Delete", role: .destructive) {
-                                        deleteCommand(command)
-                                    }
-                                }
-                        }
-                    }
-                    .listStyle(.sidebar)
-                }
-
+                commandListSection
                 Divider()
-
-                // Footer
-                HStack {
-                    Text("\(filteredCommands.count) command\(filteredCommands.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                footerSection
             }
-            .frame(minWidth: 200, idealWidth: 280, maxWidth: 350)
+            .frame(minWidth: 200, idealWidth: 300, maxWidth: 380)
 
             // Right column - Editor
             if let command = selectedCommand,
@@ -276,28 +225,195 @@ struct CommandsView: View {
             loadCommands()
         }
         .sheet(isPresented: $showNewCommandSheet) {
-            CommandEditorSheet(commandsURL: commandsURL) { newCommand in
+            CommandEditorSheet(
+                commandsURL: commandsURLForScope(editorTargetScope),
+                targetScope: editorTargetScope,
+                availableScopes: allAvailableScopes
+            ) { newCommand in
                 loadCommands()
                 selectedCommand = commands.first(where: { $0.name == newCommand.name })
             }
         }
     }
 
+    // MARK: - Header
+
+    @ViewBuilder
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "terminal")
+                    .foregroundColor(.themeAccent)
+                    .font(.title3)
+                Text("Commands")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    editorTargetScope = .global
+                    showNewCommandSheet = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .help("New Command")
+
+                Button {
+                    loadCommands()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Reload")
+            }
+            Text("Global + Project commands")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+    }
+
+    // MARK: - Search & Filter
+
+    @ViewBuilder
+    private var searchAndFilterSection: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("Search commands...", text: $searchText)
+                    .textFieldStyle(.plain)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+
+            if availableScopes.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ScopeFilterChip(label: "All", icon: "tray.2", isSelected: scopeFilter == .all) {
+                            scopeFilter = .all
+                        }
+                        ScopeFilterChip(label: "Global", icon: "globe", isSelected: scopeFilter == .global) {
+                            scopeFilter = .global
+                        }
+                        ForEach(availableScopes.filter { !$0.isGlobal }) { scope in
+                            if case .project(let id, _) = scope {
+                                ScopeFilterChip(label: scope.displayName, icon: "folder", isSelected: scopeFilter == .project(id: id)) {
+                                    scopeFilter = .project(id: id)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Command List
+
+    @ViewBuilder
+    private var commandListSection: some View {
+        if isLoading {
+            Spacer()
+            ProgressView("Loading commands...")
+                .font(.caption)
+            Spacer()
+        } else if filteredCommands.isEmpty {
+            Spacer()
+            EmptyContentPlaceholder(
+                icon: "command",
+                title: commands.isEmpty ? "No Commands" : "No Results",
+                subtitle: commands.isEmpty ? "Add slash commands" : "No commands match your search"
+            )
+            Spacer()
+        } else {
+            List(selection: $selectedCommand) {
+                ForEach(filteredCommands) { command in
+                    CommandItemRow(command: command)
+                        .tag(command)
+                        .contextMenu {
+                            if allAvailableScopes.count > 1 {
+                                Menu("Move to...") {
+                                    ForEach(allAvailableScopes.filter { $0 != command.scope }) { scope in
+                                        Button(scope.displayName) {
+                                            moveCommand(command, to: scope)
+                                        }
+                                    }
+                                }
+                            }
+                            Button("Show in Finder") {
+                                NSWorkspace.shared.selectFile(command.fileURL.path, inFileViewerRootedAtPath: command.fileURL.deletingLastPathComponent().path)
+                            }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                deleteCommand(command)
+                            }
+                        }
+                }
+            }
+            .listStyle(.sidebar)
+        }
+    }
+
+    // MARK: - Footer
+
+    @ViewBuilder
+    private var footerSection: some View {
+        HStack {
+            Text("\(filteredCommands.count) command\(filteredCommands.count == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            if scopeFilter != .all {
+                Text("(filtered)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Helpers
+
+    private func commandsURLForScope(_ scope: ConfigScope) -> URL {
+        switch scope {
+        case .global:
+            return globalCommandsURL
+        case .project(_, let path):
+            return URL(fileURLWithPath: path).appendingPathComponent(".claude/commands")
+        }
+    }
+
+    // MARK: - Data Operations
+
     private func loadCommands() {
         isLoading = true
+        projects = configManager.loadProjects()
         let fm = FileManager.default
         var loaded: [SlashCommand] = []
 
-        if let contents = try? fm.contentsOfDirectory(
-            at: commandsURL,
-            includingPropertiesForKeys: [.isSymbolicLinkKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
-        ) {
-            for url in contents where url.pathExtension.lowercased() == "md" {
-                if let command = SlashCommand.parse(from: url) {
-                    loaded.append(command)
-                }
-            }
+        // Load global commands
+        loaded += loadCommandsFrom(url: globalCommandsURL, scope: .global, fm: fm)
+
+        // Load project commands
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        for project in projects {
+            guard project.originalPath != home else { continue }
+            let projectCommandsURL = URL(fileURLWithPath: project.originalPath)
+                .appendingPathComponent(".claude/commands")
+            let scope = ConfigScope.project(id: project.id, path: project.originalPath)
+            loaded += loadCommandsFrom(url: projectCommandsURL, scope: scope, fm: fm)
         }
 
         commands = loaded.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -308,12 +424,36 @@ struct CommandsView: View {
         }
     }
 
+    private func loadCommandsFrom(url: URL, scope: ConfigScope, fm: FileManager) -> [SlashCommand] {
+        guard let enumerator = fm.enumerator(
+            at: url,
+            includingPropertiesForKeys: [.isSymbolicLinkKey, .fileSizeKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var results: [SlashCommand] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension.lowercased() == "md" else { continue }
+            // Build the command name from the relative path within the commands directory
+            // e.g. "subdir/cmd.md" becomes "subdir:cmd"
+            let relativePath = fileURL.path.replacingOccurrences(of: url.path + "/", with: "")
+            let name = relativePath
+                .replacingOccurrences(of: ".md", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "/", with: ":")
+            if let command = SlashCommand.parse(from: fileURL, scope: scope, nameOverride: name) {
+                results.append(command)
+            }
+        }
+        return results
+    }
+
     private func saveCommand(_ command: SlashCommand) {
         let markdown = command.toMarkdown()
         do {
             try markdown.write(to: command.fileURL, atomically: true, encoding: .utf8)
             loadCommands()
-            // Re-select the command to pick up changes
             selectedCommand = commands.first(where: { $0.id == command.id })
         } catch {
             // Error handling
@@ -326,6 +466,21 @@ struct CommandsView: View {
             if selectedCommand?.id == command.id {
                 selectedCommand = nil
             }
+            loadCommands()
+        } catch {
+            // Error handling
+        }
+    }
+
+    private func moveCommand(_ command: SlashCommand, to targetScope: ConfigScope) {
+        let targetDir = commandsURLForScope(targetScope)
+        let targetURL = targetDir.appendingPathComponent(command.fileURL.lastPathComponent)
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
+            let markdown = command.toMarkdown()
+            try markdown.write(to: targetURL, atomically: true, encoding: .utf8)
+            try fm.removeItem(at: command.fileURL)
             loadCommands()
         } catch {
             // Error handling
@@ -355,11 +510,14 @@ private struct CommandItemRow: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                if !command.description.isEmpty {
-                    Text(command.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                HStack(spacing: 4) {
+                    ScopeBadge(scope: command.scope)
+                    if !command.description.isEmpty {
+                        Text(command.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
         }
@@ -423,6 +581,8 @@ private struct CommandDetailEditor: View {
                 Text("/\(command.name)")
                     .font(.headline.monospaced())
                     .lineLimit(1)
+
+                ScopeBadge(scope: command.scope)
 
                 ViewModePicker(mode: $viewMode)
 
@@ -774,6 +934,8 @@ private struct CommandDetailEditor: View {
 
 struct CommandEditorSheet: View {
     let commandsURL: URL
+    var targetScope: ConfigScope = .global
+    var availableScopes: [ConfigScope] = [.global]
     var onCreate: ((SlashCommand) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
@@ -781,11 +943,30 @@ struct CommandEditorSheet: View {
     @State private var description = ""
     @State private var nameError: String?
     @State private var existsError = false
+    @State private var selectedScope: ConfigScope
 
     private let namePattern = "^[a-z][a-z0-9-]*$"
 
+    init(commandsURL: URL, targetScope: ConfigScope = .global, availableScopes: [ConfigScope] = [.global], onCreate: ((SlashCommand) -> Void)? = nil) {
+        self.commandsURL = commandsURL
+        self.targetScope = targetScope
+        self.availableScopes = availableScopes
+        self.onCreate = onCreate
+        _selectedScope = State(initialValue: targetScope)
+    }
+
     private var isValid: Bool {
         !name.isEmpty && nameError == nil && !existsError
+    }
+
+    private var effectiveCommandsURL: URL {
+        switch selectedScope {
+        case .global:
+            return FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".claude/commands")
+        case .project(_, let path):
+            return URL(fileURLWithPath: path).appendingPathComponent(".claude/commands")
+        }
     }
 
     var body: some View {
@@ -808,6 +989,21 @@ struct CommandEditorSheet: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 16) {
+                // Scope picker
+                if availableScopes.count > 1 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Location")
+                            .font(.subheadline.bold())
+                        Picker("Scope", selection: $selectedScope) {
+                            ForEach(availableScopes) { scope in
+                                Label(scope.displayName, systemImage: scope.icon)
+                                    .tag(scope)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+
                 // Name field
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Command Name")
@@ -858,6 +1054,7 @@ struct CommandEditorSheet: View {
 
             // Footer
             HStack {
+                ScopeBadge(scope: selectedScope)
                 Spacer()
                 Button("Cancel") {
                     dismiss()
@@ -872,7 +1069,7 @@ struct CommandEditorSheet: View {
             }
             .padding()
         }
-        .frame(width: 450, height: 320)
+        .frame(width: 450, height: 380)
     }
 
     private func validateName(_ value: String) {
@@ -886,7 +1083,7 @@ struct CommandEditorSheet: View {
             return
         }
 
-        let fileURL = commandsURL.appendingPathComponent("\(value).md")
+        let fileURL = effectiveCommandsURL.appendingPathComponent("\(value).md")
         if FileManager.default.fileExists(atPath: fileURL.path) {
             existsError = true
         }
@@ -894,9 +1091,10 @@ struct CommandEditorSheet: View {
 
     private func createCommand() {
         let fm = FileManager.default
-        try? fm.createDirectory(at: commandsURL, withIntermediateDirectories: true)
+        let targetDir = effectiveCommandsURL
+        try? fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
 
-        let fileURL = commandsURL.appendingPathComponent("\(name).md")
+        let fileURL = targetDir.appendingPathComponent("\(name).md")
 
         let command = SlashCommand(
             id: fileURL.path,
@@ -907,7 +1105,8 @@ struct CommandEditorSheet: View {
             body: "",
             fileURL: fileURL,
             isSymlink: false,
-            fileSize: 0
+            fileSize: 0,
+            scope: selectedScope
         )
 
         let markdown = command.toMarkdown()

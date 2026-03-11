@@ -2,8 +2,10 @@ import SwiftUI
 
 struct MCPServerDetailView: View {
     let server: MCPServerConfig
+    var scope: ConfigScope = .global
     var onEdit: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onMove: (() -> Void)?
 
     @State private var showDeleteAlert = false
 
@@ -28,7 +30,19 @@ struct MCPServerDetailView: View {
                         .background(server.transportType == .stdio ? Color.themeAccent : Color.purple)
                         .cornerRadius(4)
 
+                    ScopeBadge(scope: scope)
+
                     Spacer()
+
+                    if onMove != nil {
+                        Button {
+                            onMove?()
+                        } label: {
+                            Label("Move", systemImage: "arrow.right.arrow.left")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
 
                     Button {
                         onEdit?()
@@ -122,6 +136,17 @@ struct MCPServerDetailView: View {
                         .font(.caption)
                     Text(server.transportType.displayName)
                         .font(.caption)
+                }
+
+                Text("Scope")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    ScopeBadge(scope: scope)
+                    Text(scope.mcpPathDescription)
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
                 }
 
                 if let command = server.command {
