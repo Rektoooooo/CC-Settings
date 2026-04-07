@@ -687,13 +687,13 @@ struct HUDView: View {
                 HStack(spacing: 10) {
                     ColorPicker("", selection: $newColorPick, supportsOpacity: false)
                         .labelsHidden()
-                    TextField("Name", text: $newColorName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 160)
                     Text(newColorPick.toHex())
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.secondary)
                         .frame(width: 65)
+                    TextField("Color name", text: $newColorName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 160)
                     Spacer()
                     Button("Save") {
                         let name = newColorName.trimmingCharacters(in: .whitespacesAndNewlines)
