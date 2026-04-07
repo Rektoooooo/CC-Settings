@@ -153,25 +153,182 @@ struct HUDView: View {
     }()
 
     var body: some View {
-        Form {
-            statusBannerSection
-            previewSection
-            layoutSection
-            displaySection
-            usageSection
-            activitySection
-            gitStatusSection
-            colorsSection
-            customColorsSection
-            presetsSection
-            creditSection
+        Group {
+            if isInstalled {
+                Form {
+                    statusBannerSection
+                    previewSection
+                    layoutSection
+                    displaySection
+                    usageSection
+                    activitySection
+                    gitStatusSection
+                    colorsSection
+                    customColorsSection
+                    presetsSection
+                    creditSection
+                }
+                .formStyle(.grouped)
+            } else {
+                notInstalledView
+            }
         }
-        .formStyle(.grouped)
         .navigationTitle("HUD")
         .onAppear {
             checkInstallation()
             loadConfig()
             buildElementItems()
+        }
+    }
+
+    // MARK: - Not Installed View
+
+    private var notInstalledView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Hero
+                VStack(spacing: 12) {
+                    Image(systemName: "gauge.open.with.lines.needle.33percent.and.arrowtriangle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.accentColor)
+
+                    Text("Claude HUD")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+
+                    Text("A real-time status line for Claude Code that shows context usage, active tools, running agents, and todo progress. Always visible below your input.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 500)
+                }
+                .padding(.top, 30)
+
+                // Preview mockup
+                VStack(alignment: .leading, spacing: 2) {
+                    mockupProjectLine
+                    mockupContextLine
+                    Text("2 CLAUDE.md | 4 MCPs")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Text(String(repeating: "\u{2500}", count: 40))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    mockupToolsLine
+                    mockupAgentLine
+                    (Text("\u{2713} ").foregroundColor(.green) + Text("All todos complete (8/8)").foregroundColor(.secondary))
+                        .font(.system(size: 12, design: .monospaced))
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 40)
+
+                // Features
+                VStack(alignment: .leading, spacing: 12) {
+                    featureRow(icon: "chart.bar.fill", color: .green, title: "Context Health", description: "Live context window usage with color-coded warnings")
+                    featureRow(icon: "wrench.and.screwdriver.fill", color: .blue, title: "Tool Activity", description: "See which tools are running and their completion counts")
+                    featureRow(icon: "person.2.fill", color: .purple, title: "Agent Tracking", description: "Monitor subagent tasks with real-time elapsed time")
+                    featureRow(icon: "checklist", color: .orange, title: "Todo Progress", description: "Track todo completion across your session")
+                    featureRow(icon: "paintpalette.fill", color: .pink, title: "Fully Customizable", description: "Colors, layout, element order, and visibility — all configurable")
+                }
+                .padding(.horizontal, 40)
+
+                // Install steps
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Install")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    installStep(number: 1, title: "Add the marketplace", command: "/plugin marketplace add jarrodwatts/claude-hud")
+                    installStep(number: 2, title: "Install the plugin", command: "/plugin install claude-hud")
+                    installStep(number: 3, title: "Reload plugins", command: "/reload-plugins")
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 40)
+
+                // Links
+                HStack(spacing: 16) {
+                    Link(destination: URL(string: "https://github.com/jarrodwatts/claude-hud")!) {
+                        Label("GitHub", systemImage: "link")
+                    }
+                    Text("MIT License")
+                        .foregroundColor(.secondary)
+                    Text("by Jarrod Watts")
+                        .foregroundColor(.secondary)
+                }
+                .font(.caption)
+                .padding(.bottom, 30)
+            }
+        }
+    }
+
+    private var mockupProjectLine: some View {
+        let part1 = Text("[Opus 4.6 | Max]").foregroundColor(.cyan) + Text(" \u{2502} ").foregroundColor(.secondary)
+        let part2 = Text("my-project").foregroundColor(.yellow) + Text(" git:(").foregroundColor(.purple)
+        let part3 = Text("main").foregroundColor(.cyan) + Text(")").foregroundColor(.purple)
+        let part4 = Text(" \u{2502} ").foregroundColor(.secondary) + Text("CC v2.1.92 \u{2502} \u{23F1} 5m").foregroundColor(.secondary)
+        return (part1 + part2 + part3 + part4).font(.system(size: 12, design: .monospaced))
+    }
+
+    private var mockupContextLine: some View {
+        let ctx = Text("Context ").foregroundColor(.secondary) + Text("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%").foregroundColor(.green)
+        let sep = Text("  \u{2502}  ").foregroundColor(.secondary)
+        let usg = Text("Usage ").foregroundColor(.secondary) + Text("\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18%").foregroundColor(Color(red: 0.4, green: 0.5, blue: 1.0))
+        return (ctx + sep + usg).font(.system(size: 12, design: .monospaced))
+    }
+
+    private var mockupToolsLine: some View {
+        let t1 = Text("\u{2713} ").foregroundColor(.green) + Text("Edit \u{00D7}9 | ").foregroundColor(.secondary)
+        let t2 = Text("\u{2713} ").foregroundColor(.green) + Text("Read \u{00D7}6 | ").foregroundColor(.secondary)
+        let t3 = Text("\u{2713} ").foregroundColor(.green) + Text("Bash \u{00D7}4").foregroundColor(.secondary)
+        return (t1 + t2 + t3).font(.system(size: 12, design: .monospaced))
+    }
+
+    private var mockupAgentLine: some View {
+        (Text("\u{2713} ").foregroundColor(.green) + Text("Explore").foregroundColor(.purple) + Text(": Analyze codebase (1m 14s)").foregroundColor(.secondary))
+            .font(.system(size: 12, design: .monospaced))
+    }
+
+    private func featureRow(icon: String, color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .fontWeight(.medium)
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    private func installStep(number: Int, title: String, command: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Step \(number): \(title)")
+                .font(.subheadline)
+                .fontWeight(.medium)
+            HStack {
+                Text(command)
+                    .font(.system(.caption, design: .monospaced))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 6))
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(command, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Copy to clipboard")
+            }
         }
     }
 
