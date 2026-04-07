@@ -5,48 +5,78 @@ import SwiftUI
 /// Represents the claude-hud plugin configuration at ~/.claude/plugins/claude-hud/config.json
 /// The plugin expects usage fields inside `display`, and `autocompactBuffer` as "enabled"/"disabled".
 struct HUDConfig: Codable, Equatable {
+    var language: String
     var display: HUDDisplayConfig
     var lineLayout: String
     var showSeparators: Bool
     var pathLevels: Int
     var elementOrder: [String]
     var gitStatus: HUDGitConfig
+    var colors: HUDColorOverrides
 
-    static let allElementKeys = ["project", "context", "usage", "environment", "tools", "agents", "todos"]
+    static let allElementKeys = ["project", "context", "usage", "memory", "environment", "tools", "agents", "todos"]
 
     init() {
+        language = "en"
         display = HUDDisplayConfig()
         lineLayout = "expanded"
-        showSeparators = true
-        pathLevels = 2
+        showSeparators = false
+        pathLevels = 1
         elementOrder = Self.allElementKeys
         gitStatus = HUDGitConfig()
+        colors = HUDColorOverrides()
     }
 
     struct HUDDisplayConfig: Codable, Equatable {
         var showModel: Bool = true
+        var showProject: Bool = true
         var showContextBar: Bool = true
         var contextValue: String = "percent"
         var showTokenBreakdown: Bool = true
         var showConfigCounts: Bool = false
+        var showCost: Bool = false
         var showDuration: Bool = false
         var showSpeed: Bool = false
-        var autocompactBuffer: String = "enabled"
-        var showTools: Bool = true
-        var showAgents: Bool = true
-        var showTodos: Bool = true
         var showUsage: Bool = true
         var usageBarEnabled: Bool = true
+        var showTools: Bool = false
+        var showAgents: Bool = false
+        var showTodos: Bool = false
+        var showSessionName: Bool = false
+        var showClaudeCodeVersion: Bool = false
+        var showMemoryUsage: Bool = false
+        var showSessionTokens: Bool = false
+        var showOutputStyle: Bool = false
+        var autocompactBuffer: String = "enabled"
         var usageThreshold: Int = 0
-        var sevenDayThreshold: Int = 0
+        var sevenDayThreshold: Int = 80
         var environmentThreshold: Int = 0
+        var modelFormat: String = "full"
+        var modelOverride: String = ""
+        var customLine: String = ""
     }
 
     struct HUDGitConfig: Codable, Equatable {
         var enabled: Bool = true
         var showDirty: Bool = true
-        var showAheadBehind: Bool = true
+        var showAheadBehind: Bool = false
         var showFileStats: Bool = false
+        var pushWarningThreshold: Int = 0
+        var pushCriticalThreshold: Int = 0
+    }
+
+    struct HUDColorOverrides: Codable, Equatable {
+        var context: String = "green"
+        var usage: String = "brightBlue"
+        var warning: String = "yellow"
+        var usageWarning: String = "brightMagenta"
+        var critical: String = "red"
+        var model: String = "cyan"
+        var project: String = "yellow"
+        var git: String = "magenta"
+        var gitBranch: String = "cyan"
+        var label: String = "dim"
+        var custom: String = "208"
     }
 }
 
@@ -61,6 +91,7 @@ struct ElementItem: Identifiable, Equatable {
         case "project": return "Project"
         case "context": return "Context Bar"
         case "usage": return "Usage"
+        case "memory": return "Memory"
         case "environment": return "Environment"
         case "tools": return "Tools"
         case "agents": return "Agents"
@@ -74,6 +105,7 @@ struct ElementItem: Identifiable, Equatable {
         case "project": return "folder"
         case "context": return "chart.bar"
         case "usage": return "gauge.medium"
+        case "memory": return "brain"
         case "environment": return "gearshape.2"
         case "tools": return "wrench.and.screwdriver"
         case "agents": return "person.2"
@@ -123,6 +155,7 @@ struct HUDView: View {
             usageSection
             activitySection
             gitStatusSection
+            colorsSection
             presetsSection
             creditSection
         }
@@ -304,16 +337,20 @@ struct HUDView: View {
 
     private var layoutSection: some View {
         Section {
+            Picker("Language", selection: $config.language) {
+                Text("English").tag("en")
+                Text("Chinese").tag("zh")
+            }
+            .onChange(of: config.language) { _, _ in saveConfig() }
+
             Picker("Line Layout", selection: $config.lineLayout) {
                 Text("Expanded").tag("expanded")
                 Text("Compact").tag("compact")
             }
             .onChange(of: config.lineLayout) { _, _ in saveConfig() }
 
-            if config.lineLayout == "compact" {
-                Toggle("Show Separators", isOn: $config.showSeparators)
-                    .onChange(of: config.showSeparators) { _, _ in saveConfig() }
-            }
+            Toggle("Show Separators", isOn: $config.showSeparators)
+                .onChange(of: config.showSeparators) { _, _ in saveConfig() }
 
             Picker("Path Levels", selection: $config.pathLevels) {
                 Text("1").tag(1)
@@ -332,39 +369,87 @@ struct HUDView: View {
 
     // MARK: - Display Section
 
+    private func toggleRow(_ label: String, isOn: Binding<Bool>, preview: String, color: Color = .secondary, onChange: @escaping () -> Void = {}) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Toggle(label, isOn: isOn)
+                .onChange(of: isOn.wrappedValue) { _, _ in onChange() }
+            Text(preview)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(color)
+        }
+    }
+
     private var displaySection: some View {
         Section {
-            Toggle("Show Model Name", isOn: $config.display.showModel)
-                .onChange(of: config.display.showModel) { _, _ in saveConfig() }
+            toggleRow("Show Model Name", isOn: $config.display.showModel,
+                      preview: "[Opus 4.6 | Max]", color: .cyan) { saveConfig() }
 
-            Toggle("Show Context Bar", isOn: $config.display.showContextBar)
-                .onChange(of: config.display.showContextBar) { _, _ in syncElementOrder() }
+            if config.display.showModel {
+                Picker("Model Format", selection: $config.display.modelFormat) {
+                    Text("Full").tag("full")
+                    Text("Compact").tag("compact")
+                    Text("Short").tag("short")
+                }
+                .onChange(of: config.display.modelFormat) { _, _ in saveConfig() }
+
+                TextField("Model Override", text: $config.display.modelOverride, prompt: Text("Leave empty for auto"))
+                    .onChange(of: config.display.modelOverride) { _, _ in saveConfig() }
+            }
+
+            toggleRow("Show Project Path", isOn: $config.display.showProject,
+                      preview: "my-project git:(main*)", color: .yellow) { saveConfig() }
+
+            toggleRow("Show Context Bar", isOn: $config.display.showContextBar,
+                      preview: "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 45%", color: .green) { syncElementOrder() }
 
             if config.display.showContextBar {
                 Picker("Context Value", selection: $config.display.contextValue) {
                     Text("Percent").tag("percent")
                     Text("Tokens").tag("tokens")
+                    Text("Remaining").tag("remaining")
+                    Text("Both").tag("both")
                 }
                 .onChange(of: config.display.contextValue) { _, _ in saveConfig() }
 
-                Toggle("Token Breakdown at 85%+", isOn: $config.display.showTokenBreakdown)
-                    .onChange(of: config.display.showTokenBreakdown) { _, _ in saveConfig() }
+                toggleRow("Token Breakdown at 85%+", isOn: $config.display.showTokenBreakdown,
+                          preview: "(in: 45k, cache: 12k)", color: .secondary) { saveConfig() }
             }
 
-            Toggle("Show Config Counts", isOn: $config.display.showConfigCounts)
-                .onChange(of: config.display.showConfigCounts) { _, _ in syncElementOrder() }
+            toggleRow("Show Config Counts", isOn: $config.display.showConfigCounts,
+                      preview: "2 CLAUDE.md | 4 MCPs", color: .secondary) { syncElementOrder() }
 
-            Toggle("Show Session Duration", isOn: $config.display.showDuration)
-                .onChange(of: config.display.showDuration) { _, _ in saveConfig() }
+            toggleRow("Show Cost", isOn: $config.display.showCost,
+                      preview: "Est. $12.97", color: .secondary) { saveConfig() }
 
-            Toggle("Show Output Speed", isOn: $config.display.showSpeed)
-                .onChange(of: config.display.showSpeed) { _, _ in saveConfig() }
+            toggleRow("Show Session Duration", isOn: $config.display.showDuration,
+                      preview: "\u{23F1} 22m", color: .secondary) { saveConfig() }
+
+            toggleRow("Show Output Speed", isOn: $config.display.showSpeed,
+                      preview: "out: 85.2 tok/s", color: .secondary) { saveConfig() }
+
+            toggleRow("Show Session Name", isOn: $config.display.showSessionName,
+                      preview: "precious-sauteeing-hollerith", color: .secondary) { saveConfig() }
+
+            toggleRow("Show Claude Code Version", isOn: $config.display.showClaudeCodeVersion,
+                      preview: "CC v2.1.92", color: .secondary) { saveConfig() }
+
+            toggleRow("Show Memory Usage", isOn: $config.display.showMemoryUsage,
+                      preview: "Approx RAM \u{2588}\u{2588}\u{2591}\u{2591}\u{2591} 5.8 GB / 16 GB", color: .blue) { saveConfig() }
+
+            toggleRow("Show Session Tokens", isOn: $config.display.showSessionTokens,
+                      preview: "Tokens 125k (in: 45k, out: 80k, cache: 12k)", color: .secondary) { saveConfig() }
+
+            toggleRow("Show Output Style", isOn: $config.display.showOutputStyle,
+                      preview: "style: concise", color: .secondary) { saveConfig() }
 
             Picker("Auto-Compact Buffer", selection: $config.display.autocompactBuffer) {
                 Text("Enabled").tag("enabled")
                 Text("Disabled").tag("disabled")
             }
             .onChange(of: config.display.autocompactBuffer) { _, _ in saveConfig() }
+
+            TextField("Custom Line", text: $config.display.customLine, prompt: Text("Optional custom status text"))
+                .onChange(of: config.display.customLine) { _, _ in saveConfig() }
         } header: {
             Text("Display")
         } footer: {
@@ -378,8 +463,8 @@ struct HUDView: View {
 
     private var usageSection: some View {
         Section {
-            Toggle("Show Usage Rate Limits", isOn: $config.display.showUsage)
-                .onChange(of: config.display.showUsage) { _, _ in syncElementOrder() }
+            toggleRow("Show Usage Rate Limits", isOn: $config.display.showUsage,
+                      preview: "Usage \u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 24% (resets in 4h)", color: Color(red: 0.4, green: 0.5, blue: 1.0)) { syncElementOrder() }
 
             if config.display.showUsage {
                 Toggle("Visual Bar", isOn: $config.display.usageBarEnabled)
@@ -455,14 +540,14 @@ struct HUDView: View {
 
     private var activitySection: some View {
         Section {
-            Toggle("Show Tool Activity", isOn: $config.display.showTools)
-                .onChange(of: config.display.showTools) { _, _ in syncElementOrder() }
+            toggleRow("Show Tool Activity", isOn: $config.display.showTools,
+                      preview: "\u{2713} Edit \u{00D7}9 | \u{2713} Read \u{00D7}6 | \u{2713} Bash \u{00D7}4", color: .green) { syncElementOrder() }
 
-            Toggle("Show Agent Status", isOn: $config.display.showAgents)
-                .onChange(of: config.display.showAgents) { _, _ in syncElementOrder() }
+            toggleRow("Show Agent Status", isOn: $config.display.showAgents,
+                      preview: "\u{2713} Explore: Analyze codebase (1m 14s)", color: .purple) { syncElementOrder() }
 
-            Toggle("Show Todo Progress", isOn: $config.display.showTodos)
-                .onChange(of: config.display.showTodos) { _, _ in syncElementOrder() }
+            toggleRow("Show Todo Progress", isOn: $config.display.showTodos,
+                      preview: "\u{2713} All todos complete (8/8)", color: .green) { syncElementOrder() }
         } header: {
             Text("Activity Lines")
         } footer: {
@@ -476,26 +561,101 @@ struct HUDView: View {
 
     private var gitStatusSection: some View {
         Section {
-            Toggle("Show Git Branch", isOn: $config.gitStatus.enabled)
-                .onChange(of: config.gitStatus.enabled) { _, _ in saveConfig() }
+            toggleRow("Show Git Branch", isOn: $config.gitStatus.enabled,
+                      preview: "git:(main)", color: .purple) { saveConfig() }
 
             if config.gitStatus.enabled {
-                Toggle("Show Dirty Indicator", isOn: $config.gitStatus.showDirty)
-                    .onChange(of: config.gitStatus.showDirty) { _, _ in saveConfig() }
+                toggleRow("Show Dirty Indicator", isOn: $config.gitStatus.showDirty,
+                          preview: "git:(main*)", color: .purple) { saveConfig() }
 
-                Toggle("Show Ahead/Behind", isOn: $config.gitStatus.showAheadBehind)
-                    .onChange(of: config.gitStatus.showAheadBehind) { _, _ in saveConfig() }
+                toggleRow("Show Ahead/Behind", isOn: $config.gitStatus.showAheadBehind,
+                          preview: "\u{2191}2 \u{2193}1", color: .cyan) { saveConfig() }
 
-                Toggle("Show File Stats", isOn: $config.gitStatus.showFileStats)
-                    .onChange(of: config.gitStatus.showFileStats) { _, _ in saveConfig() }
+                toggleRow("Show File Stats", isOn: $config.gitStatus.showFileStats,
+                          preview: "[+5 -2]  ~auth.ts  +config.json", color: .yellow) { saveConfig() }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Push Warning Threshold")
+                        Spacer()
+                        Text("\(config.gitStatus.pushWarningThreshold)")
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(config.gitStatus.pushWarningThreshold) },
+                            set: { config.gitStatus.pushWarningThreshold = Int($0) }
+                        ),
+                        in: 0...50,
+                        step: 1
+                    )
+                    .onChange(of: config.gitStatus.pushWarningThreshold) { _, _ in saveConfig() }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Push Critical Threshold")
+                        Spacer()
+                        Text("\(config.gitStatus.pushCriticalThreshold)")
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(config.gitStatus.pushCriticalThreshold) },
+                            set: { config.gitStatus.pushCriticalThreshold = Int($0) }
+                        ),
+                        in: 0...50,
+                        step: 1
+                    )
+                    .onChange(of: config.gitStatus.pushCriticalThreshold) { _, _ in saveConfig() }
+                }
             }
         } header: {
             Text("Git Status")
         } footer: {
-            Text("Git branch, dirty state, and file change information.")
+            Text("Git branch, dirty state, file changes, and push count warnings.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    // MARK: - Colors Section
+
+    private static let colorOptions = [
+        "dim", "red", "green", "yellow", "magenta", "cyan", "brightBlue", "brightMagenta",
+    ]
+
+    private var colorsSection: some View {
+        Section {
+            colorPicker("Context", selection: $config.colors.context)
+            colorPicker("Usage", selection: $config.colors.usage)
+            colorPicker("Warning", selection: $config.colors.warning)
+            colorPicker("Usage Warning", selection: $config.colors.usageWarning)
+            colorPicker("Critical", selection: $config.colors.critical)
+            colorPicker("Model", selection: $config.colors.model)
+            colorPicker("Project", selection: $config.colors.project)
+            colorPicker("Git", selection: $config.colors.git)
+            colorPicker("Git Branch", selection: $config.colors.gitBranch)
+            colorPicker("Label", selection: $config.colors.label)
+            colorPicker("Custom", selection: $config.colors.custom)
+        } header: {
+            Text("Colors")
+        } footer: {
+            Text("Named presets for terminal ANSI colors. You can also enter a 256-color index (0-255) or hex (#rrggbb) directly in the config file.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func colorPicker(_ label: String, selection: Binding<String>) -> some View {
+        Picker(label, selection: selection) {
+            ForEach(Self.colorOptions, id: \.self) { color in
+                Text(color).tag(color)
+            }
+        }
+        .onChange(of: selection.wrappedValue) { _, _ in saveConfig() }
     }
 
     // MARK: - Presets Section
@@ -563,9 +723,10 @@ struct HUDView: View {
 
     private func isElementVisible(_ id: String) -> Bool {
         switch id {
-        case "project": return true
+        case "project": return config.display.showProject
         case "context": return config.display.showContextBar
         case "usage": return config.display.showUsage
+        case "memory": return config.display.showMemoryUsage
         case "environment": return config.display.showConfigCounts
         case "tools": return config.display.showTools
         case "agents": return config.display.showAgents
@@ -672,10 +833,11 @@ struct HUDView: View {
             }
 
             if config.display.showContextBar {
-                if config.display.contextValue == "percent" {
-                    parts.append("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 28%")
-                } else {
-                    parts.append("28k/100k")
+                switch config.display.contextValue {
+                case "tokens": parts.append("28k/100k")
+                case "remaining": parts.append("72k remaining")
+                case "both": parts.append("28k/100k (28%)")
+                default: parts.append("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 28%")
                 }
             }
 
@@ -729,10 +891,11 @@ struct HUDView: View {
 
     private func contextPreviewString() -> String? {
         guard config.display.showContextBar else { return nil }
-        if config.display.contextValue == "percent" {
-            return "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%"
-        } else {
-            return "Context 28k/100k"
+        switch config.display.contextValue {
+        case "tokens": return "Context 28k/100k"
+        case "remaining": return "Context 72k remaining"
+        case "both": return "Context 28k/100k (28%)"
+        default: return "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%"
         }
     }
 
@@ -761,6 +924,10 @@ struct HUDView: View {
         case "usage":
             return usagePreviewString()
 
+        case "memory":
+            guard config.display.showMemoryUsage else { return nil }
+            return "Memory: 12 entities"
+
         case "environment":
             guard config.display.showConfigCounts else { return nil }
             return "1 CLAUDE.md | 2 MCPs"
@@ -785,38 +952,58 @@ struct HUDView: View {
     // MARK: - Presets
 
     private func applyFullPreset() {
-        config.display = HUDConfig.HUDDisplayConfig(
-            showModel: true, showContextBar: true, contextValue: "percent",
-            showTokenBreakdown: true, showConfigCounts: true, showDuration: true,
-            showSpeed: true, autocompactBuffer: "enabled", showTools: true,
-            showAgents: true, showTodos: true, showUsage: true, usageBarEnabled: true,
-            usageThreshold: 0, sevenDayThreshold: 0, environmentThreshold: 0
-        )
+        var d = HUDConfig.HUDDisplayConfig()
+        d.showModel = true
+        d.showProject = true
+        d.showContextBar = true
+        d.contextValue = "percent"
+        d.showTokenBreakdown = true
+        d.showConfigCounts = true
+        d.showCost = true
+        d.showDuration = true
+        d.showSpeed = true
+        d.showUsage = true
+        d.usageBarEnabled = true
+        d.showTools = true
+        d.showAgents = true
+        d.showTodos = true
+        d.showSessionName = true
+        d.showClaudeCodeVersion = true
+        d.showMemoryUsage = true
+        d.showSessionTokens = true
+        d.showOutputStyle = true
+        d.autocompactBuffer = "enabled"
+        config.display = d
         config.lineLayout = "expanded"
         config.showSeparators = true
         config.pathLevels = 2
         config.elementOrder = HUDConfig.allElementKeys
         config.gitStatus = HUDConfig.HUDGitConfig(
-            enabled: true, showDirty: true, showAheadBehind: true, showFileStats: true
+            enabled: true, showDirty: true, showAheadBehind: true, showFileStats: true,
+            pushWarningThreshold: 0, pushCriticalThreshold: 0
         )
         saveConfig()
         buildElementItems()
     }
 
     private func applyEssentialPreset() {
-        config.display = HUDConfig.HUDDisplayConfig(
-            showModel: true, showContextBar: true, contextValue: "percent",
-            showTokenBreakdown: true, showConfigCounts: false, showDuration: true,
-            showSpeed: false, autocompactBuffer: "enabled", showTools: true,
-            showAgents: true, showTodos: true, showUsage: false, usageBarEnabled: true,
-            usageThreshold: 0, sevenDayThreshold: 0, environmentThreshold: 0
-        )
+        var d = HUDConfig.HUDDisplayConfig()
+        d.showModel = true
+        d.showProject = true
+        d.showContextBar = true
+        d.showTokenBreakdown = true
+        d.showDuration = true
+        d.showTools = true
+        d.showAgents = true
+        d.showTodos = true
+        config.display = d
         config.lineLayout = "expanded"
         config.showSeparators = true
         config.pathLevels = 2
         config.elementOrder = ["project", "context", "tools", "agents", "todos"]
         config.gitStatus = HUDConfig.HUDGitConfig(
-            enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false
+            enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false,
+            pushWarningThreshold: 0, pushCriticalThreshold: 0
         )
         saveConfig()
         buildElementItems()
@@ -888,24 +1075,37 @@ struct HUDView: View {
             return
         }
 
+        // Merge language
+        if let v = json["language"] as? String { config.language = v }
+
         // Merge display (plugin stores usage fields here too)
         if let display = json["display"] as? [String: Any] {
             if let v = display["showModel"] as? Bool { config.display.showModel = v }
+            if let v = display["showProject"] as? Bool { config.display.showProject = v }
             if let v = display["showContextBar"] as? Bool { config.display.showContextBar = v }
             if let v = display["contextValue"] as? String { config.display.contextValue = v }
             if let v = display["showTokenBreakdown"] as? Bool { config.display.showTokenBreakdown = v }
             if let v = display["showConfigCounts"] as? Bool { config.display.showConfigCounts = v }
+            if let v = display["showCost"] as? Bool { config.display.showCost = v }
             if let v = display["showDuration"] as? Bool { config.display.showDuration = v }
             if let v = display["showSpeed"] as? Bool { config.display.showSpeed = v }
-            if let v = display["autocompactBuffer"] as? String { config.display.autocompactBuffer = v }
+            if let v = display["showUsage"] as? Bool { config.display.showUsage = v }
+            if let v = display["usageBarEnabled"] as? Bool { config.display.usageBarEnabled = v }
             if let v = display["showTools"] as? Bool { config.display.showTools = v }
             if let v = display["showAgents"] as? Bool { config.display.showAgents = v }
             if let v = display["showTodos"] as? Bool { config.display.showTodos = v }
-            if let v = display["showUsage"] as? Bool { config.display.showUsage = v }
-            if let v = display["usageBarEnabled"] as? Bool { config.display.usageBarEnabled = v }
+            if let v = display["showSessionName"] as? Bool { config.display.showSessionName = v }
+            if let v = display["showClaudeCodeVersion"] as? Bool { config.display.showClaudeCodeVersion = v }
+            if let v = display["showMemoryUsage"] as? Bool { config.display.showMemoryUsage = v }
+            if let v = display["showSessionTokens"] as? Bool { config.display.showSessionTokens = v }
+            if let v = display["showOutputStyle"] as? Bool { config.display.showOutputStyle = v }
+            if let v = display["autocompactBuffer"] as? String { config.display.autocompactBuffer = v }
             if let v = display["usageThreshold"] as? Int { config.display.usageThreshold = v }
             if let v = display["sevenDayThreshold"] as? Int { config.display.sevenDayThreshold = v }
             if let v = display["environmentThreshold"] as? Int { config.display.environmentThreshold = v }
+            if let v = display["modelFormat"] as? String { config.display.modelFormat = v }
+            if let v = display["modelOverride"] as? String { config.display.modelOverride = v }
+            if let v = display["customLine"] as? String { config.display.customLine = v }
         }
 
         // Merge layout (top-level fields)
@@ -944,12 +1144,29 @@ struct HUDView: View {
             if let v = git["showDirty"] as? Bool { config.gitStatus.showDirty = v }
             if let v = git["showAheadBehind"] as? Bool { config.gitStatus.showAheadBehind = v }
             if let v = git["showFileStats"] as? Bool { config.gitStatus.showFileStats = v }
+            if let v = git["pushWarningThreshold"] as? Int { config.gitStatus.pushWarningThreshold = v }
+            if let v = git["pushCriticalThreshold"] as? Int { config.gitStatus.pushCriticalThreshold = v }
+        }
+
+        // Merge colors
+        if let colors = json["colors"] as? [String: Any] {
+            if let v = colors["context"] as? String { config.colors.context = v }
+            if let v = colors["usage"] as? String { config.colors.usage = v }
+            if let v = colors["warning"] as? String { config.colors.warning = v }
+            if let v = colors["usageWarning"] as? String { config.colors.usageWarning = v }
+            if let v = colors["critical"] as? String { config.colors.critical = v }
+            if let v = colors["model"] as? String { config.colors.model = v }
+            if let v = colors["project"] as? String { config.colors.project = v }
+            if let v = colors["git"] as? String { config.colors.git = v }
+            if let v = colors["gitBranch"] as? String { config.colors.gitBranch = v }
+            if let v = colors["label"] as? String { config.colors.label = v }
+            if let v = colors["custom"] as? String { config.colors.custom = v }
         }
     }
 
     /// Top-level keys that HUDConfig models — used to merge without destroying unknown plugin keys.
     private static let knownHUDConfigKeys: Set<String> = [
-        "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus",
+        "language", "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus", "colors",
     ]
 
     private func saveConfig() {
