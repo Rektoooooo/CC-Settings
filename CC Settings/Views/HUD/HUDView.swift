@@ -684,33 +684,34 @@ struct HUDView: View {
             }
 
             if showingAddColor {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        TextField("Color name", text: $newColorName)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 140)
-                        ColorPicker("", selection: $newColorPick, supportsOpacity: false)
-                            .frame(width: 30)
-                        Spacer()
-                        Button("Save") {
-                            let name = newColorName.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !name.isEmpty else { return }
-                            config.customColors[name] = newColorPick.toHex()
-                            saveConfig()
-                            newColorName = ""
-                            newColorPick = .orange
-                            showingAddColor = false
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .disabled(newColorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        Button("Cancel") {
-                            showingAddColor = false
-                            newColorName = ""
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                HStack(spacing: 10) {
+                    ColorPicker("", selection: $newColorPick, supportsOpacity: false)
+                        .labelsHidden()
+                    TextField("Name", text: $newColorName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 160)
+                    Text(newColorPick.toHex())
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .frame(width: 65)
+                    Spacer()
+                    Button("Save") {
+                        let name = newColorName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !name.isEmpty else { return }
+                        config.customColors[name] = newColorPick.toHex()
+                        saveConfig()
+                        newColorName = ""
+                        newColorPick = .orange
+                        showingAddColor = false
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(newColorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Cancel") {
+                        showingAddColor = false
+                        newColorName = ""
+                    }
+                    .controlSize(.small)
                 }
             } else {
                 Button {
@@ -735,29 +736,61 @@ struct HUDView: View {
         return options
     }
 
+    /// Whether a value is a known preset or saved custom color name.
+    private func isKnownColor(_ value: String) -> Bool {
+        Self.colorOptions.contains(value) || config.customColors.keys.contains(value)
+    }
+
     private func colorPicker(_ label: String, selection: Binding<String>) -> some View {
         HStack {
             Text(label)
             Spacer()
-            // Show swatch for custom colors
-            if let hex = config.customColors[selection.wrappedValue] {
-                Circle()
-                    .fill(Color(hex: hex))
-                    .frame(width: 10, height: 10)
-            }
-            Picker("", selection: selection) {
-                ForEach(Self.colorOptions, id: \.self) { color in
-                    Text(color).tag(color)
+
+            if isKnownColor(selection.wrappedValue) {
+                // Show swatch for custom colors
+                if let hex = config.customColors[selection.wrappedValue] {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(width: 10, height: 10)
                 }
-                if !config.customColors.isEmpty {
-                    Divider()
-                    ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.key) { name, _ in
-                        Text(name).tag(name)
+                Picker("", selection: selection) {
+                    ForEach(Self.colorOptions, id: \.self) { color in
+                        Text(color).tag(color)
                     }
+                    if !config.customColors.isEmpty {
+                        Divider()
+                        ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.key) { name, _ in
+                            Text(name).tag(name)
+                        }
+                    }
+                    Divider()
+                    Text("Custom value...").tag("__raw__")
                 }
+                .frame(width: 160)
+                .onChange(of: selection.wrappedValue) { _, newValue in
+                    if newValue != "__raw__" { saveConfig() }
+                }
+            } else {
+                // Raw value mode (hex, 256-color index, or unknown value from config)
+                Text(selection.wrappedValue)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 80, alignment: .trailing)
+                TextField("", text: selection)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(width: 80)
+                    .onSubmit { saveConfig() }
+                Button {
+                    selection.wrappedValue = "green"
+                    saveConfig()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Back to preset picker")
             }
-            .frame(width: 160)
-            .onChange(of: selection.wrappedValue) { _, _ in saveConfig() }
         }
     }
 
