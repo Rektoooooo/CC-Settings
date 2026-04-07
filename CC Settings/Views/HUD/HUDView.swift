@@ -293,28 +293,27 @@ struct HUDView: View {
 
     @ViewBuilder
     private func previewRowView(for element: ElementItem, gitSuffix: String) -> some View {
-        previewElementView(for: element, text: previewLine(for: element.id, gitSuffix: gitSuffix) ?? "")
+        previewElementView(for: element, content: coloredPreviewText(for: element.id, gitSuffix: gitSuffix))
     }
 
     @ViewBuilder
     private func combinedPreviewRow(first: ElementItem, second: ElementItem, gitSuffix: String) -> some View {
         HStack(spacing: 0) {
-            previewElementView(for: first, text: previewLine(for: first.id, gitSuffix: gitSuffix) ?? "", inline: true)
+            previewElementView(for: first, content: coloredPreviewText(for: first.id, gitSuffix: gitSuffix), inline: true)
             Text(" \u{2502} ")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.secondary)
-            previewElementView(for: second, text: previewLine(for: second.id, gitSuffix: gitSuffix) ?? "", inline: true)
+            previewElementView(for: second, content: coloredPreviewText(for: second.id, gitSuffix: gitSuffix), inline: true)
         }
         .padding(.horizontal, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
-    private func previewElementView(for element: ElementItem, text: String, inline: Bool = false) -> some View {
-        if !text.isEmpty {
-            Text(text)
+    private func previewElementView(for element: ElementItem, content: Text?, inline: Bool = false) -> some View {
+        if let content = content {
+            content
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.primary)
                 .padding(.horizontal, inline ? 4 : 10)
                 .padding(.vertical, 3)
                 .frame(maxWidth: inline ? nil : .infinity, alignment: .leading)
@@ -337,6 +336,115 @@ struct HUDView: View {
                     draggedElementID: $draggedElementID,
                     onReorder: syncElementOrder
                 ))
+        }
+    }
+
+    // MARK: - Colored Preview Text
+
+    private let pf = Font.system(size: 11, design: .monospaced)
+
+    private func coloredPreviewText(for elementID: String, gitSuffix: String) -> Text? {
+        let dim = swiftUIColor(for: config.colors.label)
+
+        switch elementID {
+        case "project":
+            guard config.display.showModel || config.display.showProject else { return nil }
+            var parts: [Text] = []
+            if config.display.showModel {
+                let modelColor = swiftUIColor(for: config.colors.model)
+                let name: String
+                switch config.display.modelFormat {
+                case "short": name = "Opus 4.6"
+                case "compact": name = "Opus 4.6"
+                default: name = "Opus 4.6 (1M context)"
+                }
+                let display = config.display.modelOverride.isEmpty ? "\(name) | Max" : config.display.modelOverride
+                parts.append(Text("[\(display)]").font(pf).foregroundColor(modelColor))
+            }
+            if config.display.showProject {
+                let projColor = swiftUIColor(for: config.colors.project)
+                let gitColor = swiftUIColor(for: config.colors.git)
+                let branchColor = swiftUIColor(for: config.colors.gitBranch)
+                parts.append(Text("my-project").font(pf).foregroundColor(projColor))
+                if config.gitStatus.enabled {
+                    var branch = "main"
+                    if config.gitStatus.showDirty { branch += "*" }
+                    parts.append(Text(" git:(").font(pf).foregroundColor(gitColor)
+                                 + Text(branch).font(pf).foregroundColor(branchColor)
+                                 + Text(")").font(pf).foregroundColor(gitColor))
+                    if config.gitStatus.showAheadBehind {
+                        parts.append(Text(" \u{2191}2 \u{2193}1").font(pf).foregroundColor(branchColor))
+                    }
+                }
+            }
+            if config.display.showSessionName { parts.append(Text("precious-hollerith").font(pf).foregroundColor(dim)) }
+            if config.display.showClaudeCodeVersion { parts.append(Text("CC v2.1.92").font(pf).foregroundColor(dim)) }
+            if config.display.showSpeed { parts.append(Text("85.2 tok/s").font(pf).foregroundColor(dim)) }
+            if config.display.showDuration { parts.append(Text("\u{23F1} 22m").font(pf).foregroundColor(dim)) }
+            if config.display.showCost { parts.append(Text("Est. $12.97").font(pf).foregroundColor(dim)) }
+            if !config.display.customLine.isEmpty {
+                parts.append(Text(config.display.customLine).font(pf).foregroundColor(swiftUIColor(for: config.colors.custom)))
+            }
+            guard !parts.isEmpty else { return nil }
+            return parts.enumerated().reduce(Text("")) { result, item in
+                item.offset > 0 ? result + Text(" \u{2502} ").font(pf).foregroundColor(dim) + item.element : item.element
+            }
+
+        case "context":
+            guard config.display.showContextBar else { return nil }
+            let ctxColor = swiftUIColor(for: config.colors.context)
+            let value: String
+            switch config.display.contextValue {
+            case "tokens": value = "28k/100k"
+            case "remaining": value = "72k remaining"
+            case "both": value = "28k/100k (28%)"
+            default: value = "\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%"
+            }
+            return Text("Context ").font(pf).foregroundColor(dim) + Text(value).font(pf).foregroundColor(ctxColor)
+
+        case "usage":
+            guard config.display.showUsage else { return nil }
+            let usageColor = swiftUIColor(for: config.colors.usage)
+            let value = config.display.usageBarEnabled
+                ? "\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18% (3h 39m / 5h)"
+                : "18% (3h 39m / 5h)"
+            return Text("Usage ").font(pf).foregroundColor(dim) + Text(value).font(pf).foregroundColor(usageColor)
+
+        case "memory":
+            guard config.display.showMemoryUsage else { return nil }
+            return Text("Approx RAM ").font(pf).foregroundColor(dim)
+                + Text("\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  5.8 GB / 16 GB (36%)").font(pf).foregroundColor(swiftUIColor(for: config.colors.usage))
+
+        case "environment":
+            guard config.display.showConfigCounts else { return nil }
+            var result = Text("2 CLAUDE.md | 4 MCPs").font(pf).foregroundColor(dim)
+            if config.display.showOutputStyle {
+                result = result + Text(" | style: concise").font(pf).foregroundColor(dim)
+            }
+            return result
+
+        case "tools":
+            guard config.display.showTools else { return nil }
+            return Text("\u{2713} ").font(pf).foregroundColor(.green)
+                + Text("Edit \u{00D7}9 | ").font(pf).foregroundColor(dim)
+                + Text("\u{2713} ").font(pf).foregroundColor(.green)
+                + Text("Read \u{00D7}6 | ").font(pf).foregroundColor(dim)
+                + Text("\u{2713} ").font(pf).foregroundColor(.green)
+                + Text("Bash \u{00D7}4").font(pf).foregroundColor(dim)
+
+        case "agents":
+            guard config.display.showAgents else { return nil }
+            return Text("\u{2713} ").font(pf).foregroundColor(.green)
+                + Text("Explore").font(pf).foregroundColor(.purple)
+                + Text(": Analyze codebase (1m 14s)").font(pf).foregroundColor(dim)
+
+        case "todos":
+            guard config.display.showTodos else { return nil }
+            return Text("\u{2713} ").font(pf).foregroundColor(.green)
+                + Text("All todos complete (8/8)").font(pf).foregroundColor(dim)
+
+        default:
+            return nil
         }
     }
 
@@ -376,20 +484,65 @@ struct HUDView: View {
 
     // MARK: - Display Section
 
-    private func toggleRow(_ label: String, isOn: Binding<Bool>, preview: String, color: Color = .secondary, onChange: @escaping () -> Void = {}) -> some View {
+    /// Maps an ANSI color name to a SwiftUI Color for the preview text.
+    private func swiftUIColor(for name: String) -> Color {
+        switch name {
+        case "red": return .red
+        case "green": return .green
+        case "yellow": return .yellow
+        case "magenta": return .purple
+        case "cyan": return .cyan
+        case "brightBlue": return Color(red: 0.4, green: 0.5, blue: 1.0)
+        case "brightMagenta": return Color(red: 1.0, green: 0.4, blue: 1.0)
+        case "dim": return .secondary
+        default:
+            // Hex color or custom color hex
+            if name.hasPrefix("#") { return Color(hex: name) }
+            if let idx = Int(name), idx >= 0, idx <= 255 { return .orange }
+            return .secondary
+        }
+    }
+
+    private func toggleRow(_ label: String, isOn: Binding<Bool>, preview: String, color: Color = .secondary, colorBinding: Binding<String>? = nil, onChange: @escaping () -> Void = {}) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Toggle(label, isOn: isOn)
-                .onChange(of: isOn.wrappedValue) { _, _ in onChange() }
+            HStack {
+                Text(label)
+                Spacer()
+                if let binding = colorBinding {
+                    inlineColorPicker(selection: binding)
+                }
+                Toggle("", isOn: isOn)
+                    .labelsHidden()
+                    .onChange(of: isOn.wrappedValue) { _, _ in onChange() }
+            }
             Text(preview)
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(color)
+                .foregroundColor(colorBinding != nil ? swiftUIColor(for: colorBinding!.wrappedValue) : color)
         }
+    }
+
+    /// Compact inline color picker for toggle rows
+    private func inlineColorPicker(selection: Binding<String>) -> some View {
+        Picker("", selection: selection) {
+            ForEach(Self.colorOptions, id: \.self) { c in
+                Text(c).tag(c)
+            }
+            if !config.customColors.isEmpty {
+                Divider()
+                ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.value) { name, hex in
+                    Text(name).tag(hex)
+                }
+            }
+        }
+        .frame(width: 130)
+        .onChange(of: selection.wrappedValue) { _, _ in saveConfig() }
     }
 
     private var displaySection: some View {
         Section {
             toggleRow("Show Model Name", isOn: $config.display.showModel,
-                      preview: "[Opus 4.6 | Max]", color: .cyan) { saveConfig() }
+                      preview: "[Opus 4.6 | Max]", color: .cyan,
+                      colorBinding: $config.colors.model) { saveConfig() }
 
             if config.display.showModel {
                 Picker("Model Format", selection: $config.display.modelFormat) {
@@ -404,10 +557,12 @@ struct HUDView: View {
             }
 
             toggleRow("Show Project Path", isOn: $config.display.showProject,
-                      preview: "my-project git:(main*)", color: .yellow) { saveConfig() }
+                      preview: "my-project git:(main*)", color: .yellow,
+                      colorBinding: $config.colors.project) { saveConfig() }
 
             toggleRow("Show Context Bar", isOn: $config.display.showContextBar,
-                      preview: "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 45%", color: .green) { syncElementOrder() }
+                      preview: "Context \u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 45%", color: .green,
+                      colorBinding: $config.colors.context) { syncElementOrder() }
 
             if config.display.showContextBar {
                 Picker("Context Value", selection: $config.display.contextValue) {
@@ -423,31 +578,32 @@ struct HUDView: View {
             }
 
             toggleRow("Show Config Counts", isOn: $config.display.showConfigCounts,
-                      preview: "2 CLAUDE.md | 4 MCPs", color: .secondary) { syncElementOrder() }
+                      preview: "2 CLAUDE.md | 4 MCPs", color: .secondary,
+                      colorBinding: $config.colors.label) { syncElementOrder() }
 
             toggleRow("Show Cost", isOn: $config.display.showCost,
-                      preview: "Est. $12.97", color: .secondary) { saveConfig() }
+                      preview: "Est. $12.97", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Session Duration", isOn: $config.display.showDuration,
-                      preview: "\u{23F1} 22m", color: .secondary) { saveConfig() }
+                      preview: "\u{23F1} 22m", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Output Speed", isOn: $config.display.showSpeed,
-                      preview: "out: 85.2 tok/s", color: .secondary) { saveConfig() }
+                      preview: "out: 85.2 tok/s", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Session Name", isOn: $config.display.showSessionName,
-                      preview: "precious-sauteeing-hollerith", color: .secondary) { saveConfig() }
+                      preview: "precious-sauteeing-hollerith", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Claude Code Version", isOn: $config.display.showClaudeCodeVersion,
-                      preview: "CC v2.1.92", color: .secondary) { saveConfig() }
+                      preview: "CC v2.1.92", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Memory Usage", isOn: $config.display.showMemoryUsage,
-                      preview: "Approx RAM \u{2588}\u{2588}\u{2591}\u{2591}\u{2591} 5.8 GB / 16 GB", color: .blue) { saveConfig() }
+                      preview: "Approx RAM \u{2588}\u{2588}\u{2591}\u{2591}\u{2591} 5.8 GB / 16 GB", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Session Tokens", isOn: $config.display.showSessionTokens,
-                      preview: "Tokens 125k (in: 45k, out: 80k, cache: 12k)", color: .secondary) { saveConfig() }
+                      preview: "Tokens 125k (in: 45k, out: 80k, cache: 12k)", colorBinding: $config.colors.label) { saveConfig() }
 
             toggleRow("Show Output Style", isOn: $config.display.showOutputStyle,
-                      preview: "style: concise", color: .secondary) { saveConfig() }
+                      preview: "style: concise", colorBinding: $config.colors.label) { saveConfig() }
 
             Picker("Auto-Compact Buffer", selection: $config.display.autocompactBuffer) {
                 Text("Enabled").tag("enabled")
@@ -455,7 +611,11 @@ struct HUDView: View {
             }
             .onChange(of: config.display.autocompactBuffer) { _, _ in saveConfig() }
 
-            TextField("Custom Line", text: $config.display.customLine, prompt: Text("Optional custom status text"))
+            toggleRow("Custom Line", isOn: .constant(true),
+                      preview: config.display.customLine.isEmpty ? "Optional custom status text" : config.display.customLine,
+                      color: .secondary, colorBinding: $config.colors.custom) { }
+
+            TextField("Custom Line Text", text: $config.display.customLine, prompt: Text("Optional custom status text"))
                 .onChange(of: config.display.customLine) { _, _ in saveConfig() }
         } header: {
             Text("Display")
@@ -471,7 +631,8 @@ struct HUDView: View {
     private var usageSection: some View {
         Section {
             toggleRow("Show Usage Rate Limits", isOn: $config.display.showUsage,
-                      preview: "Usage \u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 24% (resets in 4h)", color: Color(red: 0.4, green: 0.5, blue: 1.0)) { syncElementOrder() }
+                      preview: "Usage \u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591} 24% (resets in 4h)", color: Color(red: 0.4, green: 0.5, blue: 1.0),
+                      colorBinding: $config.colors.usage) { syncElementOrder() }
 
             if config.display.showUsage {
                 Toggle("Visual Bar", isOn: $config.display.usageBarEnabled)
@@ -548,13 +709,16 @@ struct HUDView: View {
     private var activitySection: some View {
         Section {
             toggleRow("Show Tool Activity", isOn: $config.display.showTools,
-                      preview: "\u{2713} Edit \u{00D7}9 | \u{2713} Read \u{00D7}6 | \u{2713} Bash \u{00D7}4", color: .green) { syncElementOrder() }
+                      preview: "\u{2713} Edit \u{00D7}9 | \u{2713} Read \u{00D7}6 | \u{2713} Bash \u{00D7}4",
+                      colorBinding: $config.colors.label) { syncElementOrder() }
 
             toggleRow("Show Agent Status", isOn: $config.display.showAgents,
-                      preview: "\u{2713} Explore: Analyze codebase (1m 14s)", color: .purple) { syncElementOrder() }
+                      preview: "\u{2713} Explore: Analyze codebase (1m 14s)",
+                      colorBinding: $config.colors.label) { syncElementOrder() }
 
             toggleRow("Show Todo Progress", isOn: $config.display.showTodos,
-                      preview: "\u{2713} All todos complete (8/8)", color: .green) { syncElementOrder() }
+                      preview: "\u{2713} All todos complete (8/8)",
+                      colorBinding: $config.colors.label) { syncElementOrder() }
         } header: {
             Text("Activity Lines")
         } footer: {
@@ -569,11 +733,13 @@ struct HUDView: View {
     private var gitStatusSection: some View {
         Section {
             toggleRow("Show Git Branch", isOn: $config.gitStatus.enabled,
-                      preview: "git:(main)", color: .purple) { saveConfig() }
+                      preview: "git:(main)", color: .purple,
+                      colorBinding: $config.colors.git) { saveConfig() }
 
             if config.gitStatus.enabled {
                 toggleRow("Show Dirty Indicator", isOn: $config.gitStatus.showDirty,
-                          preview: "git:(main*)", color: .purple) { saveConfig() }
+                          preview: "git:(main*)", color: .purple,
+                          colorBinding: $config.colors.gitBranch) { saveConfig() }
 
                 toggleRow("Show Ahead/Behind", isOn: $config.gitStatus.showAheadBehind,
                           preview: "\u{2191}2 \u{2193}1", color: .cyan) { saveConfig() }
@@ -636,21 +802,13 @@ struct HUDView: View {
 
     private var colorsSection: some View {
         Section {
-            colorPicker("Context", selection: $config.colors.context)
-            colorPicker("Usage", selection: $config.colors.usage)
             colorPicker("Warning", selection: $config.colors.warning)
             colorPicker("Usage Warning", selection: $config.colors.usageWarning)
             colorPicker("Critical", selection: $config.colors.critical)
-            colorPicker("Model", selection: $config.colors.model)
-            colorPicker("Project", selection: $config.colors.project)
-            colorPicker("Git", selection: $config.colors.git)
-            colorPicker("Git Branch", selection: $config.colors.gitBranch)
-            colorPicker("Label", selection: $config.colors.label)
-            colorPicker("Custom", selection: $config.colors.custom)
         } header: {
-            Text("Colors")
+            Text("Theme Colors")
         } footer: {
-            Text("Pick from presets or your saved custom colors. Custom colors are stored as hex values.")
+            Text("Colors for warning states and thresholds. Element colors are set inline on each toggle above.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -1380,6 +1538,13 @@ struct HUDView: View {
                     existingJSON.removeValue(forKey: key)
                 }
             }
+        }
+
+        // Strip empty strings from display that the plugin would misinterpret as overrides
+        if var display = existingJSON["display"] as? [String: Any] {
+            if display["modelOverride"] as? String == "" { display.removeValue(forKey: "modelOverride") }
+            if display["customLine"] as? String == "" { display.removeValue(forKey: "customLine") }
+            existingJSON["display"] = display
         }
 
         if let outputData = try? JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys]) {
