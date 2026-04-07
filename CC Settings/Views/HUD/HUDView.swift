@@ -736,9 +736,14 @@ struct HUDView: View {
         return options
     }
 
-    /// Whether a value is a known preset or saved custom color name.
-    private func isKnownColor(_ value: String) -> Bool {
-        Self.colorOptions.contains(value) || config.customColors.keys.contains(value)
+    /// Reverse-lookup: find custom color name for a hex value stored in config.
+    private func customColorName(for value: String) -> String? {
+        config.customColors.first(where: { $0.value == value })?.key
+    }
+
+    /// Whether a value is a preset name OR a hex that matches a custom color.
+    private func isPickerValue(_ value: String) -> Bool {
+        Self.colorOptions.contains(value) || config.customColors.values.contains(value)
     }
 
     private func colorPicker(_ label: String, selection: Binding<String>) -> some View {
@@ -746,11 +751,11 @@ struct HUDView: View {
             Text(label)
             Spacer()
 
-            if isKnownColor(selection.wrappedValue) {
-                // Show swatch for custom colors
-                if let hex = config.customColors[selection.wrappedValue] {
+            if isPickerValue(selection.wrappedValue) {
+                // Show swatch for custom color hex values
+                if config.customColors.values.contains(selection.wrappedValue) {
                     Circle()
-                        .fill(Color(hex: hex))
+                        .fill(Color(hex: selection.wrappedValue))
                         .frame(width: 10, height: 10)
                 }
                 Picker("", selection: selection) {
@@ -759,8 +764,9 @@ struct HUDView: View {
                     }
                     if !config.customColors.isEmpty {
                         Divider()
-                        ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.key) { name, _ in
-                            Text(name).tag(name)
+                        // Tag with HEX value so the plugin gets a valid color
+                        ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.value) { name, hex in
+                            Text(name).tag(hex)
                         }
                     }
                     Divider()
@@ -771,15 +777,11 @@ struct HUDView: View {
                     if newValue != "__raw__" { saveConfig() }
                 }
             } else {
-                // Raw value mode (hex, 256-color index, or unknown value from config)
-                Text(selection.wrappedValue)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.secondary)
-                    .frame(width: 80, alignment: .trailing)
-                TextField("", text: selection)
+                // Raw value mode (hex, 256-color index, or unknown)
+                TextField("#rrggbb or 0-255", text: selection)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.caption, design: .monospaced))
-                    .frame(width: 80)
+                    .frame(width: 100)
                     .onSubmit { saveConfig() }
                 Button {
                     selection.wrappedValue = "green"
