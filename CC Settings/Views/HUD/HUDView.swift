@@ -1540,10 +1540,14 @@ struct HUDView: View {
             }
         }
 
-        // Strip empty strings from display that the plugin would misinterpret as overrides
+        // Strip empty/whitespace-only strings from display that the plugin would misinterpret as overrides
         if var display = existingJSON["display"] as? [String: Any] {
-            if display["modelOverride"] as? String == "" { display.removeValue(forKey: "modelOverride") }
-            if display["customLine"] as? String == "" { display.removeValue(forKey: "customLine") }
+            if let v = display["modelOverride"] as? String, v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                display.removeValue(forKey: "modelOverride")
+            }
+            if let v = display["customLine"] as? String, v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                display.removeValue(forKey: "customLine")
+            }
             existingJSON["display"] = display
         }
 
