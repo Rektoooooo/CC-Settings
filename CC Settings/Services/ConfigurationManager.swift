@@ -73,7 +73,15 @@ class ConfigurationManager: ObservableObject {
         loadAll()
     }
 
-    func loadAll() {
+    /// Reload all config from disk. When `force` is true (e.g. FileWatcher detected
+    /// an external change), dirty flags are cleared so disk state always wins.
+    func loadAll(force: Bool = false) {
+        if force {
+            isDirty = false
+            isLocalDirty = false
+            isMDDirty = false
+        }
+
         isLoading = true
         isLoadingFromDisk = true
         lastError = nil

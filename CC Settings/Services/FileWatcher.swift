@@ -180,7 +180,7 @@ class FileWatcher: ObservableObject {
                     return
                 }
 
-                manager.loadAll()
+                manager.loadAll(force: true)
 
                 // Refresh watched project paths in case new projects appeared
                 let projects = manager.loadProjects()
