@@ -13,7 +13,7 @@ struct GeneralSettingsView: View {
 
     // Language & Output
     @State private var language: String = ""
-    @State private var effortLevel: String = "high"
+    @State private var effortLevel: String = ""
     @State private var outputStyle: String = ""
     @State private var verbose: Bool = false
 
@@ -152,6 +152,7 @@ struct GeneralSettingsView: View {
                 .foregroundColor(.secondary)
 
             Picker("Effort Level", selection: $effortLevel) {
+                Text("Default").tag("")
                 Text("Auto").tag("auto")
                 Text("Low").tag("low")
                 Text("Medium").tag("medium")
@@ -459,7 +460,7 @@ struct GeneralSettingsView: View {
 
         // Language & Output
         language = s.language ?? ""
-        effortLevel = s.effortLevel ?? "high"
+        effortLevel = s.effortLevel ?? ""
         outputStyle = s.outputStyle ?? ""
         verbose = s.verbose ?? false
 
@@ -521,7 +522,7 @@ struct GeneralSettingsView: View {
         // Language & Output
         let trimmedLang = language.trimmingCharacters(in: .whitespacesAndNewlines)
         configManager.settings.language = trimmedLang.isEmpty ? nil : trimmedLang
-        configManager.settings.effortLevel = effortLevel == "high" ? nil : effortLevel
+        configManager.settings.effortLevel = effortLevel.isEmpty ? nil : effortLevel
         let trimmedStyle = outputStyle.trimmingCharacters(in: .whitespacesAndNewlines)
         configManager.settings.outputStyle = trimmedStyle.isEmpty ? nil : trimmedStyle
         configManager.settings.verbose = verbose ? true : nil

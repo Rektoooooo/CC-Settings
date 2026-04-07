@@ -185,8 +185,8 @@ class ConfigurationManager: ObservableObject {
         "enableWeakerSandbox", "unsandboxedCommands", "allowLocalBinding",
         "allowAllUnixSockets", "allowedDomains",
         "spinnerTipsEnabled", "spinnerVerbsMode", "spinnerVerbs",
-        "customTips", "excludeDefaultTips",
-        "statusLineCommand",
+        "customTips", "excludeDefaultTips", "spinnerTipsOverride",
+        "statusLine", "statusLineCommand",
     ]
 
     /// Keys that LocalSettings models — used to distinguish "intentionally nil" from "unknown".

@@ -13,6 +13,8 @@ struct HUDConfig: Codable, Equatable {
     var elementOrder: [String]
     var gitStatus: HUDGitConfig
     var colors: HUDColorOverrides
+    /// User-defined named colors (name → hex string like "#ff6600")
+    var customColors: [String: String]
 
     static let allElementKeys = ["project", "context", "usage", "memory", "environment", "tools", "agents", "todos"]
 
@@ -25,6 +27,7 @@ struct HUDConfig: Codable, Equatable {
         elementOrder = Self.allElementKeys
         gitStatus = HUDGitConfig()
         colors = HUDColorOverrides()
+        customColors = [:]
     }
 
     struct HUDDisplayConfig: Codable, Equatable {
@@ -137,6 +140,9 @@ struct HUDView: View {
     @State private var allElements: [ElementItem] = []
     @State private var draggedElementID: String?
     @State private var hoveredElementID: String?
+    @State private var newColorName: String = ""
+    @State private var newColorPick: Color = .orange
+    @State private var showingAddColor = false
 
     /// Hardcoded path matching the claude-hud plugin's expected config location.
     /// This is the canonical path used by the plugin itself; deriving it from install
@@ -156,6 +162,7 @@ struct HUDView: View {
             activitySection
             gitStatusSection
             colorsSection
+            customColorsSection
             presetsSection
             creditSection
         }
@@ -643,19 +650,115 @@ struct HUDView: View {
         } header: {
             Text("Colors")
         } footer: {
-            Text("Named presets for terminal ANSI colors. You can also enter a 256-color index (0-255) or hex (#rrggbb) directly in the config file.")
+            Text("Pick from presets or your saved custom colors. Custom colors are stored as hex values.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
     }
 
-    private func colorPicker(_ label: String, selection: Binding<String>) -> some View {
-        Picker(label, selection: selection) {
-            ForEach(Self.colorOptions, id: \.self) { color in
-                Text(color).tag(color)
+    // MARK: - Custom Colors Section
+
+    private var customColorsSection: some View {
+        Section {
+            ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.key) { name, hex in
+                HStack {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(width: 14, height: 14)
+                    Text(name)
+                        .font(.system(.body, design: .monospaced))
+                    Spacer()
+                    Text(hex)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Button {
+                        config.customColors.removeValue(forKey: name)
+                        saveConfig()
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
+
+            if showingAddColor {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        TextField("Color name", text: $newColorName)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 140)
+                        ColorPicker("", selection: $newColorPick, supportsOpacity: false)
+                            .frame(width: 30)
+                        Spacer()
+                        Button("Save") {
+                            let name = newColorName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !name.isEmpty else { return }
+                            config.customColors[name] = newColorPick.toHex()
+                            saveConfig()
+                            newColorName = ""
+                            newColorPick = .orange
+                            showingAddColor = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(newColorName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Cancel") {
+                            showingAddColor = false
+                            newColorName = ""
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            } else {
+                Button {
+                    showingAddColor = true
+                } label: {
+                    Label("Add Color", systemImage: "plus.circle")
+                }
+            }
+        } header: {
+            Text("My Colors")
+        } footer: {
+            Text("Create named colors with a visual picker. Use them in any color option above.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
-        .onChange(of: selection.wrappedValue) { _, _ in saveConfig() }
+    }
+
+    /// All color options: ANSI presets + user's custom colors
+    private var allColorOptions: [String] {
+        var options = Self.colorOptions
+        options.append(contentsOf: config.customColors.keys.sorted())
+        return options
+    }
+
+    private func colorPicker(_ label: String, selection: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            // Show swatch for custom colors
+            if let hex = config.customColors[selection.wrappedValue] {
+                Circle()
+                    .fill(Color(hex: hex))
+                    .frame(width: 10, height: 10)
+            }
+            Picker("", selection: selection) {
+                ForEach(Self.colorOptions, id: \.self) { color in
+                    Text(color).tag(color)
+                }
+                if !config.customColors.isEmpty {
+                    Divider()
+                    ForEach(config.customColors.sorted(by: { $0.key < $1.key }), id: \.key) { name, _ in
+                        Text(name).tag(name)
+                    }
+                }
+            }
+            .frame(width: 160)
+            .onChange(of: selection.wrappedValue) { _, _ in saveConfig() }
+        }
     }
 
     // MARK: - Presets Section
@@ -1200,11 +1303,16 @@ struct HUDView: View {
             if let v = colors["label"] as? String { config.colors.label = v }
             if let v = colors["custom"] as? String { config.colors.custom = v }
         }
+
+        // Merge custom colors
+        if let cc = json["customColors"] as? [String: String] {
+            config.customColors = cc
+        }
     }
 
     /// Top-level keys that HUDConfig models — used to merge without destroying unknown plugin keys.
     private static let knownHUDConfigKeys: Set<String> = [
-        "language", "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus", "colors",
+        "language", "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus", "colors", "customColors",
     ]
 
     private func saveConfig() {
@@ -1278,5 +1386,36 @@ struct PreviewDropDelegate: DropDelegate {
 
     func validateDrop(info: DropInfo) -> Bool {
         draggedElementID != nil
+    }
+}
+
+// MARK: - Color Hex Helpers
+
+extension Color {
+    /// Create a Color from a hex string like "#ff6600"
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r, g, b: Double
+        if hex.count == 6 {
+            r = Double((int >> 16) & 0xFF) / 255
+            g = Double((int >> 8) & 0xFF) / 255
+            b = Double(int & 0xFF) / 255
+        } else {
+            r = 1; g = 1; b = 1
+        }
+        self.init(red: r, green: g, blue: b)
+    }
+
+    /// Convert a Color to "#rrggbb" hex string
+    func toHex() -> String {
+        guard let components = NSColor(self).usingColorSpace(.sRGB) else {
+            return "#000000"
+        }
+        let r = Int(round(components.redComponent * 255))
+        let g = Int(round(components.greenComponent * 255))
+        let b = Int(round(components.blueComponent * 255))
+        return String(format: "#%02x%02x%02x", r, g, b)
     }
 }

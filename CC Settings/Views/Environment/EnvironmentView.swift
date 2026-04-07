@@ -150,9 +150,13 @@ struct EnvironmentView: View {
                 GroupBox("Prompt Caching") {
                     VStack(alignment: .leading, spacing: 6) {
                         Toggle("Disable All Prompt Caching", isOn: $disablePromptCaching)
+                            .onChange(of: disablePromptCaching) { _, _ in save() }
                         Toggle("Disable Haiku Caching", isOn: $disablePromptCachingHaiku)
+                            .onChange(of: disablePromptCachingHaiku) { _, _ in save() }
                         Toggle("Disable Sonnet Caching", isOn: $disablePromptCachingSonnet)
+                            .onChange(of: disablePromptCachingSonnet) { _, _ in save() }
                         Toggle("Disable Opus Caching", isOn: $disablePromptCachingOpus)
+                            .onChange(of: disablePromptCachingOpus) { _, _ in save() }
                     }
                     .padding(.vertical, 4)
                 }
@@ -210,11 +214,13 @@ struct EnvironmentView: View {
             // MARK: - Display
             Section {
                 Toggle("Hide Account Info", isOn: $hideAccountInfo)
+                    .onChange(of: hideAccountInfo) { _, _ in save() }
                 Text("Hide email and organization details from the UI.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Disable Bug Report Command", isOn: $disableBugCommand)
+                    .onChange(of: disableBugCommand) { _, _ in save() }
                 Text("Remove the /bug command from Claude Code.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -259,16 +265,7 @@ struct EnvironmentView: View {
             }
         }
         .formStyle(.grouped)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    save()
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .keyboardShortcut("s", modifiers: .command)
-            }
-        }
+        .onSubmit { save() }
         .onAppear {
             loadFromSettings()
         }

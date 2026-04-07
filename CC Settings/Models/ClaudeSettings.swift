@@ -87,9 +87,27 @@ struct ClaudeSettings: Codable, Equatable {
     var spinnerVerbs: [String]?
     var customTips: [String]?
     var excludeDefaultTips: Bool?
+    var spinnerTipsOverride: SpinnerTipsOverride?
 
-    // Status Line
+    // Status Line (nested object)
+    var statusLine: StatusLineConfig?
+    // Legacy flat field — kept for backward compat
     var statusLineCommand: String?
+}
+
+// MARK: - Status Line Config
+
+struct StatusLineConfig: Codable, Equatable {
+    var type: String? = "command"
+    var command: String?
+    var padding: Int?
+}
+
+// MARK: - Spinner Tips Override
+
+struct SpinnerTipsOverride: Codable, Equatable {
+    var excludeDefault: Bool?
+    var tips: [String]?
 }
 
 // MARK: - Sandbox Config

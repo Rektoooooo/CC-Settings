@@ -53,6 +53,7 @@ struct ExperimentalFeaturesView: View {
 
     // Status Line
     @State private var statusLineCommand: String = ""
+    @State private var statusLinePadding: String = ""
 
     var body: some View {
         Form {
@@ -355,10 +356,17 @@ struct ExperimentalFeaturesView: View {
 
             // MARK: - Status Line
             Section {
-                TextField("Status Line Command", text: $statusLineCommand, prompt: Text("~/.claude/statusline.sh"))
+                TextField("Command", text: $statusLineCommand, prompt: Text("~/.claude/statusline.sh"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                Text("Path to a script that generates the status line content.")
+                    .onChange(of: statusLineCommand) { _, _ in saveSettings() }
+
+                TextField("Padding", text: $statusLinePadding, prompt: Text("0"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: statusLinePadding) { _, _ in saveSettings() }
+
+                Text("Path to a script or command that generates the status line. Padding adds extra blank lines.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
@@ -451,15 +459,27 @@ struct ExperimentalFeaturesView: View {
         worktreeSparsePaths = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
         worktreeSymlinkDirs = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
 
-        // Spinner
+        // Spinner — prefer nested overrides, fall back to flat fields
         spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
         spinnerVerbsMode = s.spinnerVerbsMode ?? "append"
         spinnerVerbs = (s.spinnerVerbs ?? []).joined(separator: ", ")
-        customTips = (s.customTips ?? []).joined(separator: ", ")
-        excludeDefaultTips = s.excludeDefaultTips ?? false
+        if let tipsOverride = s.spinnerTipsOverride {
+            customTips = (tipsOverride.tips ?? []).joined(separator: ", ")
+            excludeDefaultTips = tipsOverride.excludeDefault ?? false
+        } else {
+            customTips = (s.customTips ?? []).joined(separator: ", ")
+            excludeDefaultTips = s.excludeDefaultTips ?? false
+        }
 
         // Status line
-        statusLineCommand = s.statusLineCommand ?? ""
+        // Status line: prefer nested object, fall back to legacy flat field
+        if let sl = s.statusLine {
+            statusLineCommand = sl.command ?? ""
+            statusLinePadding = sl.padding.map { String($0) } ?? ""
+        } else {
+            statusLineCommand = s.statusLineCommand ?? ""
+            statusLinePadding = ""
+        }
     }
 
     private func saveSettings() {
@@ -510,9 +530,29 @@ struct ExperimentalFeaturesView: View {
         configManager.settings.spinnerVerbs = parseCSV(spinnerVerbs)
         configManager.settings.customTips = parseCSV(customTips)
         configManager.settings.excludeDefaultTips = excludeDefaultTips ? true : nil
+        // Also write nested spinnerTipsOverride for newer CLI versions
+        let tips = parseCSV(customTips)
+        if tips != nil || excludeDefaultTips {
+            configManager.settings.spinnerTipsOverride = SpinnerTipsOverride(
+                excludeDefault: excludeDefaultTips ? true : nil,
+                tips: tips
+            )
+        } else {
+            configManager.settings.spinnerTipsOverride = nil
+        }
 
-        // Status line
-        configManager.settings.statusLineCommand = statusLineCommand.isEmpty ? nil : statusLineCommand
+        // Status line — write as nested object; clear legacy flat field
+        if statusLineCommand.isEmpty {
+            configManager.settings.statusLine = nil
+        } else {
+            let padding = Int(statusLinePadding)
+            configManager.settings.statusLine = StatusLineConfig(
+                type: "command",
+                command: statusLineCommand,
+                padding: padding
+            )
+        }
+        configManager.settings.statusLineCommand = nil
 
         configManager.saveSettings()
     }
