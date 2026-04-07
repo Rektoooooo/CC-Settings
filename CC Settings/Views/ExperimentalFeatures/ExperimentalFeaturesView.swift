@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExperimentalFeaturesView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @State private var isSyncing = false
 
     // Thinking
     @State private var thinkingEnabled: Bool = false
@@ -378,7 +379,9 @@ struct ExperimentalFeaturesView: View {
             loadSettings()
         }
         .onChange(of: configManager.settings) {
+            isSyncing = true
             loadSettings()
+            DispatchQueue.main.async { isSyncing = false }
         }
     }
 
@@ -483,6 +486,7 @@ struct ExperimentalFeaturesView: View {
     }
 
     private func saveSettings() {
+        guard !isSyncing else { return }
         // Settings-based
         configManager.settings.alwaysThinkingEnabled = thinkingEnabled ? true : nil
         configManager.settings.thinkingBudgetTokens = thinkingEnabled ? Int(thinkingBudget) : nil

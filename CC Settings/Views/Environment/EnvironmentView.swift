@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EnvironmentView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @State private var isSyncing = false
 
     // API & Auth
     @State private var anthropicApiKey: String = ""
@@ -270,7 +271,9 @@ struct EnvironmentView: View {
             loadFromSettings()
         }
         .onChange(of: configManager.settings) {
+            isSyncing = true
             loadFromSettings()
+            DispatchQueue.main.async { isSyncing = false }
         }
     }
 
@@ -331,6 +334,7 @@ struct EnvironmentView: View {
     }
 
     private func save() {
+        guard !isSyncing else { return }
         var env: [String: String] = [:]
 
         // Helper to set string vars

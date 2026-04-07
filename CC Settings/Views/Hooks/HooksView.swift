@@ -342,6 +342,7 @@ struct HooksView: View {
             loadAllHooks()
         }
         .onChange(of: configManager.settings) {
+            // Reload hooks from disk without triggering saves
             loadAllHooks()
         }
     }

@@ -90,7 +90,10 @@ struct GeneralSettingsView: View {
             loadFromSettings()
         }
         .onChange(of: configManager.settings) {
+            // Suppress saves during external reload to avoid feedback loop
+            isLoaded = false
             loadFromSettings()
+            DispatchQueue.main.async { isLoaded = true }
         }
         .background {
             autoSaveObservers

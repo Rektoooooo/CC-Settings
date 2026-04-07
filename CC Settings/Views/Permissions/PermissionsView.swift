@@ -141,6 +141,7 @@ enum DefaultPermissionMode: String, CaseIterable, Identifiable {
 
 struct PermissionsView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @State private var isSyncing = false
 
     @State private var toolPermissions: [ClaudeTool: PermissionState] = [:]
     @State private var customRules: [CustomPermissionRule] = []
@@ -341,7 +342,9 @@ struct PermissionsView: View {
             loadPermissions()
         }
         .onChange(of: configManager.settings) {
+            isSyncing = true
             loadPermissions()
+            DispatchQueue.main.async { isSyncing = false }
         }
     }
 
@@ -425,6 +428,7 @@ struct PermissionsView: View {
     }
 
     private func savePermissions() {
+        guard !isSyncing else { return }
         var allow: [String] = []
         var deny: [String] = []
         var ask: [String] = []
