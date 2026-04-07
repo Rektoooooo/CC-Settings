@@ -10,6 +10,14 @@ class FileWatcher: ObservableObject {
     private let globalWatchPath: String
     private var watchPaths: [String] = []
 
+    /// Per-file mtime+size tracking to skip reloads when nothing actually changed on disk.
+    private var fileSnapshots: [String: FileSnapshot] = [:]
+
+    private struct FileSnapshot: Equatable {
+        let mtime: Date
+        let size: Int
+    }
+
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         globalWatchPath = home.appendingPathComponent(".claude").path
@@ -60,7 +68,60 @@ class FileWatcher: ObservableObject {
         }
     }
 
+    /// Called by ConfigurationManager after a successful save so the next FSEvent
+    /// for that file is recognized as self-triggered and skipped.
+    func updateFileTracking(for paths: [URL]) {
+        for url in paths {
+            if let snapshot = snapshotFile(at: url.path) {
+                fileSnapshots[url.path] = snapshot
+            }
+        }
+    }
+
     // MARK: - Private
+
+    private func snapshotFile(at path: String) -> FileSnapshot? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let mtime = attrs[.modificationDate] as? Date,
+              let size = attrs[.size] as? Int else {
+            return nil
+        }
+        return FileSnapshot(mtime: mtime, size: size)
+    }
+
+    /// Returns true if any of the managed config files changed on disk since last snapshot.
+    private func hasFilesChanged() -> Bool {
+        let manager = ConfigurationManager.shared
+        let trackedPaths = [
+            manager.settingsURL.path,
+            manager.localSettingsURL.path,
+            manager.claudeMDURL.path,
+        ]
+
+        for path in trackedPaths {
+            guard let current = snapshotFile(at: path) else {
+                // File doesn't exist — changed if we had a previous snapshot
+                if fileSnapshots[path] != nil {
+                    fileSnapshots.removeValue(forKey: path)
+                    return true
+                }
+                continue
+            }
+
+            if let previous = fileSnapshots[path] {
+                if current != previous {
+                    fileSnapshots[path] = current
+                    return true
+                }
+            } else {
+                // First time seeing this file
+                fileSnapshots[path] = current
+                return true
+            }
+        }
+
+        return false
+    }
 
     private func createStream() {
         var context = FSEventStreamContext()
@@ -104,14 +165,21 @@ class FileWatcher: ObservableObject {
 
     private func handleEvents() {
         debounceTimer?.invalidate()
-        debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+        debounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard self != nil else { return }
                 let manager = ConfigurationManager.shared
-                // Skip reload if the app itself just saved (avoids overwriting in-progress edits)
+
+                // Secondary guard: skip if the app itself just saved
                 if Date().timeIntervalSince(manager.lastSaveTime) < 1.0 {
                     return
                 }
+
+                // Primary guard: skip if no managed files actually changed on disk
+                guard FileWatcher.shared.hasFilesChanged() else {
+                    return
+                }
+
                 manager.loadAll()
 
                 // Refresh watched project paths in case new projects appeared

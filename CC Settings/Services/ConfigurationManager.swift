@@ -5,9 +5,21 @@ import SwiftUI
 class ConfigurationManager: ObservableObject {
     static let shared = ConfigurationManager()
 
-    @Published var settings: ClaudeSettings = ClaudeSettings()
-    @Published var localSettings: LocalSettings = LocalSettings()
-    @Published var claudeMD: String = ""
+    @Published var settings: ClaudeSettings = ClaudeSettings() {
+        didSet {
+            if !isLoadingFromDisk { isDirty = true }
+        }
+    }
+    @Published var localSettings: LocalSettings = LocalSettings() {
+        didSet {
+            if !isLoadingFromDisk { isLocalDirty = true }
+        }
+    }
+    @Published var claudeMD: String = "" {
+        didSet {
+            if !isLoadingFromDisk { isMDDirty = true }
+        }
+    }
     @Published var isLoading: Bool = false
     @Published var lastError: Error?
 
@@ -15,10 +27,20 @@ class ConfigurationManager: ObservableObject {
     /// reloading settings that the app itself just wrote (which would overwrite in-progress edits).
     private(set) var lastSaveTime: Date = .distantPast
 
+    /// Tracks whether in-memory state has unsaved changes. Prevents loadAll() from
+    /// overwriting edits that haven't been persisted yet.
+    private var isDirty = false
+    private var isLocalDirty = false
+    private var isMDDirty = false
+
+    /// Suppresses dirty-marking during disk loads so that assigning @Published properties
+    /// from loadAll() doesn't incorrectly flag them as user edits.
+    private var isLoadingFromDisk = false
+
     private let claudeDir: URL
-    private let settingsURL: URL
-    private let localSettingsURL: URL
-    private let claudeMDURL: URL
+    let settingsURL: URL
+    let localSettingsURL: URL
+    let claudeMDURL: URL
     private let projectsDir: URL
     private let commandsDir: URL
     private let skillsDir: URL
@@ -53,20 +75,27 @@ class ConfigurationManager: ObservableObject {
 
     func loadAll() {
         isLoading = true
+        isLoadingFromDisk = true
         lastError = nil
 
-        // Load settings.json
-        if let data = try? Data(contentsOf: settingsURL) {
+        // Load settings.json — skip if we have unsaved local changes
+        if isDirty {
+            // Push our in-memory changes to disk instead of overwriting them
+            saveSettings()
+        } else if let data = try? Data(contentsOf: settingsURL) {
             let fixed = validateAndFix(jsonData: data)
             do {
                 settings = try decoder.decode(ClaudeSettings.self, from: fixed)
             } catch {
+                // Decode failed — do NOT touch settings; preserve current state
                 lastError = error
             }
         }
 
-        // Load settings.local.json
-        if let data = try? Data(contentsOf: localSettingsURL) {
+        // Load settings.local.json — skip if dirty
+        if isLocalDirty {
+            saveLocalSettings()
+        } else if let data = try? Data(contentsOf: localSettingsURL) {
             let fixed = validateAndFix(jsonData: data)
             do {
                 localSettings = try decoder.decode(LocalSettings.self, from: fixed)
@@ -75,11 +104,14 @@ class ConfigurationManager: ObservableObject {
             }
         }
 
-        // Load CLAUDE.md
-        if let content = try? String(contentsOf: claudeMDURL, encoding: .utf8) {
+        // Load CLAUDE.md — skip if dirty
+        if isMDDirty {
+            saveClaudeMD()
+        } else if let content = try? String(contentsOf: claudeMDURL, encoding: .utf8) {
             claudeMD = content
         }
 
+        isLoadingFromDisk = false
         isLoading = false
     }
 
@@ -114,6 +146,8 @@ class ConfigurationManager: ObservableObject {
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
             try fixedOutput.write(to: settingsURL, options: .atomic)
+            isDirty = false
+            FileWatcher.shared.updateFileTracking(for: [settingsURL])
         } catch {
             lastError = error
         }
@@ -174,6 +208,8 @@ class ConfigurationManager: ObservableObject {
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
             try fixedOutput.write(to: localSettingsURL, options: .atomic)
+            isLocalDirty = false
+            FileWatcher.shared.updateFileTracking(for: [localSettingsURL])
         } catch {
             lastError = error
         }
@@ -184,6 +220,8 @@ class ConfigurationManager: ObservableObject {
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
             try claudeMD.write(to: claudeMDURL, atomically: true, encoding: .utf8)
+            isMDDirty = false
+            FileWatcher.shared.updateFileTracking(for: [claudeMDURL])
         } catch {
             lastError = error
         }
