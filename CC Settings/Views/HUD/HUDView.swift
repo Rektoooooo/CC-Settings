@@ -216,8 +216,11 @@ struct HUDView: View {
                         .foregroundColor(.secondary.opacity(0.5))
                     mockupToolsLine
                     mockupAgentLine
-                    (Text("\u{2713} ").foregroundColor(.green) + Text("All todos complete (8/8)").foregroundColor(.secondary))
-                        .font(.system(size: 12, design: .monospaced))
+                    HStack(spacing: 0) {
+                        Text("\u{2713} ").foregroundColor(.green)
+                        Text("All todos complete (8/8)").foregroundColor(.secondary)
+                    }
+                    .font(.system(size: 12, design: .monospaced))
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -265,30 +268,49 @@ struct HUDView: View {
     }
 
     private var mockupProjectLine: some View {
-        let part1 = Text("[Opus 4.6 | Max]").foregroundColor(.cyan) + Text(" \u{2502} ").foregroundColor(.secondary)
-        let part2 = Text("my-project").foregroundColor(.yellow) + Text(" git:(").foregroundColor(.purple)
-        let part3 = Text("main").foregroundColor(.cyan) + Text(")").foregroundColor(.purple)
-        let part4 = Text(" \u{2502} ").foregroundColor(.secondary) + Text("CC v2.1.92 \u{2502} \u{23F1} 5m").foregroundColor(.secondary)
-        return (part1 + part2 + part3 + part4).font(.system(size: 12, design: .monospaced))
+        HStack(spacing: 0) {
+            Text("[Opus 4.6 | Max]").foregroundColor(.cyan)
+            Text(" \u{2502} ").foregroundColor(.secondary)
+            Text("my-project").foregroundColor(.yellow)
+            Text(" git:(").foregroundColor(.purple)
+            Text("main").foregroundColor(.cyan)
+            Text(")").foregroundColor(.purple)
+            Text(" \u{2502} ").foregroundColor(.secondary)
+            Text("CC v2.1.92 \u{2502} \u{23F1} 5m").foregroundColor(.secondary)
+        }
+        .font(.system(size: 12, design: .monospaced))
     }
 
     private var mockupContextLine: some View {
-        let ctx = Text("Context ").foregroundColor(.secondary) + Text("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%").foregroundColor(.green)
-        let sep = Text("  \u{2502}  ").foregroundColor(.secondary)
-        let usg = Text("Usage ").foregroundColor(.secondary) + Text("\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18%").foregroundColor(Color(red: 0.4, green: 0.5, blue: 1.0))
-        return (ctx + sep + usg).font(.system(size: 12, design: .monospaced))
+        HStack(spacing: 0) {
+            Text("Context ").foregroundColor(.secondary)
+            Text("\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%").foregroundColor(.green)
+            Text("  \u{2502}  ").foregroundColor(.secondary)
+            Text("Usage ").foregroundColor(.secondary)
+            Text("\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18%").foregroundColor(Color(red: 0.4, green: 0.5, blue: 1.0))
+        }
+        .font(.system(size: 12, design: .monospaced))
     }
 
     private var mockupToolsLine: some View {
-        let t1 = Text("\u{2713} ").foregroundColor(.green) + Text("Edit \u{00D7}9 | ").foregroundColor(.secondary)
-        let t2 = Text("\u{2713} ").foregroundColor(.green) + Text("Read \u{00D7}6 | ").foregroundColor(.secondary)
-        let t3 = Text("\u{2713} ").foregroundColor(.green) + Text("Bash \u{00D7}4").foregroundColor(.secondary)
-        return (t1 + t2 + t3).font(.system(size: 12, design: .monospaced))
+        HStack(spacing: 0) {
+            Text("\u{2713} ").foregroundColor(.green)
+            Text("Edit \u{00D7}9 | ").foregroundColor(.secondary)
+            Text("\u{2713} ").foregroundColor(.green)
+            Text("Read \u{00D7}6 | ").foregroundColor(.secondary)
+            Text("\u{2713} ").foregroundColor(.green)
+            Text("Bash \u{00D7}4").foregroundColor(.secondary)
+        }
+        .font(.system(size: 12, design: .monospaced))
     }
 
     private var mockupAgentLine: some View {
-        (Text("\u{2713} ").foregroundColor(.green) + Text("Explore").foregroundColor(.purple) + Text(": Analyze codebase (1m 14s)").foregroundColor(.secondary))
-            .font(.system(size: 12, design: .monospaced))
+        HStack(spacing: 0) {
+            Text("\u{2713} ").foregroundColor(.green)
+            Text("Explore").foregroundColor(.purple)
+            Text(": Analyze codebase (1m 14s)").foregroundColor(.secondary)
+        }
+        .font(.system(size: 12, design: .monospaced))
     }
 
     private func featureRow(icon: String, color: Color, title: String, description: String) -> some View {
@@ -466,10 +488,9 @@ struct HUDView: View {
     }
 
     @ViewBuilder
-    private func previewElementView(for element: ElementItem, content: Text?, inline: Bool = false) -> some View {
+    private func previewElementView(for element: ElementItem, content: AnyView?, inline: Bool = false) -> some View {
         if let content = content {
             content
-                .font(.system(size: 11, design: .monospaced))
                 .padding(.horizontal, inline ? 4 : 10)
                 .padding(.vertical, 3)
                 .frame(maxWidth: inline ? nil : .infinity, alignment: .leading)
@@ -499,13 +520,19 @@ struct HUDView: View {
 
     private let pf = Font.system(size: 11, design: .monospaced)
 
-    private func coloredPreviewText(for elementID: String, gitSuffix: String) -> Text? {
+    private func coloredPreviewText(for elementID: String, gitSuffix: String) -> AnyView? {
         let dim = swiftUIColor(for: config.colors.label)
 
         switch elementID {
         case "project":
             guard config.display.showModel || config.display.showProject else { return nil }
-            var parts: [Text] = []
+
+            struct ProjectPart: Identifiable {
+                let id = UUID()
+                let view: AnyView
+            }
+            var parts: [ProjectPart] = []
+
             if config.display.showModel {
                 let modelColor = swiftUIColor(for: config.colors.model)
                 let name: String
@@ -515,36 +542,47 @@ struct HUDView: View {
                 default: name = "Opus 4.6 (1M context)"
                 }
                 let display = config.display.modelOverride.isEmpty ? "\(name) | Max" : config.display.modelOverride
-                parts.append(Text("[\(display)]").font(pf).foregroundColor(modelColor))
+                parts.append(ProjectPart(view: AnyView(Text("[\(display)]").font(pf).foregroundColor(modelColor))))
             }
             if config.display.showProject {
                 let projColor = swiftUIColor(for: config.colors.project)
                 let gitColor = swiftUIColor(for: config.colors.git)
                 let branchColor = swiftUIColor(for: config.colors.gitBranch)
-                parts.append(Text("my-project").font(pf).foregroundColor(projColor))
+                parts.append(ProjectPart(view: AnyView(Text("my-project").font(pf).foregroundColor(projColor))))
                 if config.gitStatus.enabled {
                     var branch = "main"
                     if config.gitStatus.showDirty { branch += "*" }
-                    parts.append(Text(" git:(").font(pf).foregroundColor(gitColor)
-                                 + Text(branch).font(pf).foregroundColor(branchColor)
-                                 + Text(")").font(pf).foregroundColor(gitColor))
+                    parts.append(ProjectPart(view: AnyView(
+                        HStack(spacing: 0) {
+                            Text(" git:(").font(pf).foregroundColor(gitColor)
+                            Text(branch).font(pf).foregroundColor(branchColor)
+                            Text(")").font(pf).foregroundColor(gitColor)
+                        }
+                    )))
                     if config.gitStatus.showAheadBehind {
-                        parts.append(Text(" \u{2191}2 \u{2193}1").font(pf).foregroundColor(branchColor))
+                        parts.append(ProjectPart(view: AnyView(Text(" \u{2191}2 \u{2193}1").font(pf).foregroundColor(branchColor))))
                     }
                 }
             }
-            if config.display.showSessionName { parts.append(Text("precious-hollerith").font(pf).foregroundColor(dim)) }
-            if config.display.showClaudeCodeVersion { parts.append(Text("CC v2.1.92").font(pf).foregroundColor(dim)) }
-            if config.display.showSpeed { parts.append(Text("85.2 tok/s").font(pf).foregroundColor(dim)) }
-            if config.display.showDuration { parts.append(Text("\u{23F1} 22m").font(pf).foregroundColor(dim)) }
-            if config.display.showCost { parts.append(Text("Est. $12.97").font(pf).foregroundColor(dim)) }
+            if config.display.showSessionName { parts.append(ProjectPart(view: AnyView(Text("precious-hollerith").font(pf).foregroundColor(dim)))) }
+            if config.display.showClaudeCodeVersion { parts.append(ProjectPart(view: AnyView(Text("CC v2.1.92").font(pf).foregroundColor(dim)))) }
+            if config.display.showSpeed { parts.append(ProjectPart(view: AnyView(Text("85.2 tok/s").font(pf).foregroundColor(dim)))) }
+            if config.display.showDuration { parts.append(ProjectPart(view: AnyView(Text("\u{23F1} 22m").font(pf).foregroundColor(dim)))) }
+            if config.display.showCost { parts.append(ProjectPart(view: AnyView(Text("Est. $12.97").font(pf).foregroundColor(dim)))) }
             if !config.display.customLine.isEmpty {
-                parts.append(Text(config.display.customLine).font(pf).foregroundColor(swiftUIColor(for: config.colors.custom)))
+                parts.append(ProjectPart(view: AnyView(Text(config.display.customLine).font(pf).foregroundColor(swiftUIColor(for: config.colors.custom)))))
             }
             guard !parts.isEmpty else { return nil }
-            return parts.enumerated().reduce(Text("")) { result, item in
-                item.offset > 0 ? result + Text(" \u{2502} ").font(pf).foregroundColor(dim) + item.element : item.element
-            }
+            return AnyView(
+                HStack(spacing: 0) {
+                    ForEach(Array(parts.enumerated()), id: \.element.id) { offset, part in
+                        if offset > 0 {
+                            Text(" \u{2502} ").font(pf).foregroundColor(dim)
+                        }
+                        part.view
+                    }
+                }
+            )
 
         case "context":
             guard config.display.showContextBar else { return nil }
@@ -556,7 +594,12 @@ struct HUDView: View {
             case "both": value = "28k/100k (28%)"
             default: value = "\u{2588}\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  28%"
             }
-            return Text("Context ").font(pf).foregroundColor(dim) + Text(value).font(pf).foregroundColor(ctxColor)
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("Context ").font(pf).foregroundColor(dim)
+                    Text(value).font(pf).foregroundColor(ctxColor)
+                }
+            )
 
         case "usage":
             guard config.display.showUsage else { return nil }
@@ -564,40 +607,66 @@ struct HUDView: View {
             let value = config.display.usageBarEnabled
                 ? "\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  18% (3h 39m / 5h)"
                 : "18% (3h 39m / 5h)"
-            return Text("Usage ").font(pf).foregroundColor(dim) + Text(value).font(pf).foregroundColor(usageColor)
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("Usage ").font(pf).foregroundColor(dim)
+                    Text(value).font(pf).foregroundColor(usageColor)
+                }
+            )
 
         case "memory":
             guard config.display.showMemoryUsage else { return nil }
-            return Text("Approx RAM ").font(pf).foregroundColor(dim)
-                + Text("\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  5.8 GB / 16 GB (36%)").font(pf).foregroundColor(swiftUIColor(for: config.colors.usage))
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("Approx RAM ").font(pf).foregroundColor(dim)
+                    Text("\u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  5.8 GB / 16 GB (36%)").font(pf).foregroundColor(swiftUIColor(for: config.colors.usage))
+                }
+            )
 
         case "environment":
             guard config.display.showConfigCounts else { return nil }
-            var result = Text("2 CLAUDE.md | 4 MCPs").font(pf).foregroundColor(dim)
             if config.display.showOutputStyle {
-                result = result + Text(" | style: concise").font(pf).foregroundColor(dim)
+                return AnyView(
+                    HStack(spacing: 0) {
+                        Text("2 CLAUDE.md | 4 MCPs").font(pf).foregroundColor(dim)
+                        Text(" | style: concise").font(pf).foregroundColor(dim)
+                    }
+                )
+            } else {
+                return AnyView(Text("2 CLAUDE.md | 4 MCPs").font(pf).foregroundColor(dim))
             }
-            return result
 
         case "tools":
             guard config.display.showTools else { return nil }
-            return Text("\u{2713} ").font(pf).foregroundColor(.green)
-                + Text("Edit \u{00D7}9 | ").font(pf).foregroundColor(dim)
-                + Text("\u{2713} ").font(pf).foregroundColor(.green)
-                + Text("Read \u{00D7}6 | ").font(pf).foregroundColor(dim)
-                + Text("\u{2713} ").font(pf).foregroundColor(.green)
-                + Text("Bash \u{00D7}4").font(pf).foregroundColor(dim)
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("\u{2713} ").font(pf).foregroundColor(.green)
+                    Text("Edit \u{00D7}9 | ").font(pf).foregroundColor(dim)
+                    Text("\u{2713} ").font(pf).foregroundColor(.green)
+                    Text("Read \u{00D7}6 | ").font(pf).foregroundColor(dim)
+                    Text("\u{2713} ").font(pf).foregroundColor(.green)
+                    Text("Bash \u{00D7}4").font(pf).foregroundColor(dim)
+                }
+            )
 
         case "agents":
             guard config.display.showAgents else { return nil }
-            return Text("\u{2713} ").font(pf).foregroundColor(.green)
-                + Text("Explore").font(pf).foregroundColor(.purple)
-                + Text(": Analyze codebase (1m 14s)").font(pf).foregroundColor(dim)
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("\u{2713} ").font(pf).foregroundColor(.green)
+                    Text("Explore").font(pf).foregroundColor(.purple)
+                    Text(": Analyze codebase (1m 14s)").font(pf).foregroundColor(dim)
+                }
+            )
 
         case "todos":
             guard config.display.showTodos else { return nil }
-            return Text("\u{2713} ").font(pf).foregroundColor(.green)
-                + Text("All todos complete (8/8)").font(pf).foregroundColor(dim)
+            return AnyView(
+                HStack(spacing: 0) {
+                    Text("\u{2713} ").font(pf).foregroundColor(.green)
+                    Text("All todos complete (8/8)").font(pf).foregroundColor(dim)
+                }
+            )
 
         default:
             return nil
