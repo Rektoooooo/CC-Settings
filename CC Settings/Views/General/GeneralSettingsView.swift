@@ -58,11 +58,19 @@ struct GeneralSettingsView: View {
     // API Key Helper
     @State private var apiKeyHelper: String = ""
 
+    // Claude Code Version
+    @State private var installedVersion: String = ""
+    @State private var latestVersion: String = ""
+    @State private var isCheckingUpdate: Bool = false
+    @State private var isUpdating: Bool = false
+    @State private var updateOutput: String = ""
+
     // Prevents onChange from firing during initial load
     @State private var isLoaded: Bool = false
 
     var body: some View {
         Form {
+            claudeVersionSection
             modelSection
             appearanceSection
             languageSection
@@ -86,6 +94,127 @@ struct GeneralSettingsView: View {
         }
         .background {
             autoSaveObservers
+        }
+    }
+
+    // MARK: - Claude Code Version
+
+    private var claudeVersionSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: "terminal")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if installedVersion.isEmpty {
+                        Text("Claude Code")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Checking version...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Claude Code v\(installedVersion)")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        if isCheckingUpdate {
+                            Text("Checking for updates...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if !latestVersion.isEmpty && latestVersion != installedVersion {
+                            Text("v\(latestVersion) available")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        } else if !latestVersion.isEmpty {
+                            Text("Up to date")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                if isUpdating {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Updating...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if !latestVersion.isEmpty && latestVersion != installedVersion {
+                    Button("Update") {
+                        runUpdate()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                } else if !isCheckingUpdate {
+                    Button("Check for Updates") {
+                        checkForUpdates()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+
+            if !updateOutput.isEmpty {
+                Text(updateOutput)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(updateOutput.contains("error") || updateOutput.contains("Error") ? .red : .secondary)
+                    .lineLimit(4)
+                    .textSelection(.enabled)
+            }
+        } header: {
+            Text("Claude Code")
+        }
+        .onAppear {
+            fetchInstalledVersion()
+            checkForUpdates()
+        }
+    }
+
+    private func fetchInstalledVersion() {
+        Task.detached {
+            let version = await runShell("claude", args: ["--version"])
+            let cleaned = version.trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: " (Claude Code)", with: "")
+            await MainActor.run {
+                installedVersion = cleaned
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        isCheckingUpdate = true
+        latestVersion = ""
+        Task.detached {
+            let json = await runShell("/usr/bin/curl", args: ["-s", "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"])
+            var latest = ""
+            if let data = json.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let v = obj["version"] as? String {
+                latest = v
+            }
+            await MainActor.run {
+                latestVersion = latest
+                isCheckingUpdate = false
+            }
+        }
+    }
+
+    private func runUpdate() {
+        isUpdating = true
+        updateOutput = ""
+        Task.detached {
+            let output = await runShell("claude", args: ["update"])
+            await MainActor.run {
+                updateOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                isUpdating = false
+                // Re-check version after update
+                fetchInstalledVersion()
+                checkForUpdates()
+            }
         }
     }
 
@@ -510,6 +639,45 @@ struct GeneralSettingsView: View {
         apiKeyHelper = s.apiKeyHelper ?? ""
 
         isLoaded = true
+    }
+
+    // MARK: - Shell Helper
+
+    /// Resolves the full path to the `claude` binary by checking common install locations.
+    private static let claudePath: String? = {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let candidates = [
+            "\(home)/.local/bin/claude",
+            "\(home)/.npm-global/bin/claude",
+            "/usr/local/bin/claude",
+            "/opt/homebrew/bin/claude",
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }()
+
+    private func runShell(_ command: String, args: [String] = []) async -> String {
+        let resolved: String
+        if command == "claude", let path = Self.claudePath {
+            resolved = path
+        } else {
+            resolved = command
+        }
+
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: resolved)
+        process.arguments = args
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            return "Error: \(error.localizedDescription)"
+        }
     }
 
     private func save() {
