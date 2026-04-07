@@ -272,6 +272,9 @@ struct EnvironmentView: View {
         .onAppear {
             loadFromSettings()
         }
+        .onChange(of: configManager.settings) {
+            loadFromSettings()
+        }
     }
 
     // MARK: - Known env var keys managed by this view

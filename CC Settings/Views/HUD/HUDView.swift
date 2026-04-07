@@ -816,12 +816,9 @@ struct HUDView: View {
 
             lines.append(contentsOf: activityLines)
 
-            // Duration + speed extras
-            var extras: [String] = []
-            if config.display.showDuration { extras.append("\u{23F1} 58m") }
-            if config.display.showSpeed { extras.append("out: 85 tok/s") }
-            if !extras.isEmpty {
-                lines.append(extras.joined(separator: " | "))
+            // Session tokens (rendered after all elements, like the plugin does)
+            if config.display.showSessionTokens {
+                lines.append("Tokens 125k (in: 45k, out: 80k, cache: 12k)")
             }
         } else {
             // Compact: single line with all header info
@@ -851,12 +848,18 @@ struct HUDView: View {
 
             parts.append("my-project\(gitSuffix)")
 
-            if config.display.showConfigCounts {
-                parts.append("1 CLAUDE.md | 2 MCPs")
+            if config.display.showSessionName {
+                parts.append("precious-hollerith")
             }
-
-            if config.display.showDuration { parts.append("\u{23F1} 58m") }
-            if config.display.showSpeed { parts.append("out: 85 tok/s") }
+            if config.display.showClaudeCodeVersion {
+                parts.append("CC v2.1.92")
+            }
+            if config.display.showConfigCounts {
+                parts.append("2 CLAUDE.md | 4 MCPs")
+            }
+            if config.display.showSpeed { parts.append("85.2 tok/s") }
+            if config.display.showDuration { parts.append("\u{23F1} 22m") }
+            if config.display.showCost { parts.append("Est. $12.97") }
 
             if !parts.isEmpty {
                 lines.append(parts.joined(separator: sep))
@@ -911,12 +914,43 @@ struct HUDView: View {
     private func previewLine(for element: String, gitSuffix: String) -> String? {
         switch element {
         case "project":
-            var headerLine = ""
+            guard config.display.showModel || config.display.showProject else { return nil }
+            var parts: [String] = []
             if config.display.showModel {
-                headerLine += "[Opus 4.6 | Max] | "
+                let modelName: String
+                switch config.display.modelFormat {
+                case "short": modelName = "Opus 4.6"
+                case "compact": modelName = "Opus 4.6"
+                default: modelName = "Opus 4.6 (1M context)"
+                }
+                if !config.display.modelOverride.isEmpty {
+                    parts.append("[\(config.display.modelOverride)]")
+                } else {
+                    parts.append("[\(modelName) | Max]")
+                }
             }
-            headerLine += "my-project\(gitSuffix)"
-            return headerLine
+            if config.display.showProject {
+                parts.append("my-project\(gitSuffix)")
+            }
+            if config.display.showSessionName {
+                parts.append("precious-hollerith")
+            }
+            if config.display.showClaudeCodeVersion {
+                parts.append("CC v2.1.92")
+            }
+            if config.display.showSpeed {
+                parts.append("85.2 tok/s")
+            }
+            if config.display.showDuration {
+                parts.append("\u{23F1} 22m")
+            }
+            if config.display.showCost {
+                parts.append("Est. $12.97")
+            }
+            if !config.display.customLine.isEmpty {
+                parts.append(config.display.customLine)
+            }
+            return parts.isEmpty ? nil : parts.joined(separator: " \u{2502} ")
 
         case "context":
             return contextPreviewString()
@@ -926,11 +960,15 @@ struct HUDView: View {
 
         case "memory":
             guard config.display.showMemoryUsage else { return nil }
-            return "Memory: 12 entities"
+            return "Approx RAM \u{2588}\u{2588}\u{2591}\u{2591}\u{2591}\u{2591}\u{2591}  5.8 GB / 16 GB (36%)"
 
         case "environment":
             guard config.display.showConfigCounts else { return nil }
-            return "1 CLAUDE.md | 2 MCPs"
+            var envParts = ["2 CLAUDE.md", "4 MCPs"]
+            if config.display.showOutputStyle {
+                envParts.append("style: concise")
+            }
+            return envParts.joined(separator: " | ")
 
         case "tools":
             guard config.display.showTools else { return nil }

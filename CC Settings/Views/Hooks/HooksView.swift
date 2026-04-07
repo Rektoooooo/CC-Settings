@@ -5,8 +5,27 @@ import SwiftUI
 enum HookType: String, CaseIterable, Identifiable {
     case preToolUse = "PreToolUse"
     case postToolUse = "PostToolUse"
+    case postToolUseFailure = "PostToolUseFailure"
     case prePromptSubmit = "PrePromptSubmit"
     case postPromptSubmit = "PostPromptSubmit"
+    case permissionRequest = "PermissionRequest"
+    case notification = "Notification"
+    case stop = "Stop"
+    case subagentStart = "SubagentStart"
+    case subagentStop = "SubagentStop"
+    case preCompact = "PreCompact"
+    case postCompact = "PostCompact"
+    case elicitation = "Elicitation"
+    case elicitationResult = "ElicitationResult"
+    case teammateIdle = "TeammateIdle"
+    case taskCompleted = "TaskCompleted"
+    case setup = "Setup"
+    case instructionsLoaded = "InstructionsLoaded"
+    case configChange = "ConfigChange"
+    case worktreeCreate = "WorktreeCreate"
+    case worktreeRemove = "WorktreeRemove"
+    case sessionStart = "SessionStart"
+    case sessionEnd = "SessionEnd"
 
     var id: String { rawValue }
 
@@ -14,8 +33,27 @@ enum HookType: String, CaseIterable, Identifiable {
         switch self {
         case .preToolUse: return "Pre Tool Use"
         case .postToolUse: return "Post Tool Use"
+        case .postToolUseFailure: return "Post Tool Use Failure"
         case .prePromptSubmit: return "Pre Prompt Submit"
         case .postPromptSubmit: return "Post Prompt Submit"
+        case .permissionRequest: return "Permission Request"
+        case .notification: return "Notification"
+        case .stop: return "Stop"
+        case .subagentStart: return "Subagent Start"
+        case .subagentStop: return "Subagent Stop"
+        case .preCompact: return "Pre Compact"
+        case .postCompact: return "Post Compact"
+        case .elicitation: return "Elicitation"
+        case .elicitationResult: return "Elicitation Result"
+        case .teammateIdle: return "Teammate Idle"
+        case .taskCompleted: return "Task Completed"
+        case .setup: return "Setup"
+        case .instructionsLoaded: return "Instructions Loaded"
+        case .configChange: return "Config Change"
+        case .worktreeCreate: return "Worktree Create"
+        case .worktreeRemove: return "Worktree Remove"
+        case .sessionStart: return "Session Start"
+        case .sessionEnd: return "Session End"
         }
     }
 
@@ -23,8 +61,27 @@ enum HookType: String, CaseIterable, Identifiable {
         switch self {
         case .preToolUse: return "chevron.left.square.fill"
         case .postToolUse: return "chevron.right.square.fill"
+        case .postToolUseFailure: return "exclamationmark.triangle.fill"
         case .prePromptSubmit: return "arrow.up.square.fill"
         case .postPromptSubmit: return "arrow.down.square.fill"
+        case .permissionRequest: return "lock.shield.fill"
+        case .notification: return "bell.fill"
+        case .stop: return "stop.circle.fill"
+        case .subagentStart: return "play.circle.fill"
+        case .subagentStop: return "stop.fill"
+        case .preCompact: return "rectangle.compress.vertical"
+        case .postCompact: return "rectangle.expand.vertical"
+        case .elicitation: return "bubble.left.fill"
+        case .elicitationResult: return "bubble.right.fill"
+        case .teammateIdle: return "person.crop.circle.badge.clock"
+        case .taskCompleted: return "checkmark.circle.fill"
+        case .setup: return "gearshape.fill"
+        case .instructionsLoaded: return "doc.text.fill"
+        case .configChange: return "slider.horizontal.3"
+        case .worktreeCreate: return "plus.rectangle.on.folder.fill"
+        case .worktreeRemove: return "minus.rectangle.fill"
+        case .sessionStart: return "power.circle.fill"
+        case .sessionEnd: return "power.circle"
         }
     }
 
@@ -32,8 +89,27 @@ enum HookType: String, CaseIterable, Identifiable {
         switch self {
         case .preToolUse: return .themeAccent
         case .postToolUse: return .purple
+        case .postToolUseFailure: return .red
         case .prePromptSubmit: return .green
         case .postPromptSubmit: return .orange
+        case .permissionRequest: return .yellow
+        case .notification: return .cyan
+        case .stop: return .red
+        case .subagentStart: return .mint
+        case .subagentStop: return .pink
+        case .preCompact: return .indigo
+        case .postCompact: return .indigo
+        case .elicitation: return .teal
+        case .elicitationResult: return .teal
+        case .teammateIdle: return .gray
+        case .taskCompleted: return .green
+        case .setup: return .blue
+        case .instructionsLoaded: return .purple
+        case .configChange: return .orange
+        case .worktreeCreate: return .mint
+        case .worktreeRemove: return .pink
+        case .sessionStart: return .green
+        case .sessionEnd: return .red
         }
     }
 
@@ -41,8 +117,27 @@ enum HookType: String, CaseIterable, Identifiable {
         switch self {
         case .preToolUse: return "Runs before a tool is executed"
         case .postToolUse: return "Runs after a tool has completed"
+        case .postToolUseFailure: return "Runs after a tool execution fails"
         case .prePromptSubmit: return "Runs before a prompt is sent"
         case .postPromptSubmit: return "Runs after a prompt response"
+        case .permissionRequest: return "Runs when a permission is requested"
+        case .notification: return "Runs when a notification is triggered"
+        case .stop: return "Runs when Claude stops generating"
+        case .subagentStart: return "Runs when a subagent starts"
+        case .subagentStop: return "Runs when a subagent stops"
+        case .preCompact: return "Runs before context compaction"
+        case .postCompact: return "Runs after context compaction"
+        case .elicitation: return "Runs when Claude asks a question"
+        case .elicitationResult: return "Runs after an elicitation response"
+        case .teammateIdle: return "Runs when a teammate becomes idle"
+        case .taskCompleted: return "Runs when a task is completed"
+        case .setup: return "Runs during initial setup"
+        case .instructionsLoaded: return "Runs after instructions are loaded"
+        case .configChange: return "Runs when configuration changes"
+        case .worktreeCreate: return "Runs when a git worktree is created"
+        case .worktreeRemove: return "Runs when a git worktree is removed"
+        case .sessionStart: return "Runs when a session starts"
+        case .sessionEnd: return "Runs when a session ends"
         }
     }
 
@@ -50,8 +145,27 @@ enum HookType: String, CaseIterable, Identifiable {
         switch self {
         case .preToolUse: return "echo \"About to use $TOOL_NAME\""
         case .postToolUse: return "npm run lint -- --fix"
+        case .postToolUseFailure: return "echo \"Tool failed: $TOOL_NAME\" >> errors.log"
         case .prePromptSubmit: return "date >> ~/.claude/prompt-log.txt"
         case .postPromptSubmit: return "say 'Done' &"
+        case .permissionRequest: return "echo \"Permission requested for $TOOL_NAME\""
+        case .notification: return "osascript -e 'display notification \"Claude\"'"
+        case .stop: return "echo \"Claude stopped\" >> activity.log"
+        case .subagentStart: return "echo \"Subagent started\""
+        case .subagentStop: return "echo \"Subagent stopped\""
+        case .preCompact: return "echo \"Compacting context...\""
+        case .postCompact: return "echo \"Context compacted\""
+        case .elicitation: return "echo \"Claude is asking a question\""
+        case .elicitationResult: return "echo \"Elicitation answered\""
+        case .teammateIdle: return "echo \"Teammate is idle\""
+        case .taskCompleted: return "say 'Task complete' &"
+        case .setup: return "echo \"Setting up...\""
+        case .instructionsLoaded: return "echo \"Instructions loaded\""
+        case .configChange: return "echo \"Config changed\""
+        case .worktreeCreate: return "echo \"Worktree created\""
+        case .worktreeRemove: return "echo \"Worktree removed\""
+        case .sessionStart: return "echo \"Session started at $(date)\""
+        case .sessionEnd: return "echo \"Session ended at $(date)\""
         }
     }
 }
@@ -88,7 +202,7 @@ struct HookGroupModel: Identifiable, Equatable {
     init(from group: HookGroup) {
         self.matcherTool = group.matcher?.tool ?? ""
         self.matcherPattern = group.matcher?.pattern ?? ""
-        self.commands = group.hooks.map(\.command)
+        self.commands = group.hooks.map { $0.command ?? "" }
         if self.commands.isEmpty {
             self.commands = [""]
         }
@@ -227,6 +341,9 @@ struct HooksView: View {
         .onAppear {
             loadAllHooks()
         }
+        .onChange(of: configManager.settings) {
+            loadAllHooks()
+        }
     }
 
     // MARK: - Section for Each Hook Type
@@ -349,7 +466,7 @@ struct HooksView: View {
                     Text("$")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(scopedHook.hookType.color)
-                    Text(scopedHook.group.hooks[i].command)
+                    Text(scopedHook.group.hooks[i].command ?? "")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(.primary)
                         .lineLimit(2)
@@ -567,7 +684,7 @@ struct HooksView: View {
         editScopedGroup = scopedHook
         editTool = scopedHook.group.matcher?.tool ?? ""
         editPattern = scopedHook.group.matcher?.pattern ?? ""
-        editCommands = scopedHook.group.hooks.map(\.command)
+        editCommands = scopedHook.group.hooks.map { $0.command ?? "" }
         if editCommands.isEmpty { editCommands = [""] }
     }
 
@@ -639,8 +756,27 @@ struct HooksView: View {
             switch hookType {
             case .preToolUse: groups = hooks?.PreToolUse ?? []
             case .postToolUse: groups = hooks?.PostToolUse ?? []
+            case .postToolUseFailure: groups = hooks?.PostToolUseFailure ?? []
             case .prePromptSubmit: groups = hooks?.PrePromptSubmit ?? []
             case .postPromptSubmit: groups = hooks?.PostPromptSubmit ?? []
+            case .permissionRequest: groups = hooks?.PermissionRequest ?? []
+            case .notification: groups = hooks?.Notification ?? []
+            case .stop: groups = hooks?.Stop ?? []
+            case .subagentStart: groups = hooks?.SubagentStart ?? []
+            case .subagentStop: groups = hooks?.SubagentStop ?? []
+            case .preCompact: groups = hooks?.PreCompact ?? []
+            case .postCompact: groups = hooks?.PostCompact ?? []
+            case .elicitation: groups = hooks?.Elicitation ?? []
+            case .elicitationResult: groups = hooks?.ElicitationResult ?? []
+            case .teammateIdle: groups = hooks?.TeammateIdle ?? []
+            case .taskCompleted: groups = hooks?.TaskCompleted ?? []
+            case .setup: groups = hooks?.Setup ?? []
+            case .instructionsLoaded: groups = hooks?.InstructionsLoaded ?? []
+            case .configChange: groups = hooks?.ConfigChange ?? []
+            case .worktreeCreate: groups = hooks?.WorktreeCreate ?? []
+            case .worktreeRemove: groups = hooks?.WorktreeRemove ?? []
+            case .sessionStart: groups = hooks?.SessionStart ?? []
+            case .sessionEnd: groups = hooks?.SessionEnd ?? []
             }
             for (index, group) in groups.enumerated() {
                 result.append(ScopedHookGroup(hookType: hookType, group: group, scope: scope, indexInScope: index))
@@ -663,8 +799,27 @@ struct HooksView: View {
         switch type {
         case .preToolUse: return hooks?.PreToolUse ?? []
         case .postToolUse: return hooks?.PostToolUse ?? []
+        case .postToolUseFailure: return hooks?.PostToolUseFailure ?? []
         case .prePromptSubmit: return hooks?.PrePromptSubmit ?? []
         case .postPromptSubmit: return hooks?.PostPromptSubmit ?? []
+        case .permissionRequest: return hooks?.PermissionRequest ?? []
+        case .notification: return hooks?.Notification ?? []
+        case .stop: return hooks?.Stop ?? []
+        case .subagentStart: return hooks?.SubagentStart ?? []
+        case .subagentStop: return hooks?.SubagentStop ?? []
+        case .preCompact: return hooks?.PreCompact ?? []
+        case .postCompact: return hooks?.PostCompact ?? []
+        case .elicitation: return hooks?.Elicitation ?? []
+        case .elicitationResult: return hooks?.ElicitationResult ?? []
+        case .teammateIdle: return hooks?.TeammateIdle ?? []
+        case .taskCompleted: return hooks?.TaskCompleted ?? []
+        case .setup: return hooks?.Setup ?? []
+        case .instructionsLoaded: return hooks?.InstructionsLoaded ?? []
+        case .configChange: return hooks?.ConfigChange ?? []
+        case .worktreeCreate: return hooks?.WorktreeCreate ?? []
+        case .worktreeRemove: return hooks?.WorktreeRemove ?? []
+        case .sessionStart: return hooks?.SessionStart ?? []
+        case .sessionEnd: return hooks?.SessionEnd ?? []
         }
     }
 
@@ -705,12 +860,41 @@ struct HooksView: View {
         switch type {
         case .preToolUse: configManager.settings.hooks?.PreToolUse = value
         case .postToolUse: configManager.settings.hooks?.PostToolUse = value
+        case .postToolUseFailure: configManager.settings.hooks?.PostToolUseFailure = value
         case .prePromptSubmit: configManager.settings.hooks?.PrePromptSubmit = value
         case .postPromptSubmit: configManager.settings.hooks?.PostPromptSubmit = value
+        case .permissionRequest: configManager.settings.hooks?.PermissionRequest = value
+        case .notification: configManager.settings.hooks?.Notification = value
+        case .stop: configManager.settings.hooks?.Stop = value
+        case .subagentStart: configManager.settings.hooks?.SubagentStart = value
+        case .subagentStop: configManager.settings.hooks?.SubagentStop = value
+        case .preCompact: configManager.settings.hooks?.PreCompact = value
+        case .postCompact: configManager.settings.hooks?.PostCompact = value
+        case .elicitation: configManager.settings.hooks?.Elicitation = value
+        case .elicitationResult: configManager.settings.hooks?.ElicitationResult = value
+        case .teammateIdle: configManager.settings.hooks?.TeammateIdle = value
+        case .taskCompleted: configManager.settings.hooks?.TaskCompleted = value
+        case .setup: configManager.settings.hooks?.Setup = value
+        case .instructionsLoaded: configManager.settings.hooks?.InstructionsLoaded = value
+        case .configChange: configManager.settings.hooks?.ConfigChange = value
+        case .worktreeCreate: configManager.settings.hooks?.WorktreeCreate = value
+        case .worktreeRemove: configManager.settings.hooks?.WorktreeRemove = value
+        case .sessionStart: configManager.settings.hooks?.SessionStart = value
+        case .sessionEnd: configManager.settings.hooks?.SessionEnd = value
         }
         if let hooks = configManager.settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
-           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil {
+           hooks.PostToolUseFailure == nil &&
+           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
+           hooks.PermissionRequest == nil && hooks.Notification == nil &&
+           hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
+           hooks.PreCompact == nil && hooks.PostCompact == nil &&
+           hooks.Elicitation == nil && hooks.ElicitationResult == nil &&
+           hooks.TeammateIdle == nil && hooks.TaskCompleted == nil &&
+           hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
+           hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
+           hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
+           hooks.SessionEnd == nil {
             configManager.settings.hooks = nil
         }
         configManager.saveSettings()
@@ -725,12 +909,41 @@ struct HooksView: View {
         switch type {
         case .preToolUse: settings.hooks?.PreToolUse = value
         case .postToolUse: settings.hooks?.PostToolUse = value
+        case .postToolUseFailure: settings.hooks?.PostToolUseFailure = value
         case .prePromptSubmit: settings.hooks?.PrePromptSubmit = value
         case .postPromptSubmit: settings.hooks?.PostPromptSubmit = value
+        case .permissionRequest: settings.hooks?.PermissionRequest = value
+        case .notification: settings.hooks?.Notification = value
+        case .stop: settings.hooks?.Stop = value
+        case .subagentStart: settings.hooks?.SubagentStart = value
+        case .subagentStop: settings.hooks?.SubagentStop = value
+        case .preCompact: settings.hooks?.PreCompact = value
+        case .postCompact: settings.hooks?.PostCompact = value
+        case .elicitation: settings.hooks?.Elicitation = value
+        case .elicitationResult: settings.hooks?.ElicitationResult = value
+        case .teammateIdle: settings.hooks?.TeammateIdle = value
+        case .taskCompleted: settings.hooks?.TaskCompleted = value
+        case .setup: settings.hooks?.Setup = value
+        case .instructionsLoaded: settings.hooks?.InstructionsLoaded = value
+        case .configChange: settings.hooks?.ConfigChange = value
+        case .worktreeCreate: settings.hooks?.WorktreeCreate = value
+        case .worktreeRemove: settings.hooks?.WorktreeRemove = value
+        case .sessionStart: settings.hooks?.SessionStart = value
+        case .sessionEnd: settings.hooks?.SessionEnd = value
         }
         if let hooks = settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
-           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil {
+           hooks.PostToolUseFailure == nil &&
+           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
+           hooks.PermissionRequest == nil && hooks.Notification == nil &&
+           hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
+           hooks.PreCompact == nil && hooks.PostCompact == nil &&
+           hooks.Elicitation == nil && hooks.ElicitationResult == nil &&
+           hooks.TeammateIdle == nil && hooks.TaskCompleted == nil &&
+           hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
+           hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
+           hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
+           hooks.SessionEnd == nil {
             settings.hooks = nil
         }
         configManager.saveProjectSettings(settings, projectPath: projectPath)

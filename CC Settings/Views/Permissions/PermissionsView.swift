@@ -145,6 +145,8 @@ struct PermissionsView: View {
     @State private var toolPermissions: [ClaudeTool: PermissionState] = [:]
     @State private var customRules: [CustomPermissionRule] = []
     @State private var defaultMode: DefaultPermissionMode = .defaultMode
+    @State private var disableBypassPermissions: Bool = false
+    @State private var skipDangerousModePrompt: Bool = false
     @State private var additionalDirectories: [String] = []
     @State private var newDirectory: String = ""
     @State private var showingAddRule = false
@@ -175,6 +177,24 @@ struct PermissionsView: View {
                             .foregroundColor(.red)
                     }
                 }
+
+                Toggle("Disable Bypass Permissions Mode", isOn: $disableBypassPermissions)
+                    .onChange(of: disableBypassPermissions) { _, newValue in
+                        configManager.settings.permissions.disableBypassPermissionsMode = newValue ? "disable" : nil
+                        configManager.saveSettings()
+                    }
+                Text("Prevents users from entering bypass permissions mode.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Skip Dangerous Mode Prompt", isOn: $skipDangerousModePrompt)
+                    .onChange(of: skipDangerousModePrompt) { _, newValue in
+                        configManager.settings.permissions.skipDangerousModePermissionPrompt = newValue ? true : nil
+                        configManager.saveSettings()
+                    }
+                Text("Skips the confirmation prompt when entering dangerous mode.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Default Mode")
             }
@@ -320,6 +340,9 @@ struct PermissionsView: View {
         .onAppear {
             loadPermissions()
         }
+        .onChange(of: configManager.settings) {
+            loadPermissions()
+        }
     }
 
     // MARK: - Computed
@@ -395,6 +418,10 @@ struct PermissionsView: View {
 
         // Additional directories
         additionalDirectories = perms.additionalDirectories ?? []
+
+        // Permission mode toggles
+        disableBypassPermissions = perms.disableBypassPermissionsMode != nil
+        skipDangerousModePrompt = perms.skipDangerousModePermissionPrompt == true
     }
 
     private func savePermissions() {

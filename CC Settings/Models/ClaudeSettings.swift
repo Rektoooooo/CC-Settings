@@ -26,6 +26,22 @@ struct ClaudeSettings: Codable, Equatable {
     var respectGitignore: Bool?
     var autoCompact: AutoCompactConfig?
     var plansDirectory: String?
+    var includeGitInstructions: Bool?
+    var showThinkingSummaries: Bool?
+    var showClearContextOnPlanAccept: Bool?
+    var defaultShell: String?
+
+    // Model & Performance
+    var fastMode: Bool?
+    var fastModePerSessionOptIn: Bool?
+    var availableModels: [String]?
+
+    // Memory
+    var autoMemoryEnabled: Bool?
+    var autoMemoryDirectory: String?
+
+    // Voice
+    var voiceEnabled: Bool?
 
     // Updates
     var autoUpdates: Bool?
@@ -43,32 +59,91 @@ struct ClaudeSettings: Codable, Equatable {
     // Teams
     var teammateMode: String?
 
-    // Experimental: Sandbox
+    // Auto Mode
+    var disableAutoMode: String?
+
+    // Hooks kill switch
+    var disableAllHooks: Bool?
+
+    // CLAUDE.md excludes
+    var claudeMdExcludes: [String]?
+
+    // Sandbox (nested config)
+    var sandbox: SandboxConfig?
+
+    // Worktree
+    var worktree: WorktreeConfig?
+
+    // Legacy flat sandbox fields (kept for backward compat during migration)
     var enableWeakerSandbox: Bool?
     var unsandboxedCommands: [String]?
     var allowLocalBinding: Bool?
     var allowAllUnixSockets: Bool?
     var allowedDomains: [String]?
 
-    // Experimental: Spinner
+    // Spinner
     var spinnerTipsEnabled: Bool?
     var spinnerVerbsMode: String?
     var spinnerVerbs: [String]?
     var customTips: [String]?
     var excludeDefaultTips: Bool?
 
-    // Experimental: Status Line
+    // Status Line
     var statusLineCommand: String?
 }
+
+// MARK: - Sandbox Config
+
+struct SandboxConfig: Codable, Equatable {
+    var enabled: Bool?
+    var failIfUnavailable: Bool?
+    var autoAllowBashIfSandboxed: Bool?
+    var excludedCommands: [String]?
+    var allowUnsandboxedCommands: Bool?
+    var enableWeakerNestedSandbox: Bool?
+    var enableWeakerNetworkIsolation: Bool?
+    var ignoreViolations: [String: [String]]?
+    var filesystem: SandboxFilesystem?
+    var network: SandboxNetwork?
+}
+
+struct SandboxFilesystem: Codable, Equatable {
+    var allowWrite: [String]?
+    var denyWrite: [String]?
+    var denyRead: [String]?
+    var allowRead: [String]?
+}
+
+struct SandboxNetwork: Codable, Equatable {
+    var allowUnixSockets: [String]?
+    var allowAllUnixSockets: Bool?
+    var allowLocalBinding: Bool?
+    var allowedDomains: [String]?
+    var httpProxyPort: Int?
+    var socksProxyPort: Int?
+}
+
+// MARK: - Worktree Config
+
+struct WorktreeConfig: Codable, Equatable {
+    var sparsePaths: [String]?
+    var symlinkDirectories: [String]?
+}
+
+// MARK: - Auto Compact
 
 struct AutoCompactConfig: Codable, Equatable {
     var customInstructions: String?
 }
 
+// MARK: - Attribution
+
 struct AttributionConfig: Codable, Equatable {
     var commit: String?
     var pr: String?
 }
+
+// MARK: - Permissions
 
 struct PermissionsConfig: Codable, Equatable {
     var allow: [String]?
@@ -76,13 +151,36 @@ struct PermissionsConfig: Codable, Equatable {
     var ask: [String]?
     var defaultMode: String?
     var additionalDirectories: [String]?
+    var disableBypassPermissionsMode: String?
+    var skipDangerousModePermissionPrompt: Bool?
 }
+
+// MARK: - Hooks
 
 struct HooksConfig: Codable, Equatable {
     var PreToolUse: [HookGroup]?
     var PostToolUse: [HookGroup]?
     var PrePromptSubmit: [HookGroup]?
     var PostPromptSubmit: [HookGroup]?
+    var PostToolUseFailure: [HookGroup]?
+    var PermissionRequest: [HookGroup]?
+    var Notification: [HookGroup]?
+    var Stop: [HookGroup]?
+    var SubagentStart: [HookGroup]?
+    var SubagentStop: [HookGroup]?
+    var PreCompact: [HookGroup]?
+    var PostCompact: [HookGroup]?
+    var Elicitation: [HookGroup]?
+    var ElicitationResult: [HookGroup]?
+    var TeammateIdle: [HookGroup]?
+    var TaskCompleted: [HookGroup]?
+    var Setup: [HookGroup]?
+    var InstructionsLoaded: [HookGroup]?
+    var ConfigChange: [HookGroup]?
+    var WorktreeCreate: [HookGroup]?
+    var WorktreeRemove: [HookGroup]?
+    var SessionStart: [HookGroup]?
+    var SessionEnd: [HookGroup]?
 }
 
 struct HookGroup: Codable, Equatable, Identifiable {
@@ -120,29 +218,48 @@ struct HookMatcher: Codable, Equatable {
 struct HookDefinition: Codable, Equatable, Identifiable {
     var id = UUID()
     var type: String = "command"
-    var command: String
+    var command: String?
+    var prompt: String?
+    var agent: String?
+    var url: String?
+    var ifCondition: String?
 
     enum CodingKeys: String, CodingKey {
-        case type, command
+        case type, command, prompt, agent, url
+        case ifCondition = "if"
     }
 
-    init(type: String = "command", command: String) {
+    init(type: String = "command", command: String? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil) {
         self.type = type
         self.command = command
+        self.prompt = prompt
+        self.agent = agent
+        self.url = url
+        self.ifCondition = ifCondition
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         type = try container.decode(String.self, forKey: .type)
-        command = try container.decode(String.self, forKey: .command)
+        command = try container.decodeIfPresent(String.self, forKey: .command)
+        prompt = try container.decodeIfPresent(String.self, forKey: .prompt)
+        agent = try container.decodeIfPresent(String.self, forKey: .agent)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        ifCondition = try container.decodeIfPresent(String.self, forKey: .ifCondition)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(type, forKey: .type)
-        try container.encode(command, forKey: .command)
+        try container.encodeIfPresent(command, forKey: .command)
+        try container.encodeIfPresent(prompt, forKey: .prompt)
+        try container.encodeIfPresent(agent, forKey: .agent)
+        try container.encodeIfPresent(url, forKey: .url)
+        try container.encodeIfPresent(ifCondition, forKey: .ifCondition)
     }
 }
+
+// MARK: - Git App Preference
 
 enum GitAppPreference: String, Codable, CaseIterable, Identifiable {
     case githubDesktop = "GitHub Desktop"

@@ -19,12 +19,30 @@ struct ExperimentalFeaturesView: View {
     @State private var disableErrorReporting: Bool = false
     @State private var disableAutoUpdater: Bool = false
 
-    // Sandbox
+    // Mode Control
+    @State private var disableAutoMode: Bool = false
+    @State private var disableAllHooks: Bool = false
+
+    // Sandbox (legacy)
     @State private var enableWeakerSandbox: Bool = false
     @State private var unsandboxedCommands: String = ""
     @State private var allowLocalBinding: Bool = false
     @State private var allowAllUnixSockets: Bool = false
     @State private var allowedDomains: String = ""
+
+    // Sandbox (new nested)
+    @State private var sandboxEnabled: Bool = false
+    @State private var sandboxFailIfUnavailable: Bool = false
+    @State private var autoAllowBashIfSandboxed: Bool = true
+    @State private var enableWeakerNetworkIsolation: Bool = false
+    @State private var sandboxAllowWrite: String = ""
+    @State private var sandboxDenyWrite: String = ""
+    @State private var sandboxDenyRead: String = ""
+    @State private var sandboxAllowRead: String = ""
+
+    // Worktree
+    @State private var worktreeSparsePaths: String = ""
+    @State private var worktreeSymlinkDirs: String = ""
 
     // Spinner
     @State private var spinnerTipsEnabled: Bool = true
@@ -159,8 +177,88 @@ struct ExperimentalFeaturesView: View {
                 Text("Privacy & Updates")
             }
 
+            // MARK: - Mode Control
+            Section {
+                FeatureToggle(
+                    title: "Disable Auto Mode",
+                    description: "Prevent auto mode activation",
+                    isOn: $disableAutoMode,
+                    onChange: { saveSettings() }
+                )
+
+                FeatureToggle(
+                    title: "Disable All Hooks",
+                    description: "Kill switch for all hooks and custom status line",
+                    isOn: $disableAllHooks,
+                    onChange: { saveSettings() }
+                )
+            } header: {
+                Text("Mode Control")
+            }
+
             // MARK: - Sandbox
             Section {
+                Toggle("Enable Sandbox", isOn: $sandboxEnabled)
+                    .onChange(of: sandboxEnabled) { _, _ in saveSettings() }
+                Text("Enable the sandbox for command execution.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Fail If Unavailable", isOn: $sandboxFailIfUnavailable)
+                    .onChange(of: sandboxFailIfUnavailable) { _, _ in saveSettings() }
+                Text("Fail instead of falling back when sandbox is unavailable.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Auto-Allow Bash When Sandboxed", isOn: $autoAllowBashIfSandboxed)
+                    .onChange(of: autoAllowBashIfSandboxed) { _, _ in saveSettings() }
+                Text("Automatically allow bash commands when running inside the sandbox.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Weaker Network Isolation", isOn: $enableWeakerNetworkIsolation)
+                    .onChange(of: enableWeakerNetworkIsolation) { _, _ in saveSettings() }
+                Text("Allow more permissive network access from the sandbox.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                GroupBox("Filesystem Rules") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Allow Write", text: $sandboxAllowWrite, prompt: Text("/tmp, /var/folders"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                        Text("Comma-separated paths allowed for writing.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("Deny Write", text: $sandboxDenyWrite, prompt: Text("/etc, /usr"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                        Text("Comma-separated paths denied for writing.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("Deny Read", text: $sandboxDenyRead, prompt: Text("/private, /secrets"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                        Text("Comma-separated paths denied for reading.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("Allow Read", text: $sandboxAllowRead, prompt: Text("/usr/local, /opt"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                        Text("Comma-separated paths allowed for reading.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 Toggle("Enable Weaker Sandbox", isOn: $enableWeakerSandbox)
                     .onChange(of: enableWeakerSandbox) { _, _ in saveSettings() }
                 Text("Use a weaker sandbox for Docker or unprivileged environments.")
@@ -201,6 +299,27 @@ struct ExperimentalFeaturesView: View {
                 }
             } header: {
                 Text("Sandbox")
+            }
+
+            // MARK: - Worktree
+            Section {
+                TextField("Sparse Checkout Paths", text: $worktreeSparsePaths, prompt: Text("src, docs, tests"), axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .lineLimit(1...3)
+                Text("Comma-separated paths for sparse checkout in worktrees.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Symlink Directories", text: $worktreeSymlinkDirs, prompt: Text("node_modules, .venv"), axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .lineLimit(1...3)
+                Text("Comma-separated directories to symlink in worktrees.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Worktree")
             }
 
             // MARK: - Spinner
@@ -248,6 +367,9 @@ struct ExperimentalFeaturesView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            loadSettings()
+        }
+        .onChange(of: configManager.settings) {
             loadSettings()
         }
     }
@@ -304,12 +426,30 @@ struct ExperimentalFeaturesView: View {
         disableErrorReporting = env["DISABLE_ERROR_REPORTING"] == "1"
         disableAutoUpdater = env["DISABLE_AUTOUPDATER"] == "1"
 
-        // Sandbox
+        // Mode Control
+        disableAutoMode = s.disableAutoMode == "disable"
+        disableAllHooks = s.disableAllHooks ?? false
+
+        // Sandbox (legacy)
         enableWeakerSandbox = s.enableWeakerSandbox ?? false
         unsandboxedCommands = (s.unsandboxedCommands ?? []).joined(separator: ", ")
         allowLocalBinding = s.allowLocalBinding ?? false
         allowAllUnixSockets = s.allowAllUnixSockets ?? false
         allowedDomains = (s.allowedDomains ?? []).joined(separator: ", ")
+
+        // Sandbox (nested)
+        sandboxEnabled = s.sandbox?.enabled ?? false
+        sandboxFailIfUnavailable = s.sandbox?.failIfUnavailable ?? false
+        autoAllowBashIfSandboxed = s.sandbox?.autoAllowBashIfSandboxed ?? true
+        enableWeakerNetworkIsolation = s.sandbox?.enableWeakerNetworkIsolation ?? false
+        sandboxAllowWrite = (s.sandbox?.filesystem?.allowWrite ?? []).joined(separator: ", ")
+        sandboxDenyWrite = (s.sandbox?.filesystem?.denyWrite ?? []).joined(separator: ", ")
+        sandboxDenyRead = (s.sandbox?.filesystem?.denyRead ?? []).joined(separator: ", ")
+        sandboxAllowRead = (s.sandbox?.filesystem?.allowRead ?? []).joined(separator: ", ")
+
+        // Worktree
+        worktreeSparsePaths = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
+        worktreeSymlinkDirs = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
 
         // Spinner
         spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
@@ -335,12 +475,34 @@ struct ExperimentalFeaturesView: View {
         setEnvFlag("DISABLE_ERROR_REPORTING", enabled: disableErrorReporting)
         setEnvFlag("DISABLE_AUTOUPDATER", enabled: disableAutoUpdater)
 
-        // Sandbox
+        // Mode Control
+        configManager.settings.disableAutoMode = disableAutoMode ? "disable" : nil
+        configManager.settings.disableAllHooks = disableAllHooks ? true : nil
+
+        // Sandbox (legacy)
         configManager.settings.enableWeakerSandbox = enableWeakerSandbox ? true : nil
         configManager.settings.allowLocalBinding = allowLocalBinding ? true : nil
         configManager.settings.allowAllUnixSockets = allowAllUnixSockets ? true : nil
         configManager.settings.unsandboxedCommands = parseCSV(unsandboxedCommands)
         configManager.settings.allowedDomains = parseCSV(allowedDomains)
+
+        // Sandbox (nested)
+        var sb = configManager.settings.sandbox ?? SandboxConfig()
+        sb.enabled = sandboxEnabled ? true : nil
+        sb.failIfUnavailable = sandboxFailIfUnavailable ? true : nil
+        sb.autoAllowBashIfSandboxed = autoAllowBashIfSandboxed ? nil : false  // default is true
+        sb.enableWeakerNetworkIsolation = enableWeakerNetworkIsolation ? true : nil
+        var fs = sb.filesystem ?? SandboxFilesystem()
+        fs.allowWrite = parseCSV(sandboxAllowWrite)
+        fs.denyWrite = parseCSV(sandboxDenyWrite)
+        fs.denyRead = parseCSV(sandboxDenyRead)
+        fs.allowRead = parseCSV(sandboxAllowRead)
+        sb.filesystem = (fs == SandboxFilesystem()) ? nil : fs
+        configManager.settings.sandbox = (sb == SandboxConfig()) ? nil : sb
+
+        // Worktree
+        let wt = WorktreeConfig(sparsePaths: parseCSV(worktreeSparsePaths), symlinkDirectories: parseCSV(worktreeSymlinkDirs))
+        configManager.settings.worktree = (wt == WorktreeConfig()) ? nil : wt
 
         // Spinner
         configManager.settings.spinnerTipsEnabled = spinnerTipsEnabled ? nil : false

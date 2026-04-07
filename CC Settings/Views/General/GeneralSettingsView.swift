@@ -20,9 +20,18 @@ struct GeneralSettingsView: View {
     // Behavior
     @State private var showTurnDuration: Bool = true
     @State private var respectGitignore: Bool = true
+    @State private var defaultShell: String = "bash"
+    @State private var includeGitInstructions: Bool = true
+    @State private var showThinkingSummaries: Bool = false
+    @State private var showClearContextOnPlanAccept: Bool = false
+    @State private var voiceEnabled: Bool = false
     @State private var autoCompactEnabled: Bool = true
     @State private var autoCompactInstructions: String = ""
     @State private var plansDirectory: String = ""
+
+    // Memory
+    @State private var autoMemoryEnabled: Bool = false
+    @State private var autoMemoryDirectory: String = ""
 
     // Git
     @State private var mainBranch: String = ""
@@ -58,6 +67,7 @@ struct GeneralSettingsView: View {
             appearanceSection
             languageSection
             behaviorSection
+            memorySection
             gitSection
             updatesSection
             notificationsSection
@@ -71,6 +81,9 @@ struct GeneralSettingsView: View {
         .onAppear {
             loadFromSettings()
         }
+        .onChange(of: configManager.settings) {
+            loadFromSettings()
+        }
         .background {
             autoSaveObservers
         }
@@ -82,6 +95,26 @@ struct GeneralSettingsView: View {
     private var modelSection: some View {
         Section("Model") {
             HierarchicalModelPicker(selectedModelId: $configManager.settings.model)
+
+            Toggle("Fast Mode", isOn: Binding(
+                get: { configManager.settings.fastMode ?? false },
+                set: { configManager.settings.fastMode = $0 ? true : nil }
+            ))
+            .onChange(of: configManager.settings.fastMode) { save() }
+            Text("Enable fast mode for quicker responses.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if configManager.settings.fastMode ?? false {
+                Toggle("Per-Session Opt-In", isOn: Binding(
+                    get: { configManager.settings.fastModePerSessionOptIn ?? false },
+                    set: { configManager.settings.fastModePerSessionOptIn = $0 ? true : nil }
+                ))
+                .onChange(of: configManager.settings.fastModePerSessionOptIn) { save() }
+                Text("Require opt-in to fast mode each session.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -119,9 +152,11 @@ struct GeneralSettingsView: View {
                 .foregroundColor(.secondary)
 
             Picker("Effort Level", selection: $effortLevel) {
+                Text("Auto").tag("auto")
                 Text("Low").tag("low")
                 Text("Medium").tag("medium")
                 Text("High").tag("high")
+                Text("Max").tag("max")
             }
             .pickerStyle(.segmented)
             Text("Controls Opus 4.6 adaptive reasoning effort.")
@@ -154,6 +189,34 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
+            Picker("Default Shell", selection: $defaultShell) {
+                Text("bash").tag("bash")
+                Text("powershell").tag("powershell")
+            }
+            Text("Shell used for command execution.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Include Git Instructions", isOn: $includeGitInstructions)
+            Text("Include git-related instructions in the system prompt.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Show Thinking Summaries", isOn: $showThinkingSummaries)
+            Text("Display summaries of Claude's thinking process.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Show Clear Context on Plan Accept", isOn: $showClearContextOnPlanAccept)
+            Text("Show option to clear context when accepting a plan.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Voice Dictation", isOn: $voiceEnabled)
+            Text("Enable voice input for dictation.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
             VStack(alignment: .leading, spacing: 6) {
                 Toggle("Auto-Compact", isOn: $autoCompactEnabled)
                 Text("Automatically summarize conversation when context limit is reached.")
@@ -181,6 +244,25 @@ struct GeneralSettingsView: View {
             Text("Directory where plan files are stored.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var memorySection: some View {
+        Section("Memory") {
+            Toggle("Auto Memory", isOn: $autoMemoryEnabled)
+            Text("Automatically save context to memory between sessions.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if autoMemoryEnabled {
+                TextField("Memory Directory", text: $autoMemoryDirectory, prompt: Text("~/.claude/memory"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Directory where auto-memory files are stored.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -341,6 +423,14 @@ struct GeneralSettingsView: View {
             .onChange(of: verbose) { save() }
             .onChange(of: showTurnDuration) { save() }
             .onChange(of: respectGitignore) { save() }
+        Color.clear
+            .onChange(of: defaultShell) { save() }
+            .onChange(of: includeGitInstructions) { save() }
+            .onChange(of: showThinkingSummaries) { save() }
+            .onChange(of: showClearContextOnPlanAccept) { save() }
+            .onChange(of: voiceEnabled) { save() }
+            .onChange(of: autoMemoryEnabled) { save() }
+            .onChange(of: autoMemoryDirectory) { save() }
             .onChange(of: autoCompactEnabled) { save() }
             .onChange(of: autoCompactInstructions) { save() }
             .onChange(of: plansDirectory) { save() }
@@ -376,9 +466,18 @@ struct GeneralSettingsView: View {
         // Behavior
         showTurnDuration = s.showTurnDuration ?? true
         respectGitignore = s.respectGitignore ?? true
+        defaultShell = s.defaultShell ?? "bash"
+        includeGitInstructions = s.includeGitInstructions ?? true
+        showThinkingSummaries = s.showThinkingSummaries ?? false
+        showClearContextOnPlanAccept = s.showClearContextOnPlanAccept ?? false
+        voiceEnabled = s.voiceEnabled ?? false
         autoCompactEnabled = s.autoCompact != nil
         autoCompactInstructions = s.autoCompact?.customInstructions ?? ""
         plansDirectory = s.plansDirectory ?? ""
+
+        // Memory
+        autoMemoryEnabled = s.autoMemoryEnabled ?? false
+        autoMemoryDirectory = s.autoMemoryDirectory ?? ""
 
         // Git
         mainBranch = s.mainBranch ?? ""
@@ -430,6 +529,11 @@ struct GeneralSettingsView: View {
         // Behavior
         configManager.settings.showTurnDuration = showTurnDuration ? nil : false
         configManager.settings.respectGitignore = respectGitignore ? nil : false
+        configManager.settings.defaultShell = defaultShell == "bash" ? nil : defaultShell
+        configManager.settings.includeGitInstructions = includeGitInstructions ? nil : false
+        configManager.settings.showThinkingSummaries = showThinkingSummaries ? true : nil
+        configManager.settings.showClearContextOnPlanAccept = showClearContextOnPlanAccept ? true : nil
+        configManager.settings.voiceEnabled = voiceEnabled ? true : nil
         if autoCompactEnabled {
             let trimmedInstructions = autoCompactInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
             configManager.settings.autoCompact = AutoCompactConfig(
@@ -440,6 +544,11 @@ struct GeneralSettingsView: View {
         }
         let trimmedPlans = plansDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
         configManager.settings.plansDirectory = trimmedPlans.isEmpty ? nil : trimmedPlans
+
+        // Memory
+        configManager.settings.autoMemoryEnabled = autoMemoryEnabled ? true : nil
+        let trimmedMemDir = autoMemoryDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        configManager.settings.autoMemoryDirectory = trimmedMemDir.isEmpty ? nil : trimmedMemDir
 
         // Git
         let trimmedBranch = mainBranch.trimmingCharacters(in: .whitespacesAndNewlines)
