@@ -240,9 +240,8 @@ struct HUDView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    installStep(number: 1, title: "Add the marketplace", command: "/plugin marketplace add jarrodwatts/claude-hud")
-                    installStep(number: 2, title: "Install the plugin", command: "/plugin install claude-hud")
-                    installStep(number: 3, title: "Reload plugins", command: "/reload-plugins")
+                    installStep(number: 1, title: "Install from GitHub (recommended)", command: "/install-plugin https://github.com/jarrodwatts/claude-hud")
+                    installStep(number: 2, title: "Reload plugins", command: "/reload-plugins")
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -359,7 +358,7 @@ struct HUDView: View {
                         Text("claude-hud is not installed")
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        Text("Install with: /install-plugin claude-hud@claude-hud")
+                        Text("Install with: /install-plugin https://github.com/jarrodwatts/claude-hud")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .textSelection(.enabled)
@@ -1543,7 +1542,31 @@ struct HUDView: View {
             return
         }
         isInstalled = true
-        installedVersion = first.version
+
+        // The installed_plugins.json version can be stale. Check the cache directory
+        // for the actual latest version (the statusLine command uses the newest one).
+        let cacheDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/plugins/cache/claude-hud/claude-hud")
+        if let contents = try? FileManager.default.contentsOfDirectory(atPath: cacheDir.path) {
+            let versions = contents.filter { !$0.hasPrefix(".") }.sorted {
+                compareVersions($0, $1)
+            }
+            installedVersion = versions.last ?? first.version
+        } else {
+            installedVersion = first.version
+        }
+    }
+
+    /// Simple version comparison: "0.0.12" > "0.0.6"
+    private func compareVersions(_ a: String, _ b: String) -> Bool {
+        let aParts = a.split(separator: ".").compactMap { Int($0) }
+        let bParts = b.split(separator: ".").compactMap { Int($0) }
+        for i in 0..<max(aParts.count, bParts.count) {
+            let av = i < aParts.count ? aParts[i] : 0
+            let bv = i < bParts.count ? bParts[i] : 0
+            if av != bv { return av < bv }
+        }
+        return false
     }
 
     private func loadConfig() {
