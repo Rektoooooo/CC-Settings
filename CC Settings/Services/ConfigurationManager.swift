@@ -88,8 +88,9 @@ class ConfigurationManager: ObservableObject {
 
         // Load settings.json — skip if we have unsaved local changes
         if isDirty {
-            // Push our in-memory changes to disk instead of overwriting them
-            saveSettings()
+            // Don't overwrite in-memory edits, but also don't save here —
+            // saving during a reload can push stale/default values to disk.
+            // The next explicit user action will trigger saveSettings().
         } else if let data = try? Data(contentsOf: settingsURL) {
             let fixed = validateAndFix(jsonData: data)
             do {
@@ -102,7 +103,7 @@ class ConfigurationManager: ObservableObject {
 
         // Load settings.local.json — skip if dirty
         if isLocalDirty {
-            saveLocalSettings()
+            // Don't save during reload — wait for explicit user action.
         } else if let data = try? Data(contentsOf: localSettingsURL) {
             let fixed = validateAndFix(jsonData: data)
             do {
@@ -114,7 +115,7 @@ class ConfigurationManager: ObservableObject {
 
         // Load CLAUDE.md — skip if dirty
         if isMDDirty {
-            saveClaudeMD()
+            // Don't save during reload — wait for explicit user action.
         } else if let content = try? String(contentsOf: claudeMDURL, encoding: .utf8) {
             claudeMD = content
         }
@@ -124,7 +125,6 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveSettings() {
-        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
 
@@ -154,6 +154,7 @@ class ConfigurationManager: ObservableObject {
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
             try fixedOutput.write(to: settingsURL, options: .atomic)
+            lastSaveTime = Date()
             isDirty = false
             FileWatcher.shared.updateFileTracking(for: [settingsURL])
         } catch {
@@ -195,7 +196,6 @@ class ConfigurationManager: ObservableObject {
     ]
 
     func saveLocalSettings() {
-        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
 
@@ -225,6 +225,7 @@ class ConfigurationManager: ObservableObject {
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
             try fixedOutput.write(to: localSettingsURL, options: .atomic)
+            lastSaveTime = Date()
             isLocalDirty = false
             FileWatcher.shared.updateFileTracking(for: [localSettingsURL])
         } catch {
@@ -233,10 +234,10 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveClaudeMD() {
-        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
             try claudeMD.write(to: claudeMDURL, atomically: true, encoding: .utf8)
+            lastSaveTime = Date()
             isMDDirty = false
             FileWatcher.shared.updateFileTracking(for: [claudeMDURL])
         } catch {
@@ -284,7 +285,6 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveMCPServers(_ servers: [String: MCPServerConfig]) {
-        lastSaveTime = Date()
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
 
@@ -305,6 +305,7 @@ class ConfigurationManager: ObservableObject {
 
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             try outputData.write(to: mcpConfigURL, options: .atomic)
+            lastSaveTime = Date()
         } catch {
             lastError = error
         }
@@ -324,7 +325,6 @@ class ConfigurationManager: ObservableObject {
 
     /// Saves project-level settings to `<project>/.claude/settings.json`, preserving unknown keys.
     func saveProjectSettings(_ settings: ClaudeSettings, projectPath: String) {
-        lastSaveTime = Date()
         let claudeDir = URL(fileURLWithPath: projectPath).appendingPathComponent(".claude")
         let settingsURL = claudeDir.appendingPathComponent("settings.json")
         do {
@@ -353,6 +353,7 @@ class ConfigurationManager: ObservableObject {
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
             try fixedOutput.write(to: settingsURL, options: .atomic)
+            lastSaveTime = Date()
         } catch {
             lastError = error
         }
@@ -400,7 +401,6 @@ class ConfigurationManager: ObservableObject {
 
     /// Saves MCP servers to a project's `.mcp.json` file, preserving other keys.
     func saveProjectMCPServers(_ servers: [String: MCPServerConfig], projectPath: String) {
-        lastSaveTime = Date()
         let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
         do {
             var existingJSON: [String: Any] = [:]
@@ -424,11 +424,13 @@ class ConfigurationManager: ObservableObject {
             // If nothing left, delete the file
             if existingJSON.isEmpty {
                 try? FileManager.default.removeItem(at: mcpURL)
+                lastSaveTime = Date()
                 return
             }
 
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             try outputData.write(to: mcpURL, options: .atomic)
+            lastSaveTime = Date()
         } catch {
             lastError = error
         }
@@ -695,18 +697,19 @@ class ConfigurationManager: ObservableObject {
     }
 
     func saveProjectClaudeMD(_ content: String, projectId: String) {
-        lastSaveTime = Date()
         let originalPath = decodePath(projectId)
         // Save to project root (where Claude Code reads it)
         let rootClaudeMD = URL(fileURLWithPath: originalPath).appendingPathComponent("CLAUDE.md")
         do {
             try content.write(to: rootClaudeMD, atomically: true, encoding: .utf8)
+            lastSaveTime = Date()
         } catch {
             // If project root isn't writable, save to ~/.claude/projects/<id>/
             let projectDir = projectsDir.appendingPathComponent(projectId)
             try? FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
             let internalClaudeMD = projectDir.appendingPathComponent("CLAUDE.md")
             try? content.write(to: internalClaudeMD, atomically: true, encoding: .utf8)
+            lastSaveTime = Date()
         }
     }
 

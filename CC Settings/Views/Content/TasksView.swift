@@ -45,7 +45,7 @@ struct TasksView: View {
     @State private var searchText = ""
     @State private var isLoading = false
 
-    private static let tasksPath: String = {
+    nonisolated private static let tasksPath: String = {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/tasks").path
     }()

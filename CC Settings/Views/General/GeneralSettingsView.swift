@@ -88,10 +88,12 @@ struct GeneralSettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             loadFromSettings()
+            // Defer isLoaded so onChange handlers (fired by @State changes above)
+            // still see isLoaded == false and skip the spurious save.
+            DispatchQueue.main.async { isLoaded = true }
         }
         .onChange(of: configManager.settings) {
             // Suppress saves during external reload to avoid feedback loop
-            isLoaded = false
             loadFromSettings()
             DispatchQueue.main.async { isLoaded = true }
         }
@@ -640,8 +642,6 @@ struct GeneralSettingsView: View {
 
         // API Key Helper
         apiKeyHelper = s.apiKeyHelper ?? ""
-
-        isLoaded = true
     }
 
     // MARK: - Shell Helper

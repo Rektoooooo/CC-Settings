@@ -268,7 +268,9 @@ struct EnvironmentView: View {
         .formStyle(.grouped)
         .onSubmit { save() }
         .onAppear {
+            isSyncing = true
             loadFromSettings()
+            DispatchQueue.main.async { isSyncing = false }
         }
         .onChange(of: configManager.settings) {
             isSyncing = true

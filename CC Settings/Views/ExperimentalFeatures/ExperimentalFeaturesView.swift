@@ -376,7 +376,9 @@ struct ExperimentalFeaturesView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            isSyncing = true
             loadSettings()
+            DispatchQueue.main.async { isSyncing = false }
         }
         .onChange(of: configManager.settings) {
             isSyncing = true

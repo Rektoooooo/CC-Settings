@@ -240,6 +240,8 @@ struct HookGroupModel: Identifiable, Equatable {
 struct HooksView: View {
     @EnvironmentObject var configManager: ConfigurationManager
 
+    @State private var isSyncing = false
+
     // All scoped hooks
     @State private var allHooks: [ScopedHookGroup] = []
     @State private var projects: [Project] = []
@@ -339,11 +341,14 @@ struct HooksView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            isSyncing = true
             loadAllHooks()
+            DispatchQueue.main.async { isSyncing = false }
         }
         .onChange(of: configManager.settings) {
-            // Reload hooks from disk without triggering saves
+            isSyncing = true
             loadAllHooks()
+            DispatchQueue.main.async { isSyncing = false }
         }
     }
 
@@ -854,6 +859,7 @@ struct HooksView: View {
     }
 
     private func setGlobalGroups(_ groups: [HookGroup], for type: HookType) {
+        guard !isSyncing else { return }
         if configManager.settings.hooks == nil {
             configManager.settings.hooks = HooksConfig()
         }

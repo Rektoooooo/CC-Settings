@@ -34,12 +34,21 @@ struct ModelVersion: Identifiable, Equatable, Hashable {
 }
 
 let allModelVersions: [ModelVersion] = [
+    // Opus
+    ModelVersion(id: "claude-opus-4-6-max", family: .opus, version: "4.6 Max", modelId: "claude-opus-4-6-max", displayName: "Opus 4.6 Max (1M)", isLatest: false),
     ModelVersion(id: "claude-opus-4-6", family: .opus, version: "4.6", modelId: "claude-opus-4-6", displayName: "Opus 4.6", isLatest: false),
     ModelVersion(id: "claude-opus-4-20250514", family: .opus, version: "4.0", modelId: "claude-opus-4-20250514", displayName: "Opus 4.0", isLatest: false),
     ModelVersion(id: "opus", family: .opus, version: "", modelId: "opus", displayName: "Opus (latest)", isLatest: true),
+
+    // Sonnet
+    ModelVersion(id: "claude-sonnet-4-6-max", family: .sonnet, version: "4.6 Max", modelId: "claude-sonnet-4-6-max", displayName: "Sonnet 4.6 Max (1M) — extra usage", isLatest: false),
+    ModelVersion(id: "claude-sonnet-4-6", family: .sonnet, version: "4.6", modelId: "claude-sonnet-4-6", displayName: "Sonnet 4.6", isLatest: false),
     ModelVersion(id: "claude-sonnet-4-5-20250514", family: .sonnet, version: "4.5", modelId: "claude-sonnet-4-5-20250514", displayName: "Sonnet 4.5", isLatest: false),
     ModelVersion(id: "claude-sonnet-4-20250514", family: .sonnet, version: "4.0", modelId: "claude-sonnet-4-20250514", displayName: "Sonnet 4.0", isLatest: false),
     ModelVersion(id: "sonnet", family: .sonnet, version: "", modelId: "sonnet", displayName: "Sonnet (latest)", isLatest: true),
+
+    // Haiku
+    ModelVersion(id: "claude-haiku-4-5-20251001", family: .haiku, version: "4.5", modelId: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5", isLatest: false),
     ModelVersion(id: "claude-3-5-haiku-20241022", family: .haiku, version: "3.5", modelId: "claude-3-5-haiku-20241022", displayName: "Haiku 3.5", isLatest: false),
     ModelVersion(id: "haiku", family: .haiku, version: "", modelId: "haiku", displayName: "Haiku (latest)", isLatest: true),
 ]

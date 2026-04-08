@@ -181,6 +181,7 @@ struct PermissionsView: View {
 
                 Toggle("Disable Bypass Permissions Mode", isOn: $disableBypassPermissions)
                     .onChange(of: disableBypassPermissions) { _, newValue in
+                        guard !isSyncing else { return }
                         configManager.settings.permissions.disableBypassPermissionsMode = newValue ? "disable" : nil
                         configManager.saveSettings()
                     }
@@ -190,6 +191,7 @@ struct PermissionsView: View {
 
                 Toggle("Skip Dangerous Mode Prompt", isOn: $skipDangerousModePrompt)
                     .onChange(of: skipDangerousModePrompt) { _, newValue in
+                        guard !isSyncing else { return }
                         configManager.settings.permissions.skipDangerousModePermissionPrompt = newValue ? true : nil
                         configManager.saveSettings()
                     }
@@ -339,7 +341,9 @@ struct PermissionsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            isSyncing = true
             loadPermissions()
+            DispatchQueue.main.async { isSyncing = false }
         }
         .onChange(of: configManager.settings) {
             isSyncing = true

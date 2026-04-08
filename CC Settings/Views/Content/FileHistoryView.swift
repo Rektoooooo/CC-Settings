@@ -66,7 +66,7 @@ struct FileHistoryView: View {
     @State private var showingDiff = false
     @State private var filenameCache: [String: String] = [:]
 
-    private static let fileHistoryPath: String = {
+    nonisolated private static let fileHistoryPath: String = {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/file-history").path
     }()
@@ -610,7 +610,7 @@ struct FileHistoryView: View {
 
     // MARK: - Filename Extraction
 
-    private static func extractFilename(from url: URL?) -> String? {
+    nonisolated private static func extractFilename(from url: URL?) -> String? {
         guard let url = url,
               let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
 
