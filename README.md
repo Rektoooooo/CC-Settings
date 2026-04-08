@@ -16,9 +16,7 @@
 
 ### Download (recommended)
 
-Grab the latest DMG from [**Releases**](https://github.com/Rektoooooo/CC-Settings/releases/latest), open it, and drag CC Settings to your Applications folder.
-
-> **Note:** The app is not notarized. On first launch, right-click the app and select Open, or go to System Settings > Privacy & Security to allow it.
+Grab the latest DMG from [**Releases**](https://github.com/Rektoooooo/CC-Settings/releases/latest), open it, and drag CC Settings to your Applications folder. The app is **code-signed and notarized by Apple** — it opens normally, no Gatekeeper warning.
 
 ### Build from source
 
