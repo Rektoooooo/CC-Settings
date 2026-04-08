@@ -419,6 +419,18 @@ class ConfigurationManager: ObservableObject {
     // MARK: - Project Settings (hooks, permissions, etc.)
 
     /// Loads a project's `.claude/settings.json` for hooks and other project-level settings.
+    /// Returns the raw JSON dictionary from a project's settings.json.
+    /// Used for override detection — checking whether a key is present in the project file.
+    func loadProjectRawJSON(projectPath: String) -> [String: Any] {
+        let url = URL(fileURLWithPath: projectPath)
+            .appendingPathComponent(".claude")
+            .appendingPathComponent("settings.json")
+        guard let data = try? Data(contentsOf: url) else { return [:] }
+        let fixed = validateAndFix(jsonData: data)
+        guard let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] else { return [:] }
+        return json
+    }
+
     func loadProjectSettings(projectPath: String) -> ClaudeSettings? {
         let settingsURL = URL(fileURLWithPath: projectPath)
             .appendingPathComponent(".claude")

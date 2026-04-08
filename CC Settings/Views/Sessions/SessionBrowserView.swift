@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SessionBrowserView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    var projectId: String? = nil
     @State private var projects: [Project] = []
     @State private var selectedProject: Project?
     @State private var selectedSession: Session?
@@ -101,6 +102,9 @@ struct SessionBrowserView: View {
         }
         .onAppear {
             loadProjects()
+            if let pid = projectId {
+                selectedProject = projects.first(where: { $0.id == pid })
+            }
         }
     }
 

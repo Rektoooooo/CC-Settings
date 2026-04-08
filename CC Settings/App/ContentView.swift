@@ -35,6 +35,12 @@ struct ContentView: View {
             FilesEditorView(contentItem: .general)
         case .projectFiles(let projectId):
             FilesEditorView(contentItem: .project(projectId))
+        case .projectSettings(let projectId):
+            ProjectSettingsView(projectId: projectId)
+        case .projectClaudeMD(let projectId):
+            ClaudeMDEditorView(projectId: projectId)
+        case .projectSessions(let projectId):
+            SessionBrowserView(projectId: projectId)
         case .claudeMDEditor:
             ClaudeMDEditorView()
         case .sessionHistory:

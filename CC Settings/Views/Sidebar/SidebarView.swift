@@ -37,6 +37,9 @@ enum NavigationItem: Hashable {
     case hud
     case globalFiles
     case projectFiles(String)
+    case projectSettings(String)
+    case projectClaudeMD(String)
+    case projectSessions(String)
     case claudeMDEditor
     case sessionHistory
     case commands
@@ -60,7 +63,10 @@ enum NavigationItem: Hashable {
         case .hooks: return "Hooks"
         case .hud: return "HUD"
         case .globalFiles: return "Global"
-        case .projectFiles: return "Project"
+        case .projectFiles: return "Files"
+        case .projectSettings: return "Settings"
+        case .projectClaudeMD: return "CLAUDE.md"
+        case .projectSessions: return "Sessions"
         case .claudeMDEditor: return "CLAUDE.md"
         case .sessionHistory: return "Session History"
         case .commands: return "Commands"
@@ -87,6 +93,9 @@ enum NavigationItem: Hashable {
         case .hud: return "gauge.open.with.lines.needle.33percent"
         case .globalFiles: return "house"
         case .projectFiles: return "folder"
+        case .projectSettings: return "gearshape"
+        case .projectClaudeMD: return "doc.richtext"
+        case .projectSessions: return "clock.arrow.circlepath"
         case .claudeMDEditor: return "doc.richtext"
         case .sessionHistory: return "clock.arrow.circlepath"
         case .commands: return "command"
@@ -125,6 +134,12 @@ enum NavigationItem: Hashable {
             return ["global", "files", "claude", "settings.json"]
         case .projectFiles:
             return ["project", "files"]
+        case .projectSettings:
+            return ["project", "settings", "override", "model", "permissions"]
+        case .projectClaudeMD:
+            return ["project", "claude.md", "instructions"]
+        case .projectSessions:
+            return ["project", "sessions", "history"]
         case .claudeMDEditor:
             return ["claude.md", "markdown", "editor", "instructions", "system prompt"]
         case .sessionHistory:
@@ -161,6 +176,7 @@ struct SidebarView: View {
     @State private var projects: [Project] = []
     @State private var isLoadingProjects = false
     @State private var filesExpanded = true
+    @State private var expandedProjects: Set<String> = []
     @State private var searchText: String = ""
     @State private var discoveredSubfolders: [SubfolderEntry] = []
     @State private var isLoadingSubfolders = false
@@ -428,14 +444,32 @@ struct SidebarView: View {
     }
 
     private func navProjectRow(_ project: Project) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(project.displayName, systemImage: "folder")
-            Text(project.originalPath)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
+        DisclosureGroup(
+            isExpanded: Binding(
+                get: { expandedProjects.contains(project.id) },
+                set: { expanded in
+                    if expanded { expandedProjects.insert(project.id) }
+                    else { expandedProjects.remove(project.id) }
+                }
+            )
+        ) {
+            Label("Settings", systemImage: "gearshape")
+                .tag(NavigationItem.projectSettings(project.id))
+            Label("CLAUDE.md", systemImage: "doc.richtext")
+                .tag(NavigationItem.projectClaudeMD(project.id))
+            Label("Files", systemImage: "folder")
+                .tag(NavigationItem.projectFiles(project.id))
+            Label("Sessions", systemImage: "clock.arrow.circlepath")
+                .tag(NavigationItem.projectSessions(project.id))
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(project.displayName)
+                Text(project.originalPath)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
         }
-        .tag(NavigationItem.projectFiles(project.id))
         .contextMenu {
             Button("Show in Finder") {
                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: project.originalPath)

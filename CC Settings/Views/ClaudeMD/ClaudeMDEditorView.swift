@@ -3,6 +3,8 @@ import SwiftUI
 struct ClaudeMDEditorView: View {
     @EnvironmentObject var configManager: ConfigurationManager
 
+    var projectId: String? = nil
+
     @State private var content: String = ""
     @State private var originalContent: String = ""
     @State private var viewMode: ViewMode = .source
@@ -43,6 +45,9 @@ struct ClaudeMDEditorView: View {
             editorContent
         }
         .onAppear {
+            if let pid = projectId {
+                selectedScope = pid
+            }
             loadProjects()
             loadContent()
             hasLoadedInitial = true

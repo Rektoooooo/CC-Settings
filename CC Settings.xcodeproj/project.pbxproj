@@ -27,6 +27,7 @@
 		2AD80397C41063BA0B53C4D4 /* BinaryFileInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9BB63F24A2B95FD78514DA /* BinaryFileInfoView.swift */; };
 		2BB8FD4D27FA11F639020DDE /* HUDPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4699D0B613DDB636D7573411 /* HUDPanel.swift */; };
 		2D056F915E28079E530EE360 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
+		3617A0C818F8CABEC680A08A /* OverridableSettingRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D078E9BF372C9E82989D16C5 /* OverridableSettingRow.swift */; };
 		3641489046707FF2CF2E1A41 /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABBEA91C9241775E4762FA3 /* DiffView.swift */; };
 		39C2964A5E3910D0585E0379 /* LocalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1188CEA5F6403489C8F5B8D5 /* LocalSettings.swift */; };
 		3D882FAE41F305B47C3A178A /* CCSettingsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8655FE9A624FB9D4F68C7DA3 /* CCSettingsApp.swift */; };
@@ -80,6 +81,7 @@
 		E54B057C0DFB6E2B170E35DD /* ProfileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F40DCEF56F05F22F46FB1C8 /* ProfileRowView.swift */; };
 		EB6C82D989049CC8B9F04101 /* CommandsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CF305B3F5031F47BFBC288 /* CommandsView.swift */; };
 		EEDD01085E8017ACB7B28038 /* RenameProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD13628C4D250700720A2A4 /* RenameProfileSheet.swift */; };
+		EF4902605B3DABBABDBF5B83 /* ProjectSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB2AED6BDA87B6F3DE6EBC7 /* ProjectSettingsView.swift */; };
 		EFC602EA2A067A7DB29417B5 /* SkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275444EFD66E137506BB4EF0 /* SkillsView.swift */; };
 		F0C46396585CF6417080D3BC /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9619513D2C0BE5154D9833F /* MessageBubbleView.swift */; };
 		F7AB4C1C5C3EEAA699C254FA /* ConfigurationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0CF4CFAD380347450E02C7 /* ConfigurationManager.swift */; };
@@ -165,8 +167,10 @@
 		C3A83EE9974319EE19BDF406 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		CABBEA91C9241775E4762FA3 /* DiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffView.swift; sourceTree = "<group>"; };
 		CBACEF453905427755724E6B /* EnvironmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentView.swift; sourceTree = "<group>"; };
+		CBB2AED6BDA87B6F3DE6EBC7 /* ProjectSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSettingsView.swift; sourceTree = "<group>"; };
 		CC8F1CE9418EB9DD36CA454E /* HooksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HooksView.swift; sourceTree = "<group>"; };
 		CE811DFE20E99A00C8628FD2 /* CC SettingsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "CC SettingsUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D078E9BF372C9E82989D16C5 /* OverridableSettingRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverridableSettingRow.swift; sourceTree = "<group>"; };
 		D11B2BF1A1D4541DBC0E7770 /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
 		D6D9E06B91DEF7F04F9B3F3F /* ClaudeFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeFile.swift; sourceTree = "<group>"; };
 		D839A7EB03B06AA9091A4A87 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -256,6 +260,14 @@
 				1272144BB3458BCC276CEF2A /* ThemeManager.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		26A02792DBA0514EEA84D52F /* Project */ = {
+			isa = PBXGroup;
+			children = (
+				CBB2AED6BDA87B6F3DE6EBC7 /* ProjectSettingsView.swift */,
+			);
+			path = Project;
 			sourceTree = "<group>";
 		};
 		409BA491FC57B5B91F979010 /* Skills */ = {
@@ -465,6 +477,7 @@
 				91A1F0B40DCCBCDD81881DED /* GlassModifiers.swift */,
 				9644FDFED6F60D16EC66F44F /* HierarchicalModelPicker.swift */,
 				37EEB10BE53ECE84E30DD551 /* MarkdownPreview.swift */,
+				D078E9BF372C9E82989D16C5 /* OverridableSettingRow.swift */,
 				AFDFE7E75A356B827773CAD8 /* SettingsSection.swift */,
 			);
 			path = Common;
@@ -508,6 +521,7 @@
 				59315C78D2EDFCCE3CD5362A /* Permissions */,
 				80990B8DD3844F48450CD1F2 /* Plugins */,
 				5E6BFCFEAD643AF1BC0DCCE8 /* Profiles */,
+				26A02792DBA0514EEA84D52F /* Project */,
 				859A60B74767738048EE175C /* Rules */,
 				4DEFACFB0FFD8406E882A25A /* Sessions */,
 				A626F751E8F6A043B8D64239 /* Sidebar */,
@@ -714,6 +728,7 @@
 				D4561EA2512236A68DA1A457 /* MenuBarController.swift in Sources */,
 				F0C46396585CF6417080D3BC /* MessageBubbleView.swift in Sources */,
 				AFC76AD94E046724E4BBCA2A /* ModelVersion.swift in Sources */,
+				3617A0C818F8CABEC680A08A /* OverridableSettingRow.swift in Sources */,
 				07F68B5C3EF194A8BA80410C /* PDFFileViewer.swift in Sources */,
 				2D056F915E28079E530EE360 /* PermissionsView.swift in Sources */,
 				9331A259C1DCAD30FC2012B4 /* PluginsView.swift in Sources */,
@@ -721,6 +736,7 @@
 				E54B057C0DFB6E2B170E35DD /* ProfileRowView.swift in Sources */,
 				B97B99802528BFC2AAD6568A /* ProfilesSectionView.swift in Sources */,
 				95307B376948477FB8642E4A /* Project.swift in Sources */,
+				EF4902605B3DABBABDBF5B83 /* ProjectSettingsView.swift in Sources */,
 				677A355C42931213DCE3D49A /* RemoteConfigSheet.swift in Sources */,
 				EEDD01085E8017ACB7B28038 /* RenameProfileSheet.swift in Sources */,
 				5ED7BCC20D5E806DE4175CF8 /* RulesView.swift in Sources */,
