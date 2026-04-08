@@ -109,7 +109,8 @@ enum NavigationItem: Hashable {
         case .general:
             return ["general", "model", "theme", "appearance", "language", "effort", "output", "verbose",
                     "git", "branch", "api key", "updates", "notifications", "attribution", "teams",
-                    "teammate", "cleanup", "retention", "auto-compact", "plans", "reduce motion"]
+                    "teammate", "cleanup", "retention", "auto-compact", "plans", "reduce motion",
+                    "profiles", "profile", "save settings", "load settings"]
         case .permissions:
             return ["permissions", "allow", "deny", "ask", "tools", "sandbox", "directories", "mode"]
         case .environment:

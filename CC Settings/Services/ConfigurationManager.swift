@@ -124,6 +124,111 @@ class ConfigurationManager: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Field-Level Save
+
+    /// Writes a single setting to the JSON file, modifying only the targeted key.
+    /// Use dot-separated key paths for nested values (e.g., "attribution.commit", "env.API_KEY").
+    /// Pass nil to remove the key.
+    func saveField(_ keyPath: String, value: Any?, to url: URL? = nil) {
+        saveFields([(keyPath: keyPath, value: value)], to: url)
+    }
+
+    /// Writes multiple fields atomically in a single read-modify-write cycle.
+    func saveFields(_ fields: [(keyPath: String, value: Any?)], to url: URL? = nil) {
+        let targetURL = url ?? settingsURL
+        do {
+            try FileManager.default.createDirectory(
+                at: targetURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+
+            var existingJSON: [String: Any] = [:]
+            if let data = try? Data(contentsOf: targetURL) {
+                let fixed = validateAndFix(jsonData: data)
+                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
+                    existingJSON = json
+                }
+            }
+
+            for field in fields {
+                let components = field.keyPath.split(separator: ".").map(String.init)
+                setNestedValue(&existingJSON, keyPath: components, value: field.value)
+            }
+
+            let outputData = try JSONSerialization.data(
+                withJSONObject: existingJSON,
+                options: [.prettyPrinted, .sortedKeys]
+            )
+            let fixedOutput = fixIntegerFormatting(outputData)
+            try fixedOutput.write(to: targetURL, options: .atomic)
+            lastSaveTime = Date()
+
+            if targetURL == settingsURL {
+                isDirty = false
+                isLoadingFromDisk = true
+                if let reloadData = try? Data(contentsOf: settingsURL) {
+                    let fixed = validateAndFix(jsonData: reloadData)
+                    if let decoded = try? decoder.decode(ClaudeSettings.self, from: fixed) {
+                        settings = decoded
+                    }
+                }
+                isLoadingFromDisk = false
+            }
+
+            FileWatcher.shared.updateFileTracking(for: [targetURL])
+        } catch {
+            lastError = error
+        }
+    }
+
+    /// Writes a Codable value at a top-level key. Pass nil to remove the key.
+    func saveEncodedField<T: Encodable>(_ key: String, value: T?) {
+        if let value = value {
+            do {
+                let data = try encoder.encode(value)
+                let jsonObj = try JSONSerialization.jsonObject(with: data)
+                saveField(key, value: jsonObj)
+            } catch {
+                lastError = error
+            }
+        } else {
+            saveField(key, value: nil)
+        }
+    }
+
+    private func setNestedValue(_ dict: inout [String: Any], keyPath: [String], value: Any?) {
+        guard let first = keyPath.first else { return }
+
+        if keyPath.count == 1 {
+            if let value = value {
+                dict[first] = value
+            } else {
+                dict.removeValue(forKey: first)
+            }
+        } else {
+            var nested = dict[first] as? [String: Any] ?? [:]
+            setNestedValue(&nested, keyPath: Array(keyPath.dropFirst()), value: value)
+            dict[first] = nested
+        }
+    }
+
+    // MARK: - Raw Write
+
+    /// Writes raw JSON bytes directly to settings.json and reloads.
+    /// Used by ProfileManager to restore a profile snapshot (preserving unknown CLI keys).
+    func writeRawSettingsAndReload(_ rawJSON: Data) {
+        do {
+            try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
+            try rawJSON.write(to: settingsURL, options: .atomic)
+            lastSaveTime = Date()
+            isDirty = false
+            FileWatcher.shared.updateFileTracking(for: [settingsURL])
+            loadAll(force: true)
+        } catch {
+            lastError = error
+        }
+    }
+
     func saveSettings() {
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)

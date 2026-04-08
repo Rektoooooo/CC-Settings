@@ -71,6 +71,7 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             claudeVersionSection
+            ProfilesSectionView()
             modelSection
             appearanceSection
             languageSection
@@ -234,7 +235,9 @@ struct GeneralSettingsView: View {
                 get: { configManager.settings.fastMode ?? false },
                 set: { configManager.settings.fastMode = $0 ? true : nil }
             ))
-            .onChange(of: configManager.settings.fastMode) { save() }
+            .onChange(of: configManager.settings.fastMode) {
+                        configManager.saveField("fastMode", value: configManager.settings.fastMode)
+                    }
             Text("Enable fast mode for quicker responses.")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -244,7 +247,9 @@ struct GeneralSettingsView: View {
                     get: { configManager.settings.fastModePerSessionOptIn ?? false },
                     set: { configManager.settings.fastModePerSessionOptIn = $0 ? true : nil }
                 ))
-                .onChange(of: configManager.settings.fastModePerSessionOptIn) { save() }
+                .onChange(of: configManager.settings.fastModePerSessionOptIn) {
+                        configManager.saveField("fastModePerSessionOptIn", value: configManager.settings.fastModePerSessionOptIn)
+                    }
                 Text("Require opt-in to fast mode each session.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -549,38 +554,134 @@ struct GeneralSettingsView: View {
     @ViewBuilder
     private var autoSaveObservers: some View {
         Color.clear
-            .onChange(of: configManager.settings.model) { save() }
-            .onChange(of: themeManager.selectedThemeName) { save() }
-            .onChange(of: prefersReducedMotion) { save() }
-            .onChange(of: language) { save() }
-            .onChange(of: effortLevel) { save() }
-            .onChange(of: outputStyle) { save() }
-            .onChange(of: verbose) { save() }
-            .onChange(of: showTurnDuration) { save() }
-            .onChange(of: respectGitignore) { save() }
+            .onChange(of: configManager.settings.model) {
+                guard isLoaded else { return }
+                configManager.saveField("model", value: configManager.settings.model)
+            }
+            .onChange(of: themeManager.selectedThemeName) {
+                guard isLoaded else { return }
+                configManager.saveField("theme", value: themeManager.currentTheme.cliTheme)
+            }
+            .onChange(of: prefersReducedMotion) {
+                guard isLoaded else { return }
+                configManager.saveField("prefersReducedMotion", value: prefersReducedMotion ? true : nil)
+            }
+            .onChange(of: language) {
+                guard isLoaded else { return }
+                let trimmed = language.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("language", value: trimmed.isEmpty ? nil : trimmed)
+            }
+            .onChange(of: effortLevel) {
+                guard isLoaded else { return }
+                configManager.saveField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
+            }
+            .onChange(of: outputStyle) {
+                guard isLoaded else { return }
+                let trimmed = outputStyle.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("outputStyle", value: trimmed.isEmpty ? nil : trimmed)
+            }
+            .onChange(of: verbose) {
+                guard isLoaded else { return }
+                configManager.saveField("verbose", value: verbose ? true : nil)
+            }
+            .onChange(of: showTurnDuration) {
+                guard isLoaded else { return }
+                configManager.saveField("showTurnDuration", value: showTurnDuration ? nil : false)
+            }
+            .onChange(of: respectGitignore) {
+                guard isLoaded else { return }
+                configManager.saveField("respectGitignore", value: respectGitignore ? nil : false)
+            }
         Color.clear
-            .onChange(of: defaultShell) { save() }
-            .onChange(of: includeGitInstructions) { save() }
-            .onChange(of: showThinkingSummaries) { save() }
-            .onChange(of: showClearContextOnPlanAccept) { save() }
-            .onChange(of: voiceEnabled) { save() }
-            .onChange(of: autoMemoryEnabled) { save() }
-            .onChange(of: autoMemoryDirectory) { save() }
-            .onChange(of: autoCompactEnabled) { save() }
-            .onChange(of: autoCompactInstructions) { save() }
-            .onChange(of: plansDirectory) { save() }
+            .onChange(of: defaultShell) {
+                guard isLoaded else { return }
+                configManager.saveField("defaultShell", value: defaultShell == "bash" ? nil : defaultShell)
+            }
+            .onChange(of: includeGitInstructions) {
+                guard isLoaded else { return }
+                configManager.saveField("includeGitInstructions", value: includeGitInstructions ? nil : false)
+            }
+            .onChange(of: showThinkingSummaries) {
+                guard isLoaded else { return }
+                configManager.saveField("showThinkingSummaries", value: showThinkingSummaries ? true : nil)
+            }
+            .onChange(of: showClearContextOnPlanAccept) {
+                guard isLoaded else { return }
+                configManager.saveField("showClearContextOnPlanAccept", value: showClearContextOnPlanAccept ? true : nil)
+            }
+            .onChange(of: voiceEnabled) {
+                guard isLoaded else { return }
+                configManager.saveField("voiceEnabled", value: voiceEnabled ? true : nil)
+            }
+            .onChange(of: autoMemoryEnabled) {
+                guard isLoaded else { return }
+                configManager.saveField("autoMemoryEnabled", value: autoMemoryEnabled ? true : nil)
+            }
+            .onChange(of: autoMemoryDirectory) {
+                guard isLoaded else { return }
+                let trimmed = autoMemoryDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("autoMemoryDirectory", value: trimmed.isEmpty ? nil : trimmed)
+            }
+            .onChange(of: autoCompactEnabled) {
+                guard isLoaded else { return }
+                saveAutoCompact()
+            }
+            .onChange(of: autoCompactInstructions) {
+                guard isLoaded else { return }
+                saveAutoCompact()
+            }
+            .onChange(of: plansDirectory) {
+                guard isLoaded else { return }
+                let trimmed = plansDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("plansDirectory", value: trimmed.isEmpty ? nil : trimmed)
+            }
         Color.clear
-            .onChange(of: mainBranch) { save() }
-            .onChange(of: selectedGitApp) { save() }
-            .onChange(of: customGitAppPath) { save() }
-            .onChange(of: autoUpdates) { save() }
-            .onChange(of: autoUpdatesChannel) { save() }
-            .onChange(of: preferredNotifChannel) { save() }
-            .onChange(of: cleanupPeriodDays) { save() }
-            .onChange(of: commitAttribution) { save() }
-            .onChange(of: prAttribution) { save() }
-            .onChange(of: teammateMode) { save() }
-            .onChange(of: apiKeyHelper) { save() }
+            .onChange(of: mainBranch) {
+                guard isLoaded else { return }
+                let trimmed = mainBranch.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("mainBranch", value: (trimmed.isEmpty || trimmed == "main") ? nil : trimmed)
+            }
+            .onChange(of: selectedGitApp) {
+                guard isLoaded else { return }
+                saveGitApp()
+            }
+            .onChange(of: customGitAppPath) {
+                guard isLoaded else { return }
+                saveGitApp()
+            }
+            .onChange(of: autoUpdates) {
+                guard isLoaded else { return }
+                configManager.saveField("autoUpdates", value: autoUpdates ? nil : false)
+            }
+            .onChange(of: autoUpdatesChannel) {
+                guard isLoaded else { return }
+                configManager.saveField("autoUpdatesChannel", value: autoUpdatesChannel == "latest" ? nil : autoUpdatesChannel)
+            }
+            .onChange(of: preferredNotifChannel) {
+                guard isLoaded else { return }
+                configManager.saveField("preferredNotifChannel", value: preferredNotifChannel == "iterm2" ? nil : preferredNotifChannel)
+            }
+            .onChange(of: cleanupPeriodDays) {
+                guard isLoaded else { return }
+                configManager.saveField("cleanupPeriodDays", value: Int(cleanupPeriodDays) == 30 ? nil : Int(cleanupPeriodDays))
+            }
+            .onChange(of: commitAttribution) {
+                guard isLoaded else { return }
+                saveAttribution()
+            }
+            .onChange(of: prAttribution) {
+                guard isLoaded else { return }
+                saveAttribution()
+            }
+            .onChange(of: teammateMode) {
+                guard isLoaded else { return }
+                configManager.saveField("teammateMode", value: teammateMode == "auto" ? nil : teammateMode)
+            }
+            .onChange(of: apiKeyHelper) {
+                guard isLoaded else { return }
+                let trimmed = apiKeyHelper.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("apiKeyHelper", value: trimmed.isEmpty ? nil : trimmed)
+            }
     }
 
     // MARK: - Data Sync
@@ -683,84 +784,45 @@ struct GeneralSettingsView: View {
         }
     }
 
-    private func save() {
-        guard isLoaded else { return }
+    // MARK: - Compound Field Savers
 
-        // Appearance
-        configManager.settings.theme = themeManager.currentTheme.cliTheme
-        configManager.settings.prefersReducedMotion = prefersReducedMotion ? true : nil
-
-        // Language & Output
-        let trimmedLang = language.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.language = trimmedLang.isEmpty ? nil : trimmedLang
-        configManager.settings.effortLevel = effortLevel.isEmpty ? nil : effortLevel
-        let trimmedStyle = outputStyle.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.outputStyle = trimmedStyle.isEmpty ? nil : trimmedStyle
-        configManager.settings.verbose = verbose ? true : nil
-
-        // Behavior
-        configManager.settings.showTurnDuration = showTurnDuration ? nil : false
-        configManager.settings.respectGitignore = respectGitignore ? nil : false
-        configManager.settings.defaultShell = defaultShell == "bash" ? nil : defaultShell
-        configManager.settings.includeGitInstructions = includeGitInstructions ? nil : false
-        configManager.settings.showThinkingSummaries = showThinkingSummaries ? true : nil
-        configManager.settings.showClearContextOnPlanAccept = showClearContextOnPlanAccept ? true : nil
-        configManager.settings.voiceEnabled = voiceEnabled ? true : nil
+    private func saveAutoCompact() {
         if autoCompactEnabled {
-            let trimmedInstructions = autoCompactInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
-            configManager.settings.autoCompact = AutoCompactConfig(
-                customInstructions: trimmedInstructions.isEmpty ? nil : trimmedInstructions
-            )
+            let trimmed = autoCompactInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
+            var dict: [String: Any] = [:]
+            if !trimmed.isEmpty { dict["customInstructions"] = trimmed }
+            configManager.saveField("autoCompact", value: dict)
         } else {
-            configManager.settings.autoCompact = nil
+            configManager.saveField("autoCompact", value: nil)
         }
-        let trimmedPlans = plansDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.plansDirectory = trimmedPlans.isEmpty ? nil : trimmedPlans
+    }
 
-        // Memory
-        configManager.settings.autoMemoryEnabled = autoMemoryEnabled ? true : nil
-        let trimmedMemDir = autoMemoryDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.autoMemoryDirectory = trimmedMemDir.isEmpty ? nil : trimmedMemDir
+    private func saveAttribution() {
+        let commit = commitAttribution.isEmpty ? nil : commitAttribution
+        let pr = prAttribution.isEmpty ? nil : prAttribution
+        if commit == nil && pr == nil {
+            configManager.saveField("attribution", value: nil)
+        } else {
+            var dict: [String: Any] = [:]
+            if let c = commit { dict["commit"] = c }
+            if let p = pr { dict["pr"] = p }
+            configManager.saveField("attribution", value: dict)
+        }
+    }
 
-        // Git
-        let trimmedBranch = mainBranch.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.mainBranch = (trimmedBranch.isEmpty || trimmedBranch == "main") ? nil : trimmedBranch
+    private func saveGitApp() {
         if selectedGitApp == "system" {
-            configManager.settings.preferredGitApp = nil
-            configManager.settings.customGitAppPath = nil
+            configManager.saveFields([
+                (keyPath: "preferredGitApp", value: nil),
+                (keyPath: "customGitAppPath", value: nil)
+            ])
         } else if let app = GitAppPreference(rawValue: selectedGitApp) {
-            configManager.settings.preferredGitApp = app
-            configManager.settings.customGitAppPath = app == .custom ? (customGitAppPath.isEmpty ? nil : customGitAppPath) : nil
+            let customPath: String? = app == .custom ? (customGitAppPath.isEmpty ? nil : customGitAppPath) : nil
+            configManager.saveFields([
+                (keyPath: "preferredGitApp", value: app.rawValue),
+                (keyPath: "customGitAppPath", value: customPath)
+            ])
         }
-
-        // Updates
-        configManager.settings.autoUpdates = autoUpdates ? nil : false
-        configManager.settings.autoUpdatesChannel = autoUpdatesChannel == "latest" ? nil : autoUpdatesChannel
-
-        // Notifications
-        configManager.settings.preferredNotifChannel = preferredNotifChannel == "iterm2" ? nil : preferredNotifChannel
-
-        // Data
-        configManager.settings.cleanupPeriodDays = Int(cleanupPeriodDays) == 30 ? nil : Int(cleanupPeriodDays)
-
-        // Attribution — don't trim; a single space is intentional (hides co-author line)
-        if commitAttribution.isEmpty && prAttribution.isEmpty {
-            configManager.settings.attribution = nil
-        } else {
-            configManager.settings.attribution = AttributionConfig(
-                commit: commitAttribution.isEmpty ? nil : commitAttribution,
-                pr: prAttribution.isEmpty ? nil : prAttribution
-            )
-        }
-
-        // Teams
-        configManager.settings.teammateMode = teammateMode == "auto" ? nil : teammateMode
-
-        // API Key Helper
-        let trimmedHelper = apiKeyHelper.trimmingCharacters(in: .whitespacesAndNewlines)
-        configManager.settings.apiKeyHelper = trimmedHelper.isEmpty ? nil : trimmedHelper
-
-        configManager.saveSettings()
     }
 
     // MARK: - File Pickers

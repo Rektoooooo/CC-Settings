@@ -102,8 +102,7 @@ struct HUDContentView: View {
                             step: 1024
                         ) { editing in
                             if !editing {
-                                configManager.settings.thinkingBudgetTokens = Int(localBudget)
-                                configManager.saveSettings()
+                                configManager.saveField("thinkingBudgetTokens", value: Int(localBudget))
                             }
                         }
                         .controlSize(.small)
@@ -183,14 +182,16 @@ struct HUDContentView: View {
         Binding(
             get: { configManager.settings.alwaysThinkingEnabled == true },
             set: { newValue in
-                configManager.settings.alwaysThinkingEnabled = newValue ? true : nil
+                var fields: [(keyPath: String, value: Any?)] = [
+                    (keyPath: "alwaysThinkingEnabled", value: newValue ? true : nil)
+                ]
                 if newValue && configManager.settings.thinkingBudgetTokens == nil {
-                    configManager.settings.thinkingBudgetTokens = 10000
+                    fields.append((keyPath: "thinkingBudgetTokens", value: 10000))
                 }
                 if !newValue {
-                    configManager.settings.thinkingBudgetTokens = nil
+                    fields.append((keyPath: "thinkingBudgetTokens", value: nil))
                 }
-                configManager.saveSettings()
+                configManager.saveFields(fields)
             }
         )
     }

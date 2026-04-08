@@ -904,7 +904,7 @@ struct HooksView: View {
            hooks.SessionEnd == nil {
             configManager.settings.hooks = nil
         }
-        configManager.saveSettings()
+        configManager.saveEncodedField("hooks", value: configManager.settings.hooks)
     }
 
     private func setProjectGroups(_ groups: [HookGroup], for type: HookType, projectPath: String) {

@@ -267,6 +267,7 @@ struct EnvironmentView: View {
         }
         .formStyle(.grouped)
         .onSubmit { save() }
+        .onDisappear { save() }
         .onAppear {
             isSyncing = true
             loadFromSettings()
@@ -339,13 +340,11 @@ struct EnvironmentView: View {
         guard !isSyncing else { return }
         var env: [String: String] = [:]
 
-        // Helper to set string vars
         func setString(_ key: String, _ value: String) {
             let trimmed = value.trimmingCharacters(in: .whitespaces)
             if !trimmed.isEmpty { env[key] = trimmed }
         }
 
-        // Helper to set flag vars
         func setFlag(_ key: String, _ value: Bool) {
             if value { env[key] = "1" }
         }
@@ -389,7 +388,8 @@ struct EnvironmentView: View {
             }
         }
 
-        // Preserve any env vars not managed by this view
+        // Preserve any env vars not managed by this view (e.g. from ExperimentalFeaturesView)
+        // by reading the current env from disk, not from the in-memory struct
         let currentEnv = configManager.settings.env
         for (key, value) in currentEnv {
             if !Self.managedKeys.contains(key) && env[key] == nil {
@@ -397,8 +397,8 @@ struct EnvironmentView: View {
             }
         }
 
-        configManager.settings.env = env
-        configManager.saveSettings()
+        // Write only the "env" key, preserving all other settings on disk
+        configManager.saveField("env", value: env.isEmpty ? nil : env)
     }
 }
 

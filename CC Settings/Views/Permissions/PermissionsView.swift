@@ -182,8 +182,7 @@ struct PermissionsView: View {
                 Toggle("Disable Bypass Permissions Mode", isOn: $disableBypassPermissions)
                     .onChange(of: disableBypassPermissions) { _, newValue in
                         guard !isSyncing else { return }
-                        configManager.settings.permissions.disableBypassPermissionsMode = newValue ? "disable" : nil
-                        configManager.saveSettings()
+                        configManager.saveField("permissions.disableBypassPermissionsMode", value: newValue ? "disable" : nil)
                     }
                 Text("Prevents users from entering bypass permissions mode.")
                     .font(.caption)
@@ -192,8 +191,7 @@ struct PermissionsView: View {
                 Toggle("Skip Dangerous Mode Prompt", isOn: $skipDangerousModePrompt)
                     .onChange(of: skipDangerousModePrompt) { _, newValue in
                         guard !isSyncing else { return }
-                        configManager.settings.permissions.skipDangerousModePermissionPrompt = newValue ? true : nil
-                        configManager.saveSettings()
+                        configManager.saveField("permissions.skipDangerousModePermissionPrompt", value: newValue ? true : nil)
                     }
                 Text("Skips the confirmation prompt when entering dangerous mode.")
                     .font(.caption)
@@ -457,13 +455,16 @@ struct PermissionsView: View {
             }
         }
 
-        configManager.settings.permissions.allow = allow.isEmpty ? nil : allow.sorted()
-        configManager.settings.permissions.deny = deny.isEmpty ? nil : deny.sorted()
-        configManager.settings.permissions.ask = ask.isEmpty ? nil : ask.sorted()
-        configManager.settings.permissions.defaultMode = defaultMode == .defaultMode ? nil : defaultMode.rawValue
-        configManager.settings.permissions.additionalDirectories = additionalDirectories.isEmpty ? nil : additionalDirectories
+        var permsDict: [String: Any] = [:]
+        if !allow.isEmpty { permsDict["allow"] = allow.sorted() }
+        if !deny.isEmpty { permsDict["deny"] = deny.sorted() }
+        if !ask.isEmpty { permsDict["ask"] = ask.sorted() }
+        if defaultMode != .defaultMode { permsDict["defaultMode"] = defaultMode.rawValue }
+        if !additionalDirectories.isEmpty { permsDict["additionalDirectories"] = additionalDirectories }
+        if disableBypassPermissions { permsDict["disableBypassPermissionsMode"] = "disable" }
+        if skipDangerousModePrompt { permsDict["skipDangerousModePermissionPrompt"] = true }
 
-        configManager.saveSettings()
+        configManager.saveField("permissions", value: permsDict.isEmpty ? nil : permsDict)
     }
 }
 

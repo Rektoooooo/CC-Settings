@@ -69,14 +69,17 @@ class MenuBarController: NSObject {
     func toggleThinking() {
         let config = ConfigurationManager.shared
         let isCurrentlyEnabled = config.settings.alwaysThinkingEnabled == true
-        config.settings.alwaysThinkingEnabled = isCurrentlyEnabled ? nil : true
-        if !isCurrentlyEnabled && config.settings.thinkingBudgetTokens == nil {
-            config.settings.thinkingBudgetTokens = 10000
+        let newEnabled = !isCurrentlyEnabled
+        var fields: [(keyPath: String, value: Any?)] = [
+            (keyPath: "alwaysThinkingEnabled", value: newEnabled ? true : nil)
+        ]
+        if newEnabled && config.settings.thinkingBudgetTokens == nil {
+            fields.append((keyPath: "thinkingBudgetTokens", value: 10000))
         }
-        if isCurrentlyEnabled {
-            config.settings.thinkingBudgetTokens = nil
+        if !newEnabled {
+            fields.append((keyPath: "thinkingBudgetTokens", value: nil))
         }
-        config.saveSettings()
+        config.saveFields(fields)
     }
 
     // MARK: - Menu
@@ -164,8 +167,7 @@ class MenuBarController: NSObject {
 
     @objc private func selectModel(_ sender: NSMenuItem) {
         guard let modelId = sender.representedObject as? String else { return }
-        ConfigurationManager.shared.settings.model = modelId
-        ConfigurationManager.shared.saveSettings()
+        ConfigurationManager.shared.saveField("model", value: modelId)
     }
 
     @objc private func thinkingMenuItemClicked() {

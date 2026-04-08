@@ -71,7 +71,7 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Thinking
             Section {
                 Toggle("Extended Thinking", isOn: $thinkingEnabled)
-                    .onChange(of: thinkingEnabled) { _, _ in saveSettings() }
+                    .onChange(of: thinkingEnabled) { _, _ in saveThinking() }
                 Text("Enable Claude to think more deeply before responding. Uses additional tokens.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -86,7 +86,7 @@ struct ExperimentalFeaturesView: View {
                     }
 
                     Slider(value: $thinkingBudget, in: 1000...100000, step: 1000)
-                        .onChange(of: thinkingBudget) { _, _ in saveSettings() }
+                        .onChange(of: thinkingBudget) { _, _ in saveThinking() }
 
                     HStack(spacing: 6) {
                         Circle()
@@ -105,7 +105,6 @@ struct ExperimentalFeaturesView: View {
                         ForEach(["5K", "10K", "25K", "50K"], id: \.self) { preset in
                             Button(preset) {
                                 thinkingBudget = presetValue(preset)
-                                saveSettings()
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
@@ -131,7 +130,10 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Agent Teams
             Section {
                 Toggle("Enable Agent Teams", isOn: $agentTeamsEnabled)
-                    .onChange(of: agentTeamsEnabled) { _, _ in saveSettings() }
+                    .onChange(of: agentTeamsEnabled) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", value: agentTeamsEnabled ? "1" : nil)
+                    }
                 Text("Allow multiple Claude agents to work together on tasks.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -142,13 +144,19 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Performance
             Section {
                 Toggle("Skip WebFetch Preflight", isOn: $skipWebFetchPreflight)
-                    .onChange(of: skipWebFetchPreflight) { _, _ in saveSettings() }
+                    .onChange(of: skipWebFetchPreflight) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("skipWebFetchPreflight", value: skipWebFetchPreflight ? true : nil)
+                    }
                 Text("Skip preflight validation before fetching web content.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Disable Non-Essential Model Calls", isOn: $disableNonEssentialCalls)
-                    .onChange(of: disableNonEssentialCalls) { _, _ in saveSettings() }
+                    .onChange(of: disableNonEssentialCalls) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("env.DISABLE_NON_ESSENTIAL_MODEL_CALLS", value: disableNonEssentialCalls ? "1" : nil)
+                    }
                 Text("Reduce API usage by disabling non-essential model calls.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -159,19 +167,28 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Privacy & Telemetry
             Section {
                 Toggle("Disable Telemetry", isOn: $disableTelemetry)
-                    .onChange(of: disableTelemetry) { _, _ in saveSettings() }
+                    .onChange(of: disableTelemetry) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("env.DISABLE_TELEMETRY", value: disableTelemetry ? "1" : nil)
+                    }
                 Text("Disable all telemetry data collection.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Disable Error Reporting", isOn: $disableErrorReporting)
-                    .onChange(of: disableErrorReporting) { _, _ in saveSettings() }
+                    .onChange(of: disableErrorReporting) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("env.DISABLE_ERROR_REPORTING", value: disableErrorReporting ? "1" : nil)
+                    }
                 Text("Disable automatic error reporting to Anthropic.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Disable Auto-Updater", isOn: $disableAutoUpdater)
-                    .onChange(of: disableAutoUpdater) { _, _ in saveSettings() }
+                    .onChange(of: disableAutoUpdater) { _, _ in
+                        guard !isSyncing else { return }
+                        configManager.saveField("env.DISABLE_AUTOUPDATER", value: disableAutoUpdater ? "1" : nil)
+                    }
                 Text("Prevent Claude Code from updating automatically.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -185,14 +202,20 @@ struct ExperimentalFeaturesView: View {
                     title: "Disable Auto Mode",
                     description: "Prevent auto mode activation",
                     isOn: $disableAutoMode,
-                    onChange: { saveSettings() }
+                    onChange: {
+                        guard !isSyncing else { return }
+                        configManager.saveField("disableAutoMode", value: disableAutoMode ? "disable" : nil)
+                    }
                 )
 
                 FeatureToggle(
                     title: "Disable All Hooks",
                     description: "Kill switch for all hooks and custom status line",
                     isOn: $disableAllHooks,
-                    onChange: { saveSettings() }
+                    onChange: {
+                        guard !isSyncing else { return }
+                        configManager.saveField("disableAllHooks", value: disableAllHooks ? true : nil)
+                    }
                 )
             } header: {
                 Text("Mode Control")
@@ -201,25 +224,25 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Sandbox
             Section {
                 Toggle("Enable Sandbox", isOn: $sandboxEnabled)
-                    .onChange(of: sandboxEnabled) { _, _ in saveSettings() }
+                    .onChange(of: sandboxEnabled) { _, _ in saveSandbox() }
                 Text("Enable the sandbox for command execution.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Fail If Unavailable", isOn: $sandboxFailIfUnavailable)
-                    .onChange(of: sandboxFailIfUnavailable) { _, _ in saveSettings() }
+                    .onChange(of: sandboxFailIfUnavailable) { _, _ in saveSandbox() }
                 Text("Fail instead of falling back when sandbox is unavailable.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Auto-Allow Bash When Sandboxed", isOn: $autoAllowBashIfSandboxed)
-                    .onChange(of: autoAllowBashIfSandboxed) { _, _ in saveSettings() }
+                    .onChange(of: autoAllowBashIfSandboxed) { _, _ in saveSandbox() }
                 Text("Automatically allow bash commands when running inside the sandbox.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Weaker Network Isolation", isOn: $enableWeakerNetworkIsolation)
-                    .onChange(of: enableWeakerNetworkIsolation) { _, _ in saveSettings() }
+                    .onChange(of: enableWeakerNetworkIsolation) { _, _ in saveSandbox() }
                 Text("Allow more permissive network access from the sandbox.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -230,6 +253,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
                         Text("Comma-separated paths allowed for writing.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -238,6 +262,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
                         Text("Comma-separated paths denied for writing.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -246,6 +271,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
                         Text("Comma-separated paths denied for reading.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -254,6 +280,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
                         Text("Comma-separated paths allowed for reading.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -262,7 +289,7 @@ struct ExperimentalFeaturesView: View {
                 }
 
                 Toggle("Enable Weaker Sandbox", isOn: $enableWeakerSandbox)
-                    .onChange(of: enableWeakerSandbox) { _, _ in saveSettings() }
+                    .onChange(of: enableWeakerSandbox) { _, _ in saveLegacySandbox() }
                 Text("Use a weaker sandbox for Docker or unprivileged environments.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -271,6 +298,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
+                    .onSubmit { saveLegacySandbox() }
                 Text("Comma-separated commands that should never run in the sandbox.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -278,13 +306,13 @@ struct ExperimentalFeaturesView: View {
                 GroupBox("Network") {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Allow Local Binding", isOn: $allowLocalBinding)
-                            .onChange(of: allowLocalBinding) { _, _ in saveSettings() }
+                            .onChange(of: allowLocalBinding) { _, _ in saveLegacySandbox() }
                         Text("Allow binding to localhost (macOS).")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
                         Toggle("Allow All Unix Sockets", isOn: $allowAllUnixSockets)
-                            .onChange(of: allowAllUnixSockets) { _, _ in saveSettings() }
+                            .onChange(of: allowAllUnixSockets) { _, _ in saveLegacySandbox() }
                         Text("Allow connections to all Unix sockets.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -293,6 +321,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
+                            .onSubmit { saveLegacySandbox() }
                         Text("Comma-separated domains allowed for outbound traffic (supports wildcards).")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -309,6 +338,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
+                    .onSubmit { saveWorktree() }
                 Text("Comma-separated paths for sparse checkout in worktrees.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -317,6 +347,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
+                    .onSubmit { saveWorktree() }
                 Text("Comma-separated directories to symlink in worktrees.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -327,27 +358,29 @@ struct ExperimentalFeaturesView: View {
             // MARK: - Spinner
             Section {
                 Toggle("Show Spinner Tips", isOn: $spinnerTipsEnabled)
-                    .onChange(of: spinnerTipsEnabled) { _, _ in saveSettings() }
+                    .onChange(of: spinnerTipsEnabled) { _, _ in saveSpinner() }
 
                 Picker("Custom Verbs Mode", selection: $spinnerVerbsMode) {
                     Text("Append to defaults").tag("append")
                     Text("Replace defaults").tag("replace")
                 }
-                .onChange(of: spinnerVerbsMode) { _, _ in saveSettings() }
+                .onChange(of: spinnerVerbsMode) { _, _ in saveSpinner() }
 
                 TextField("Custom Verbs", text: $spinnerVerbs, prompt: Text("Pondering, Crafting, Brewing"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
+                    .onSubmit { saveSpinner() }
                 Text("Comma-separated custom action verbs for the spinner.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 Toggle("Exclude Default Tips", isOn: $excludeDefaultTips)
-                    .onChange(of: excludeDefaultTips) { _, _ in saveSettings() }
+                    .onChange(of: excludeDefaultTips) { _, _ in saveSpinner() }
 
                 TextField("Custom Tips", text: $customTips, prompt: Text("Tip 1, Tip 2, Tip 3"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
+                    .onSubmit { saveSpinner() }
                 Text("Comma-separated custom tip strings shown in the spinner.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -360,12 +393,12 @@ struct ExperimentalFeaturesView: View {
                 TextField("Command", text: $statusLineCommand, prompt: Text("~/.claude/statusline.sh"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: statusLineCommand) { _, _ in saveSettings() }
+                    .onChange(of: statusLineCommand) { _, _ in saveStatusLine() }
 
                 TextField("Padding", text: $statusLinePadding, prompt: Text("0"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: statusLinePadding) { _, _ in saveSettings() }
+                    .onChange(of: statusLinePadding) { _, _ in saveStatusLine() }
 
                 Text("Path to a script or command that generates the status line. Padding adds extra blank lines.")
                     .font(.caption)
@@ -375,6 +408,14 @@ struct ExperimentalFeaturesView: View {
             }
         }
         .formStyle(.grouped)
+        .onDisappear {
+            guard !isSyncing else { return }
+            saveSandbox()
+            saveLegacySandbox()
+            saveWorktree()
+            saveSpinner()
+            saveStatusLine()
+        }
         .onAppear {
             isSyncing = true
             loadSettings()
@@ -487,80 +528,89 @@ struct ExperimentalFeaturesView: View {
         }
     }
 
-    private func saveSettings() {
+    // MARK: - Per-Field Save Helpers
+
+    private func saveThinking() {
         guard !isSyncing else { return }
-        // Settings-based
-        configManager.settings.alwaysThinkingEnabled = thinkingEnabled ? true : nil
-        configManager.settings.thinkingBudgetTokens = thinkingEnabled ? Int(thinkingBudget) : nil
-        configManager.settings.skipWebFetchPreflight = skipWebFetchPreflight ? true : nil
+        configManager.saveFields([
+            (keyPath: "alwaysThinkingEnabled", value: thinkingEnabled ? true : nil),
+            (keyPath: "thinkingBudgetTokens", value: thinkingEnabled ? Int(thinkingBudget) : nil)
+        ])
+    }
 
-        // Env-based
-        setEnvFlag("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", enabled: agentTeamsEnabled)
-        setEnvFlag("DISABLE_NON_ESSENTIAL_MODEL_CALLS", enabled: disableNonEssentialCalls)
-        setEnvFlag("DISABLE_TELEMETRY", enabled: disableTelemetry)
-        setEnvFlag("DISABLE_ERROR_REPORTING", enabled: disableErrorReporting)
-        setEnvFlag("DISABLE_AUTOUPDATER", enabled: disableAutoUpdater)
+    private func saveSandbox() {
+        guard !isSyncing else { return }
+        var sb: [String: Any] = [:]
+        if sandboxEnabled { sb["enabled"] = true }
+        if sandboxFailIfUnavailable { sb["failIfUnavailable"] = true }
+        if !autoAllowBashIfSandboxed { sb["autoAllowBashIfSandboxed"] = false }
+        if enableWeakerNetworkIsolation { sb["enableWeakerNetworkIsolation"] = true }
 
-        // Mode Control
-        configManager.settings.disableAutoMode = disableAutoMode ? "disable" : nil
-        configManager.settings.disableAllHooks = disableAllHooks ? true : nil
+        var fs: [String: Any] = [:]
+        if let v = parseCSV(sandboxAllowWrite) { fs["allowWrite"] = v }
+        if let v = parseCSV(sandboxDenyWrite) { fs["denyWrite"] = v }
+        if let v = parseCSV(sandboxDenyRead) { fs["denyRead"] = v }
+        if let v = parseCSV(sandboxAllowRead) { fs["allowRead"] = v }
+        if !fs.isEmpty { sb["filesystem"] = fs }
 
-        // Sandbox (legacy)
-        configManager.settings.enableWeakerSandbox = enableWeakerSandbox ? true : nil
-        configManager.settings.allowLocalBinding = allowLocalBinding ? true : nil
-        configManager.settings.allowAllUnixSockets = allowAllUnixSockets ? true : nil
-        configManager.settings.unsandboxedCommands = parseCSV(unsandboxedCommands)
-        configManager.settings.allowedDomains = parseCSV(allowedDomains)
+        configManager.saveField("sandbox", value: sb.isEmpty ? nil : sb)
+    }
 
-        // Sandbox (nested)
-        var sb = configManager.settings.sandbox ?? SandboxConfig()
-        sb.enabled = sandboxEnabled ? true : nil
-        sb.failIfUnavailable = sandboxFailIfUnavailable ? true : nil
-        sb.autoAllowBashIfSandboxed = autoAllowBashIfSandboxed ? nil : false  // default is true
-        sb.enableWeakerNetworkIsolation = enableWeakerNetworkIsolation ? true : nil
-        var fs = sb.filesystem ?? SandboxFilesystem()
-        fs.allowWrite = parseCSV(sandboxAllowWrite)
-        fs.denyWrite = parseCSV(sandboxDenyWrite)
-        fs.denyRead = parseCSV(sandboxDenyRead)
-        fs.allowRead = parseCSV(sandboxAllowRead)
-        sb.filesystem = (fs == SandboxFilesystem()) ? nil : fs
-        configManager.settings.sandbox = (sb == SandboxConfig()) ? nil : sb
+    private func saveLegacySandbox() {
+        guard !isSyncing else { return }
+        configManager.saveFields([
+            (keyPath: "enableWeakerSandbox", value: enableWeakerSandbox ? true : nil),
+            (keyPath: "allowLocalBinding", value: allowLocalBinding ? true : nil),
+            (keyPath: "allowAllUnixSockets", value: allowAllUnixSockets ? true : nil),
+            (keyPath: "unsandboxedCommands", value: parseCSV(unsandboxedCommands)),
+            (keyPath: "allowedDomains", value: parseCSV(allowedDomains))
+        ])
+    }
 
-        // Worktree
-        let wt = WorktreeConfig(sparsePaths: parseCSV(worktreeSparsePaths), symlinkDirectories: parseCSV(worktreeSymlinkDirs))
-        configManager.settings.worktree = (wt == WorktreeConfig()) ? nil : wt
+    private func saveWorktree() {
+        guard !isSyncing else { return }
+        var wt: [String: Any] = [:]
+        if let v = parseCSV(worktreeSparsePaths) { wt["sparsePaths"] = v }
+        if let v = parseCSV(worktreeSymlinkDirs) { wt["symlinkDirectories"] = v }
+        configManager.saveField("worktree", value: wt.isEmpty ? nil : wt)
+    }
 
-        // Spinner
-        configManager.settings.spinnerTipsEnabled = spinnerTipsEnabled ? nil : false
-        configManager.settings.spinnerVerbsMode = spinnerVerbsMode != "append" ? spinnerVerbsMode : nil
-        configManager.settings.spinnerVerbs = parseCSV(spinnerVerbs)
-        configManager.settings.customTips = parseCSV(customTips)
-        configManager.settings.excludeDefaultTips = excludeDefaultTips ? true : nil
-        // Also write nested spinnerTipsOverride for newer CLI versions
+    private func saveSpinner() {
+        guard !isSyncing else { return }
+        var fields: [(keyPath: String, value: Any?)] = [
+            (keyPath: "spinnerTipsEnabled", value: spinnerTipsEnabled ? nil : false),
+            (keyPath: "spinnerVerbsMode", value: spinnerVerbsMode != "append" ? spinnerVerbsMode : nil),
+            (keyPath: "spinnerVerbs", value: parseCSV(spinnerVerbs)),
+            (keyPath: "customTips", value: parseCSV(customTips)),
+            (keyPath: "excludeDefaultTips", value: excludeDefaultTips ? true : nil)
+        ]
         let tips = parseCSV(customTips)
         if tips != nil || excludeDefaultTips {
-            configManager.settings.spinnerTipsOverride = SpinnerTipsOverride(
-                excludeDefault: excludeDefaultTips ? true : nil,
-                tips: tips
-            )
+            var overrideDict: [String: Any] = [:]
+            if excludeDefaultTips { overrideDict["excludeDefault"] = true }
+            if let t = tips { overrideDict["tips"] = t }
+            fields.append((keyPath: "spinnerTipsOverride", value: overrideDict))
         } else {
-            configManager.settings.spinnerTipsOverride = nil
+            fields.append((keyPath: "spinnerTipsOverride", value: nil))
         }
+        configManager.saveFields(fields)
+    }
 
-        // Status line — write as nested object; clear legacy flat field
+    private func saveStatusLine() {
+        guard !isSyncing else { return }
         if statusLineCommand.isEmpty {
-            configManager.settings.statusLine = nil
+            configManager.saveFields([
+                (keyPath: "statusLine", value: nil),
+                (keyPath: "statusLineCommand", value: nil)
+            ])
         } else {
-            let padding = Int(statusLinePadding)
-            configManager.settings.statusLine = StatusLineConfig(
-                type: "command",
-                command: statusLineCommand,
-                padding: padding
-            )
+            var dict: [String: Any] = ["type": "command", "command": statusLineCommand]
+            if let padding = Int(statusLinePadding) { dict["padding"] = padding }
+            configManager.saveFields([
+                (keyPath: "statusLine", value: dict),
+                (keyPath: "statusLineCommand", value: nil)
+            ])
         }
-        configManager.settings.statusLineCommand = nil
-
-        configManager.saveSettings()
     }
 
     private func parseCSV(_ text: String) -> [String]? {
@@ -568,13 +618,6 @@ struct ExperimentalFeaturesView: View {
         return items.isEmpty ? nil : items
     }
 
-    private func setEnvFlag(_ key: String, enabled: Bool) {
-        if enabled {
-            configManager.settings.env[key] = "1"
-        } else {
-            configManager.settings.env.removeValue(forKey: key)
-        }
-    }
 }
 
 // MARK: - Reusable Components (kept for backward compat)
