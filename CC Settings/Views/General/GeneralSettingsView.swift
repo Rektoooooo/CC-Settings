@@ -1,9 +1,11 @@
 import SwiftUI
 import AppKit
+import Sparkle
 
 struct GeneralSettingsView: View {
     @EnvironmentObject var configManager: ConfigurationManager
     @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.sparkleUpdater) private var sparkleUpdater
 
     // Model
     // (bound directly via $configManager.settings.model)
@@ -70,6 +72,7 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            appUpdateSection
             claudeVersionSection
             ProfilesSectionView()
             modelSection
@@ -100,6 +103,38 @@ struct GeneralSettingsView: View {
         }
         .background {
             autoSaveObservers
+        }
+    }
+
+    // MARK: - App Update
+
+    private var appUpdateSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.title2)
+                    .foregroundColor(.accentColor)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("CC Settings v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Check for app updates via Sparkle")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button("Check for App Updates") {
+                    sparkleUpdater?.checkForUpdates()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(sparkleUpdater == nil || !(sparkleUpdater?.canCheckForUpdates ?? false))
+            }
+        } header: {
+            Text("CC Settings")
         }
     }
 

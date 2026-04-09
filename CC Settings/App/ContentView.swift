@@ -4,12 +4,14 @@ struct ContentView: View {
     @EnvironmentObject var configManager: ConfigurationManager
     @State private var selection: NavigationItem = .general
 
+    @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
+
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $sidebarVisibility) {
             SidebarView(selection: $selection)
                 .environmentObject(configManager)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 350)
         } detail: {
-            
             detailView
                 .id(selection)
         }

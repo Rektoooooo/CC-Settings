@@ -24,6 +24,10 @@
 	<string>10</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/Rektoooooo/CC-Settings/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>EXlWEgu6DpdzLNS+Qt6Yr5XZnP/IotgJun7O6tUJIkg=</string>
 	<key>LSUIElement</key>
 	<false/>
 	<key>NSHumanReadableCopyright</key>

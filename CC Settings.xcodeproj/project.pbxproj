@@ -37,6 +37,7 @@
 		41EC62895BF14ECDD008C404 /* GlobalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DCAD0E03EDCA15051D13D77 /* GlobalView.swift */; };
 		47FB497D4B354E06BEE91BE0 /* ClaudeMDTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D11316B1B54134A2BCEB44 /* ClaudeMDTemplate.swift */; };
 		5004D6CC26182337E9A6803D /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415B9C3F116F9588DC3951D /* AgentsView.swift */; };
+		572255832D502EEC217CC314 /* SparkleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */; };
 		59BC7FD2552397D1532DBC26 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDFE7E75A356B827773CAD8 /* SettingsSection.swift */; };
 		5B158D0727F153E66F3CD750 /* CC_SettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7F5F959B7EBBA77C7BBC89 /* CC_SettingsUITests.swift */; };
 		5B668CD4985AEBD1FAB3E1E0 /* CC_SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6041440B75AC75088ABFAE94 /* CC_SettingsTests.swift */; };
@@ -48,6 +49,7 @@
 		6B0B1EB69F0D4FC7008A044E /* VersionControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABD61633522C4352FFF6291 /* VersionControlView.swift */; };
 		757BED7459E1EBE0F54F6E11 /* ScopedMCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD522B7FE5253FC7C02F1E8 /* ScopedMCPServer.swift */; };
 		7901CAE01A84B8D05EDBACF6 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */; };
+		7D91E289E76F754260EADB86 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 74C5E9FC1CE9CD94386E720B /* Sparkle */; };
 		7E387A1D05A19CBC16BCC41B /* GitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B1F90F1677A78B70953916E /* GitModels.swift */; };
 		7F4E11F4506FB436787C9F9C /* FileHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C1A44C83F0821A840BB9AB /* FileHistoryView.swift */; };
 		82490888A9C870E558CFD896 /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A1F0B40DCCBCDD81881DED /* GlassModifiers.swift */; };
@@ -142,6 +144,7 @@
 		5F40DCEF56F05F22F46FB1C8 /* ProfileRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileRowView.swift; sourceTree = "<group>"; };
 		6041440B75AC75088ABFAE94 /* CC_SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CC_SettingsTests.swift; sourceTree = "<group>"; };
 		66B2C43096D4BEC57C5024F9 /* ClaudeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSettings.swift; sourceTree = "<group>"; };
+		679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleEnvironment.swift; sourceTree = "<group>"; };
 		6EE6848B502FFF62D5E12171 /* MCPServerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerDetailView.swift; sourceTree = "<group>"; };
 		74DC4AD7323D8E29693D8F4A /* GitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitService.swift; sourceTree = "<group>"; };
 		7548B4D1CDD7B7F3DF012945 /* SaveProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveProfileSheet.swift; sourceTree = "<group>"; };
@@ -195,6 +198,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E3FA8D1EF23DA4B59978BCF5 /* Markdown in Frameworks */,
+				7D91E289E76F754260EADB86 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,6 +430,7 @@
 				C0C3F193CDCF2C8D15F1D737 /* AppDelegate.swift */,
 				8655FE9A624FB9D4F68C7DA3 /* CCSettingsApp.swift */,
 				D839A7EB03B06AA9091A4A87 /* ContentView.swift */,
+				679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -622,6 +627,7 @@
 			name = "CC Settings";
 			packageProductDependencies = (
 				4D8DBCFAB6511C5082AC0587 /* Markdown */,
+				74C5E9FC1CE9CD94386E720B /* Sparkle */,
 			);
 			productName = "CC Settings";
 			productReference = AB21F67B8E01C83130260C4D /* CC Settings.app */;
@@ -652,6 +658,7 @@
 			mainGroup = A3FADEB5EE220A1BDAE99896;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				FCEAB2F9384632D2314204E4 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				18741412E5505B1EF29C59C6 /* XCRemoteSwiftPackageReference "swift-markdown" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -750,6 +757,7 @@
 				59BC7FD2552397D1532DBC26 /* SettingsSection.swift in Sources */,
 				22850B42529877D0E58604BF /* SidebarView.swift in Sources */,
 				EFC602EA2A067A7DB29417B5 /* SkillsView.swift in Sources */,
+				572255832D502EEC217CC314 /* SparkleEnvironment.swift in Sources */,
 				1AC313D84785CF1103B4485A /* StatsService.swift in Sources */,
 				E108FDD9BF6D25D3C5B51324 /* StatsView.swift in Sources */,
 				224DB4B0BA132358417F0DE2 /* TasksView.swift in Sources */,
@@ -1060,6 +1068,14 @@
 				version = 0.7.3;
 			};
 		};
+		FCEAB2F9384632D2314204E4 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1067,6 +1083,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 18741412E5505B1EF29C59C6 /* XCRemoteSwiftPackageReference "swift-markdown" */;
 			productName = Markdown;
+		};
+		74C5E9FC1CE9CD94386E720B /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FCEAB2F9384632D2314204E4 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,4 +1,5 @@
 import SwiftUI
+import Sparkle
 
 @main
 struct CCSettingsApp: App {
@@ -7,12 +8,15 @@ struct CCSettingsApp: App {
     @StateObject private var profileManager = ProfileManager.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    private let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(configManager)
                 .environmentObject(themeManager)
                 .environmentObject(profileManager)
+                .environment(\.sparkleUpdater, updaterController.updater)
                 .tint(themeManager.resolvedAccentColor)
                 .accentColor(themeManager.resolvedAccentColor)
                 .frame(minWidth: 900, minHeight: 600)
@@ -23,6 +27,11 @@ struct CCSettingsApp: App {
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) { }
+            CommandGroup(after: .appInfo) {
+                Button("Check for App Updates...") {
+                    updaterController.checkForUpdates(nil)
+                }
+            }
         }
 
         Settings {

@@ -1,0 +1,29 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+    <channel>
+        <title>CC Settings</title>
+        <item>
+            <title>Version 1.1.4</title>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>1.1.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Notarized build — no more Gatekeeper warnings</li>
+                    <li>Project-level settings editing with override toggles</li>
+                    <li>Settings profiles — save and load configuration snapshots</li>
+                    <li>Field-level saves — only the field you change is written to JSON</li>
+                    <li>Fixed 1M context model IDs</li>
+                    <li>Styled DMG installer</li>
+                </ul>
+            ]]></description>
+            <pubDate>Tue, 08 Apr 2026 20:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.1.4/CC-Settings-1.1.4.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="UgIRetPNhHlnrxRsETWH+blmgc6h1QWK4WRFbM1aSRf/3M3TkokN+YQ++PisHVJMZDy3krQE74G2W0ZezK3tDQ=="
+                length="4580694"
+            />
+        </item>
+    </channel>
+</rss>

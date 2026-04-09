@@ -24,6 +24,9 @@ packages:
   swift-markdown:
     url: https://github.com/apple/swift-markdown
     exactVersion: 0.7.3
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.1
 
 targets:
   CC Settings:
@@ -39,6 +42,8 @@ targets:
     dependencies:
       - package: swift-markdown
         product: Markdown
+      - package: Sparkle
+        product: Sparkle
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
