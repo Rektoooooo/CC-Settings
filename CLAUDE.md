@@ -146,30 +146,80 @@ Every toggle, picker, and text field saves immediately — no save button. Use `
 
 ## Release Process
 
-Every release **must** include a DMG uploaded to GitHub Releases. Steps:
+Every release **must** include a signed, notarized DMG uploaded to GitHub Releases, plus an updated `appcast.xml` for Sparkle auto-updates.
+
+### Signing & Notarization Credentials
+
+- **Code signing identity**: `Developer ID Application: IC Servis, s.r.o. (PH3V9JYRDW)`
+- **Team ID**: `PH3V9JYRDW`
+- **Apple ID**: `sebastian.kucera@icloud.com`
+- **App-specific password**: stored in Keychain or generate a new one at [account.apple.com](https://account.apple.com) > Sign-In and Security > App-Specific Passwords
+- **Sparkle EdDSA key**: stored in Keychain (generated via `generate_keys`)
+- **Sparkle tools location**: download from [Sparkle releases](https://github.com/sparkle-project/Sparkle/releases) and extract to `/tmp/sparkle/`
+
+### Steps
 
 ```bash
-# 1. Bump version in both files
+# 1. Bump version in BOTH files
 #    - project.yml: MARKETING_VERSION and CURRENT_PROJECT_VERSION
 #    - CC Settings/Resources/Info.plist: CFBundleShortVersionString and CFBundleVersion
+#    Then regenerate:
+xcodegen generate
 
-# 2. Build Release configuration
+# 2. Build Release with Developer ID signing + hardened runtime
+rm -rf /tmp/cc-settings-build
 xcodebuild -project "CC Settings.xcodeproj" -scheme "CC Settings" \
-  -configuration Release -derivedDataPath /tmp/cc-settings-build build
+  -configuration Release -derivedDataPath /tmp/cc-settings-build \
+  CODE_SIGN_IDENTITY="Developer ID Application: IC Servis, s.r.o. (PH3V9JYRDW)" \
+  DEVELOPMENT_TEAM=PH3V9JYRDW \
+  CODE_SIGNING_REQUIRED=YES \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+  OTHER_CODE_SIGN_FLAGS="--options runtime --timestamp" \
+  build
 
-# 3. Create DMG (app + Applications symlink for drag-to-install)
-DMG_DIR="/tmp/cc-settings-dmg"
-rm -rf "$DMG_DIR" && mkdir -p "$DMG_DIR"
-cp -R "/tmp/cc-settings-build/Build/Products/Release/CC Settings.app" "$DMG_DIR/"
-ln -s /Applications "$DMG_DIR/Applications"
-hdiutil create -volname "CC Settings" -srcfolder "$DMG_DIR" \
-  -ov -format UDZO "CC-Settings-<version>.dmg"
+# 3. Create styled DMG (requires: brew install create-dmg)
+rm -f /tmp/CC-Settings-<version>.dmg
+create-dmg \
+  --volname "CC Settings" \
+  --background "/tmp/dmg-background.png" \
+  --window-pos 200 120 \
+  --window-size 660 400 \
+  --icon-size 80 \
+  --icon "CC Settings.app" 175 175 \
+  --app-drop-link 485 175 \
+  --hide-extension "CC Settings.app" \
+  --no-internet-enable \
+  "/tmp/CC-Settings-<version>.dmg" \
+  "/tmp/cc-settings-build/Build/Products/Release/CC Settings.app"
 
-# 4. Commit, push, create GitHub release with DMG
+# 4. Notarize with Apple
+xcrun notarytool submit /tmp/CC-Settings-<version>.dmg \
+  --apple-id "sebastian.kucera@icloud.com" \
+  --team-id "PH3V9JYRDW" \
+  --password "<app-specific-password>" \
+  --wait
+# If "Invalid", check the log:
+#   xcrun notarytool log <submission-id> --apple-id ... --team-id ... --password ...
+
+# 5. Staple the notarization ticket to the DMG
+xcrun stapler staple /tmp/CC-Settings-<version>.dmg
+
+# 6. Sign DMG for Sparkle auto-updates
+/tmp/sparkle/bin/sign_update /tmp/CC-Settings-<version>.dmg
+# This outputs: sparkle:edSignature="..." length="..."
+
+# 7. Update appcast.xml — add a new <item> with:
+#    - sparkle:version (CURRENT_PROJECT_VERSION)
+#    - sparkle:shortVersionString (MARKETING_VERSION)
+#    - enclosure url pointing to the GitHub release DMG
+#    - sparkle:edSignature and length from step 6
+
+# 8. Commit, push, create GitHub release, upload DMG
 git add -A && git commit -m "Prepare v<version> release"
 git push origin main
 gh release create v<version> --title "v<version>" --notes "..."
-gh release upload v<version> CC-Settings-<version>.dmg
+gh release upload v<version> /tmp/CC-Settings-<version>.dmg
 ```
 
 **Important**: The DMG is for distribution only — do NOT commit it to the repo. It's listed in `.gitignore`. Always upload via `gh release upload`.
