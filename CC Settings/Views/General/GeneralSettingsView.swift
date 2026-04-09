@@ -8,7 +8,9 @@ struct GeneralSettingsView: View {
     @Environment(\.sparkleUpdater) private var sparkleUpdater
 
     // Model
-    // (bound directly via $configManager.settings.model)
+    @State private var selectedModel: String = "sonnet"
+    @State private var fastMode: Bool = false
+    @State private var fastModePerSessionOptIn: Bool = false
 
     // Appearance
     @State private var prefersReducedMotion: Bool = false
@@ -264,27 +266,15 @@ struct GeneralSettingsView: View {
     @ViewBuilder
     private var modelSection: some View {
         Section("Model") {
-            HierarchicalModelPicker(selectedModelId: $configManager.settings.model)
+            HierarchicalModelPicker(selectedModelId: $selectedModel)
 
-            Toggle("Fast Mode", isOn: Binding(
-                get: { configManager.settings.fastMode ?? false },
-                set: { configManager.settings.fastMode = $0 ? true : nil }
-            ))
-            .onChange(of: configManager.settings.fastMode) {
-                        configManager.saveField("fastMode", value: configManager.settings.fastMode)
-                    }
+            Toggle("Fast Mode", isOn: $fastMode)
             Text("Enable fast mode for quicker responses.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            if configManager.settings.fastMode ?? false {
-                Toggle("Per-Session Opt-In", isOn: Binding(
-                    get: { configManager.settings.fastModePerSessionOptIn ?? false },
-                    set: { configManager.settings.fastModePerSessionOptIn = $0 ? true : nil }
-                ))
-                .onChange(of: configManager.settings.fastModePerSessionOptIn) {
-                        configManager.saveField("fastModePerSessionOptIn", value: configManager.settings.fastModePerSessionOptIn)
-                    }
+            if fastMode {
+                Toggle("Per-Session Opt-In", isOn: $fastModePerSessionOptIn)
                 Text("Require opt-in to fast mode each session.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -589,9 +579,17 @@ struct GeneralSettingsView: View {
     @ViewBuilder
     private var autoSaveObservers: some View {
         Color.clear
-            .onChange(of: configManager.settings.model) {
+            .onChange(of: selectedModel) {
                 guard isLoaded else { return }
-                configManager.saveField("model", value: configManager.settings.model)
+                configManager.saveField("model", value: selectedModel)
+            }
+            .onChange(of: fastMode) {
+                guard isLoaded else { return }
+                configManager.saveField("fastMode", value: fastMode ? true : nil)
+            }
+            .onChange(of: fastModePerSessionOptIn) {
+                guard isLoaded else { return }
+                configManager.saveField("fastModePerSessionOptIn", value: fastModePerSessionOptIn ? true : nil)
             }
             .onChange(of: themeManager.selectedThemeName) {
                 guard isLoaded else { return }
@@ -724,6 +722,11 @@ struct GeneralSettingsView: View {
     private func loadFromSettings() {
         isLoaded = false
         let s = configManager.settings
+
+        // Model
+        selectedModel = s.model
+        fastMode = s.fastMode ?? false
+        fastModePerSessionOptIn = s.fastModePerSessionOptIn ?? false
 
         // Appearance
         prefersReducedMotion = s.prefersReducedMotion ?? false
