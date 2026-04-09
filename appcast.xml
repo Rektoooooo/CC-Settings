@@ -3,6 +3,26 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.1.5</title>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>1.1.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Sparkle auto-updates — check for app updates from General Settings</li>
+                    <li>Sidebar fix — can no longer collapse to zero width</li>
+                    <li>Updated release docs</li>
+                </ul>
+            ]]></description>
+            <pubDate>Wed, 09 Apr 2026 16:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.1.5/CC-Settings-1.1.5.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="+hKdYR7ctnIH20h7CwjA2V4VEfg0kX0qLtVyJuJ00JdaflFYCVUl3HeqLOWfBri5v5n28GbHsLP8E6Sc3Ti7Dw=="
+                length="5507103"
+            />
+        </item>
+        <item>
             <title>Version 1.1.4</title>
             <sparkle:version>10</sparkle:version>
             <sparkle:shortVersionString>1.1.4</sparkle:shortVersionString>
