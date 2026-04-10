@@ -473,6 +473,16 @@ struct SidebarView: View {
                 }
             }
             .listStyle(.sidebar)
+            .onChange(of: searchText) {
+                guard isSearching else { return }
+                // Auto-select first matching section to prevent stale selection rendering
+                let allItems: [NavigationItem] = [.general, .permissions, .environment, .experimentalFeatures, .hooks, .hud,
+                                                   .claudeMDEditor, .sessionHistory, .commands, .skills, .plugins, .mcpServers,
+                                                   .agents, .rules, .stats, .cleanup, .sync]
+                if !matchesSearch(selection), let first = allItems.first(where: matchesSearch) {
+                    selection = first
+                }
+            }
         }
         .onAppear {
             loadProjects()
