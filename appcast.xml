@@ -3,6 +3,30 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.2.0</title>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Stats dashboard redesign with Highlights card (streaks, active days, longest session, favorite model)</li>
+                    <li>Friendly model names, no more &lt;synthetic&gt; in charts</li>
+                    <li>Fixed token breakdown — Input vs Output primary, cache secondary</li>
+                    <li>Settings load correctly — tolerant decoder for all JSON structures</li>
+                    <li>Hooks display and edit properly — redesigned UI with sheet editor</li>
+                    <li>Accurate storage and message counts</li>
+                    <li>New app icon with correct brand color</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 10 Apr 2026 23:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.2.0/CC-Settings-1.2.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="8Lisa+fmp999Hl9TuvDHhwL+4lr+V+WwxaMZpe8GrrhXrWcKEsxGBjjjSWMF7Ql7NmLun8qVSfX4293tCWQ4BA=="
+                length="6694027"
+            />
+        </item>
+        <item>
             <title>Version 1.1.9</title>
             <sparkle:version>15</sparkle:version>
             <sparkle:shortVersionString>1.1.9</sparkle:shortVersionString>
