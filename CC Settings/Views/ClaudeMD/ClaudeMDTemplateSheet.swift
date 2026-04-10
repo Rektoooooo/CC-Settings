@@ -6,6 +6,13 @@ struct ClaudeMDTemplateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTemplate: ClaudeMDTemplate? = claudeMDTemplates.first
 
+    private var groupedTemplates: [(category: String, templates: [ClaudeMDTemplate])] {
+        templateCategories.compactMap { category in
+            let templates = claudeMDTemplates.filter { $0.category == category }
+            return templates.isEmpty ? nil : (category, templates)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -27,27 +34,33 @@ struct ClaudeMDTemplateSheet: View {
 
             // Content
             HSplitView {
-                // Left: template list
-                List(claudeMDTemplates, selection: $selectedTemplate) { template in
-                    HStack(spacing: 10) {
-                        Image(systemName: template.icon)
-                            .foregroundColor(.accentColor)
-                            .frame(width: 20)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(template.name)
-                                .font(.body)
-                            Text(template.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
+                // Left: template list grouped by category
+                List(selection: $selectedTemplate) {
+                    ForEach(groupedTemplates, id: \.category) { group in
+                        Section(group.category) {
+                            ForEach(group.templates) { template in
+                                HStack(spacing: 10) {
+                                    Image(systemName: template.icon)
+                                        .foregroundColor(.accentColor)
+                                        .frame(width: 20)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(template.name)
+                                            .font(.body)
+                                        Text(template.description)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                .padding(.vertical, 4)
+                                .tag(template)
+                                .contentShape(Rectangle())
+                            }
                         }
                     }
-                    .padding(.vertical, 4)
-                    .tag(template)
-                    .contentShape(Rectangle())
                 }
                 .listStyle(.sidebar)
-                .frame(minWidth: 200, idealWidth: 240)
+                .frame(minWidth: 220, idealWidth: 260)
 
                 // Right: preview
                 VStack(spacing: 0) {
@@ -87,6 +100,12 @@ struct ClaudeMDTemplateSheet: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
+
+                Text("Your current CLAUDE.md will be backed up automatically.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+
                 Button("Cancel") {
                     dismiss()
                 }
@@ -103,8 +122,8 @@ struct ClaudeMDTemplateSheet: View {
             }
             .padding()
         }
-        .frame(minWidth: 500, idealWidth: 700, maxWidth: 900,
-               minHeight: 400, idealHeight: 500, maxHeight: 700)
+        .frame(minWidth: 600, idealWidth: 800, maxWidth: 1000,
+               minHeight: 450, idealHeight: 550, maxHeight: 750)
     }
 }
 

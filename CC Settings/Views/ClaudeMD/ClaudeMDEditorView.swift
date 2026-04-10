@@ -15,6 +15,7 @@ struct ClaudeMDEditorView: View {
     @State private var hasLoadedInitial = false
     @State private var isCreating = false
     @State private var showUnsavedAlert = false
+    @State private var showRestoreSheet = false
     @State private var pendingScope: String?
     @State private var previousScope: String = "global"
 
@@ -90,9 +91,18 @@ struct ClaudeMDEditorView: View {
         }
         .sheet(isPresented: $showTemplateSheet) {
             ClaudeMDTemplateSheet { templateContent in
+                // Auto-backup existing content before replacing
+                configManager.backupClaudeMD(content: content, scope: selectedScope)
                 isCreating = true
                 content = templateContent
                 originalContent = ""
+            }
+        }
+        .sheet(isPresented: $showRestoreSheet) {
+            ClaudeMDRestoreSheet { restoredContent in
+                content = restoredContent
+                originalContent = ""
+                isCreating = true
             }
         }
     }
@@ -169,6 +179,15 @@ struct ClaudeMDEditorView: View {
                     Image(systemName: "folder")
                 }
                 .help("Show in Finder")
+
+                if !configManager.listClaudeMDBackups().isEmpty {
+                    Button {
+                        showRestoreSheet = true
+                    } label: {
+                        Image(systemName: "clock.arrow.counterclockwise")
+                    }
+                    .help("Restore from Backup")
+                }
             }
         }
         .padding(.horizontal, 12)

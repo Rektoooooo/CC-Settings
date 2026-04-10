@@ -350,6 +350,64 @@ class ConfigurationManager: ObservableObject {
         }
     }
 
+    // MARK: - CLAUDE.md Backups
+
+    private var claudeMDBackupsDir: URL {
+        claudeDir.appendingPathComponent("claude-md-backups")
+    }
+
+    /// Backs up the given CLAUDE.md content before a template replaces it.
+    /// Returns the backup file URL, or nil if content was empty.
+    @discardableResult
+    func backupClaudeMD(content: String, scope: String) -> URL? {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: claudeMDBackupsDir, withIntermediateDirectories: true)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+            let timestamp = formatter.string(from: Date())
+            let safeName = scope.replacingOccurrences(of: "/", with: "-")
+            let filename = "\(timestamp)_\(safeName).md"
+            let url = claudeMDBackupsDir.appendingPathComponent(filename)
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            lastError = error
+            return nil
+        }
+    }
+
+    struct ClaudeMDBackup: Identifiable {
+        let id: URL
+        let date: Date
+        let scope: String
+        let url: URL
+    }
+
+    func listClaudeMDBackups() -> [ClaudeMDBackup] {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: claudeMDBackupsDir, includingPropertiesForKeys: [.contentModificationDateKey])
+            .filter({ $0.pathExtension == "md" })
+        else { return [] }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+
+        return files.compactMap { url in
+            let name = url.deletingPathExtension().lastPathComponent
+            let parts = name.split(separator: "_", maxSplits: 2)
+            guard parts.count >= 3 else { return nil }
+            let dateStr = "\(parts[0])_\(parts[1])"
+            let scope = String(parts[2])
+            guard let date = formatter.date(from: dateStr) else { return nil }
+            return ClaudeMDBackup(id: url, date: date, scope: scope, url: url)
+        }
+        .sorted { $0.date > $1.date }
+    }
+
     // MARK: - MCP Servers
 
     func loadMCPServers() -> [String: MCPServerConfig] {

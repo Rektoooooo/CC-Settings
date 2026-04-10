@@ -27,6 +27,7 @@
 		2AD80397C41063BA0B53C4D4 /* BinaryFileInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9BB63F24A2B95FD78514DA /* BinaryFileInfoView.swift */; };
 		2BB8FD4D27FA11F639020DDE /* HUDPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4699D0B613DDB636D7573411 /* HUDPanel.swift */; };
 		2D056F915E28079E530EE360 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
+		31599CB86142F88B7BD2F36F /* ClaudeMDRestoreSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */; };
 		3617A0C818F8CABEC680A08A /* OverridableSettingRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D078E9BF372C9E82989D16C5 /* OverridableSettingRow.swift */; };
 		3641489046707FF2CF2E1A41 /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABBEA91C9241775E4762FA3 /* DiffView.swift */; };
 		39C2964A5E3910D0585E0379 /* LocalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1188CEA5F6403489C8F5B8D5 /* LocalSettings.swift */; };
@@ -149,6 +150,7 @@
 		74DC4AD7323D8E29693D8F4A /* GitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitService.swift; sourceTree = "<group>"; };
 		7548B4D1CDD7B7F3DF012945 /* SaveProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveProfileSheet.swift; sourceTree = "<group>"; };
 		75FD32E0843EE91FBE088CCB /* ProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileManager.swift; sourceTree = "<group>"; };
+		7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMDRestoreSheet.swift; sourceTree = "<group>"; };
 		787331C74C55993C50570328 /* ProfilesSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesSectionView.swift; sourceTree = "<group>"; };
 		8655FE9A624FB9D4F68C7DA3 /* CCSettingsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CCSettingsApp.swift; sourceTree = "<group>"; };
 		8699C57B03012EAD1958BCA6 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
@@ -543,6 +545,7 @@
 			children = (
 				F2126896F55B4B94360386B2 /* ClaudeMDEditorView.swift */,
 				2083FB2586763B44492FB7A4 /* ClaudeMDInsertMenu.swift */,
+				7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */,
 				F09989E8223ECF15204F6E9C /* ClaudeMDTemplateSheet.swift */,
 			);
 			path = ClaudeMD;
@@ -695,6 +698,7 @@
 				40F77CB072666FF1D4B61E6E /* ClaudeFile.swift in Sources */,
 				66C9F01B4AC8C92DA6F00B69 /* ClaudeMDEditorView.swift in Sources */,
 				CA699AFEAEA2B1912385FD7E /* ClaudeMDInsertMenu.swift in Sources */,
+				31599CB86142F88B7BD2F36F /* ClaudeMDRestoreSheet.swift in Sources */,
 				47FB497D4B354E06BEE91BE0 /* ClaudeMDTemplate.swift in Sources */,
 				079CDC220C1AD8519FA18815 /* ClaudeMDTemplateSheet.swift in Sources */,
 				9906C239BDE1308EE085E593 /* ClaudeSettings.swift in Sources */,
