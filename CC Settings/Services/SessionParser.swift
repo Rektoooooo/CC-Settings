@@ -80,7 +80,11 @@ struct SessionParser {
                 continue
             }
 
-            messageCount += 1
+            // Only count actual messages, not events (permission-mode, file-history-snapshot, etc.)
+            let lineType = json["type"] as? String ?? ""
+            if lineType == "user" || lineType == "assistant" || json["message"] != nil {
+                messageCount += 1
+            }
 
             if let ts = parseTimestamp(json["timestamp"]) {
                 if firstTimestamp == nil { firstTimestamp = ts }
@@ -154,7 +158,11 @@ struct SessionParser {
                 continue
             }
 
-            messageCount += 1
+            // Only count actual messages, not events (permission-mode, file-history-snapshot, etc.)
+            let lineType = json["type"] as? String ?? ""
+            if lineType == "user" || lineType == "assistant" || json["message"] != nil {
+                messageCount += 1
+            }
 
             if let ts = parseTimestamp(json["timestamp"]) {
                 if firstTimestamp == nil { firstTimestamp = ts }

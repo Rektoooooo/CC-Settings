@@ -91,7 +91,8 @@ final class StatsService: ObservableObject {
     nonisolated private static func aggregate(using configManager: ConfigurationManager) async -> UsageStats {
         let projects = await MainActor.run { configManager.loadProjects() }
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let projectsDir = home.appendingPathComponent(".claude/projects")
+        let claudeDir = home.appendingPathComponent(".claude")
+        let projectsDir = claudeDir.appendingPathComponent("projects")
 
         var result = UsageStats()
         result.totalProjects = projects.count
@@ -182,8 +183,25 @@ final class StatsService: ObservableObject {
             result.avgMessagesPerSession = Double(result.totalMessages) / Double(result.totalSessions)
         }
 
+        // Calculate total storage for ALL of ~/.claude/, not just session files
+        result.totalStorageBytes = Self.totalDirectorySize(at: claudeDir)
+
         result.cachedAt = Date()
 
         return result
+    }
+
+    /// Recursively calculates the total size of a directory and all its contents.
+    nonisolated private static func totalDirectorySize(at url: URL) -> Int64 {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else { return 0 }
+        var total: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+                  values.isRegularFile == true,
+                  let size = values.fileSize else { continue }
+            total += Int64(size)
+        }
+        return total
     }
 }

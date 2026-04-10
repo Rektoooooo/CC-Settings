@@ -45,6 +45,27 @@ struct CleanupView: View {
         projects.reduce(0) { $0 + $1.totalSize }
     }
 
+    @State private var totalClaudeStorage: Int64 = 0
+
+    private func calculateTotalClaudeStorage() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let claudeDir = home.appendingPathComponent(".claude")
+        Task.detached {
+            let fm = FileManager.default
+            guard let enumerator = fm.enumerator(at: claudeDir, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey]) else {
+                return
+            }
+            var total: Int64 = 0
+            while let fileURL = enumerator.nextObject() as? URL {
+                guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+                      values.isRegularFile == true,
+                      let size = values.fileSize else { continue }
+                total += Int64(size)
+            }
+            await MainActor.run { totalClaudeStorage = total }
+        }
+    }
+
     private var totalSessions: Int {
         projects.reduce(0) { $0 + $1.sessions.count }
     }
@@ -81,7 +102,7 @@ struct CleanupView: View {
         VStack(spacing: 0) {
             // Header with stats
             HStack(spacing: 16) {
-                StatBox(icon: "internaldrive", iconColor: .themeAccent, value: formattedSize(totalStorage), title: "Total Storage")
+                StatBox(icon: "internaldrive", iconColor: .themeAccent, value: formattedSize(totalClaudeStorage), title: "Total ~/.claude/")
                 StatBox(icon: "folder", iconColor: .orange, value: "\(projects.count)", title: "Projects")
                 StatBox(icon: "doc.text", iconColor: .green, value: "\(totalSessions)", title: "Sessions")
                 if !selectedProjectIds.isEmpty {
@@ -240,6 +261,7 @@ struct CleanupView: View {
         }
         .onAppear {
             loadProjects()
+            calculateTotalClaudeStorage()
         }
         .alert("Delete Selected Projects", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
