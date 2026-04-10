@@ -116,20 +116,37 @@ enum NavigationItem: Hashable {
     var searchKeywords: [String] {
         switch self {
         case .general:
-            return ["general", "model", "theme", "appearance", "language", "effort", "output", "verbose",
-                    "git", "branch", "api key", "updates", "notifications", "attribution", "teams",
-                    "teammate", "cleanup", "retention", "auto-compact", "plans", "reduce motion",
+            return ["general", "model", "opus", "sonnet", "haiku", "fast mode", "per-session",
+                    "theme", "appearance", "reduce motion",
+                    "language", "effort", "output", "verbose",
+                    "turn duration", "gitignore", "shell", "bash", "zsh",
+                    "git", "branch", "git app", "git instructions",
+                    "thinking", "voice", "auto-compact", "compact", "plans",
+                    "memory", "auto memory",
+                    "updates", "auto updates", "notifications",
+                    "cleanup", "retention", "data retention",
+                    "attribution", "commit", "pull request",
+                    "teams", "teammate",
+                    "api key", "api key helper",
                     "profiles", "profile", "save settings", "load settings"]
         case .permissions:
-            return ["permissions", "allow", "deny", "ask", "tools", "sandbox", "directories", "mode"]
+            return ["permissions", "allow", "deny", "ask", "tools", "sandbox", "directories", "mode",
+                    "bypass", "dangerous", "default mode"]
         case .environment:
-            return ["environment", "env", "variables", "telemetry", "proxy", "api"]
+            return ["environment", "env", "variables", "api key", "api base", "proxy", "http proxy",
+                    "model override", "tokens", "output tokens", "thinking tokens", "prompt caching",
+                    "mcp timeout", "telemetry"]
         case .experimentalFeatures:
-            return ["experimental", "thinking", "agent teams", "preflight", "telemetry", "error reporting", "auto-updater"]
+            return ["experimental", "thinking", "thinking budget", "agent teams",
+                    "preflight", "web fetch", "telemetry", "error reporting", "auto-updater",
+                    "sandbox", "worktree", "spinner", "status line", "statusline",
+                    "disable auto mode", "disable hooks"]
         case .hooks:
-            return ["hooks", "pre tool", "post tool", "prompt submit", "command", "matcher"]
+            return ["hooks", "pre tool", "post tool", "prompt submit", "command", "matcher",
+                    "notification", "stop", "subagent", "compact", "elicitation", "setup"]
         case .hud:
-            return ["hud", "statusline", "status line", "claude-hud", "context bar", "tools", "agents", "todos", "git status"]
+            return ["hud", "statusline", "status line", "claude-hud", "context bar",
+                    "tools", "agents", "todos", "git status", "usage", "layout", "preset"]
         case .globalFiles:
             return ["global", "files", "claude", "settings.json"]
         case .projectFiles:
