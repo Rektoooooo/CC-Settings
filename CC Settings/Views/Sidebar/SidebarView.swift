@@ -458,7 +458,13 @@ struct SidebarView: View {
                     }
                 }
 
-                if !isSearching || [NavigationItem.stats, .cleanup, .sync].contains(where: matchesSearch) {
+                if !isSearching {
+                    Section("Maintenance") {
+                        navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis")
+                        navItem(.cleanup, label: "Cleanup", systemImage: "trash")
+                        navItem(.sync, label: "Version Control", systemImage: "arrow.triangle.branch")
+                    }
+                } else if matchesSearch(.stats) || matchesSearch(.cleanup) || matchesSearch(.sync) {
                     Section("Maintenance") {
                         if matchesSearch(.stats) {
                             navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis")
