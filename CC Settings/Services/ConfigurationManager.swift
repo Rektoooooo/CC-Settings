@@ -95,9 +95,11 @@ class ConfigurationManager: ObservableObject {
             let fixed = validateAndFix(jsonData: data)
             do {
                 settings = try decoder.decode(ClaudeSettings.self, from: fixed)
+                print("[CC Settings] Loaded settings: model=\(settings.model), hooks=\(settings.hooks != nil ? "yes" : "nil"), effort=\(settings.effortLevel ?? "nil")")
             } catch {
                 // Decode failed — do NOT touch settings; preserve current state
                 lastError = error
+                print("[CC Settings] DECODE FAILED: \(error)")
             }
         }
 
