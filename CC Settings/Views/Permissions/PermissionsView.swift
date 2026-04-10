@@ -141,6 +141,7 @@ enum DefaultPermissionMode: String, CaseIterable, Identifiable {
 
 struct PermissionsView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @Binding var scrollToSection: String?
     @State private var isSyncing = false
 
     @State private var toolPermissions: [ClaudeTool: PermissionState] = [:]

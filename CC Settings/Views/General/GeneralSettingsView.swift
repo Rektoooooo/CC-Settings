@@ -6,6 +6,7 @@ struct GeneralSettingsView: View {
     @EnvironmentObject var configManager: ConfigurationManager
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.sparkleUpdater) private var sparkleUpdater
+    @Binding var scrollToSection: String?
 
     // Model
     @State private var selectedModel: String = "sonnet"
@@ -73,35 +74,48 @@ struct GeneralSettingsView: View {
     @State private var isLoaded: Bool = false
 
     var body: some View {
-        Form {
-            appUpdateSection
-            claudeVersionSection
-            ProfilesSectionView()
-            modelSection
-            appearanceSection
-            languageSection
-            behaviorSection
-            memorySection
-            gitSection
-            updatesSection
-            notificationsSection
-            dataRetentionSection
-            attributionSection
-            teamsSection
-            apiKeyHelperSection
-            aboutSection
-        }
-        .formStyle(.grouped)
-        .onAppear {
-            loadFromSettings()
-            // Defer isLoaded so onChange handlers (fired by @State changes above)
-            // still see isLoaded == false and skip the spurious save.
-            DispatchQueue.main.async { isLoaded = true }
-        }
-        .onChange(of: configManager.settings) {
-            // Suppress saves during external reload to avoid feedback loop
-            loadFromSettings()
-            DispatchQueue.main.async { isLoaded = true }
+        ScrollViewReader { proxy in
+            Form {
+                appUpdateSection
+                claudeVersionSection
+                ProfilesSectionView().id("profiles")
+                modelSection.id("model")
+                appearanceSection.id("appearance")
+                languageSection.id("language")
+                behaviorSection.id("behavior")
+                memorySection.id("memory")
+                gitSection.id("git")
+                updatesSection.id("updates")
+                notificationsSection.id("notifications")
+                dataRetentionSection.id("data-retention")
+                attributionSection.id("attribution")
+                teamsSection.id("teams")
+                apiKeyHelperSection.id("api-key-helper")
+                aboutSection
+            }
+            .formStyle(.grouped)
+            .onAppear {
+                loadFromSettings()
+                DispatchQueue.main.async { isLoaded = true }
+                if let target = scrollToSection {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        withAnimation { proxy.scrollTo(target, anchor: .top) }
+                        scrollToSection = nil
+                    }
+                }
+            }
+            .onChange(of: scrollToSection) {
+                if let target = scrollToSection {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation { proxy.scrollTo(target, anchor: .top) }
+                        scrollToSection = nil
+                    }
+                }
+            }
+            .onChange(of: configManager.settings) {
+                loadFromSettings()
+                DispatchQueue.main.async { isLoaded = true }
+            }
         }
         .background {
             autoSaveObservers

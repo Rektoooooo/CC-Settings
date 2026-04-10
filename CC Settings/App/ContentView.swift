@@ -3,12 +3,13 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var configManager: ConfigurationManager
     @State private var selection: NavigationItem = .general
+    @State private var scrollToSection: String?
 
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .automatic
 
     var body: some View {
         NavigationSplitView(columnVisibility: $sidebarVisibility) {
-            SidebarView(selection: $selection)
+            SidebarView(selection: $selection, scrollToSection: $scrollToSection)
                 .environmentObject(configManager)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 350)
         } detail: {
@@ -22,13 +23,13 @@ struct ContentView: View {
     private var detailView: some View {
         switch selection {
         case .general:
-            GeneralSettingsView()
+            GeneralSettingsView(scrollToSection: $scrollToSection)
         case .permissions:
-            PermissionsView()
+            PermissionsView(scrollToSection: $scrollToSection)
         case .environment:
-            EnvironmentView()
+            EnvironmentView(scrollToSection: $scrollToSection)
         case .experimentalFeatures:
-            ExperimentalFeaturesView()
+            ExperimentalFeaturesView(scrollToSection: $scrollToSection)
         case .hooks:
             HooksView()
         case .hud:

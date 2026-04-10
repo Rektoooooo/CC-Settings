@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EnvironmentView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @Binding var scrollToSection: String?
     @State private var isSyncing = false
 
     // API & Auth

@@ -187,8 +187,60 @@ enum NavigationItem: Hashable {
     }
 }
 
+struct SearchableSection: Identifiable, Hashable {
+    let id: String          // section ID for scrollTo
+    let label: String       // display name e.g. "Language & Output"
+    let keywords: [String]  // keywords that match this section
+    let parent: NavigationItem
+}
+
+// MARK: - Section Mappings
+
+let generalSections: [SearchableSection] = [
+    SearchableSection(id: "profiles", label: "Profiles", keywords: ["profiles", "profile", "save settings", "load settings"], parent: .general),
+    SearchableSection(id: "model", label: "Model", keywords: ["model", "opus", "sonnet", "haiku", "fast mode", "per-session"], parent: .general),
+    SearchableSection(id: "appearance", label: "Appearance", keywords: ["theme", "appearance", "reduce motion"], parent: .general),
+    SearchableSection(id: "language", label: "Language & Output", keywords: ["language", "effort", "output", "verbose"], parent: .general),
+    SearchableSection(id: "behavior", label: "Behavior", keywords: ["turn duration", "gitignore", "shell", "bash", "zsh", "git instructions", "voice", "auto-compact", "compact", "plans"], parent: .general),
+    SearchableSection(id: "memory", label: "Memory", keywords: ["memory", "auto memory"], parent: .general),
+    SearchableSection(id: "git", label: "Git", keywords: ["git", "branch", "git app"], parent: .general),
+    SearchableSection(id: "updates", label: "Updates", keywords: ["updates", "auto updates"], parent: .general),
+    SearchableSection(id: "notifications", label: "Notifications", keywords: ["notifications"], parent: .general),
+    SearchableSection(id: "data-retention", label: "Data Retention", keywords: ["cleanup", "retention", "data retention"], parent: .general),
+    SearchableSection(id: "attribution", label: "Attribution", keywords: ["attribution", "commit", "pull request"], parent: .general),
+    SearchableSection(id: "teams", label: "Teams", keywords: ["teams", "teammate"], parent: .general),
+    SearchableSection(id: "api-key-helper", label: "API Key Helper", keywords: ["api key", "api key helper"], parent: .general),
+]
+
+let experimentalSections: [SearchableSection] = [
+    SearchableSection(id: "thinking", label: "Thinking", keywords: ["thinking", "thinking budget"], parent: .experimentalFeatures),
+    SearchableSection(id: "agent-teams", label: "Agent Teams", keywords: ["agent teams"], parent: .experimentalFeatures),
+    SearchableSection(id: "performance", label: "Performance", keywords: ["preflight", "web fetch"], parent: .experimentalFeatures),
+    SearchableSection(id: "privacy", label: "Privacy & Updates", keywords: ["telemetry", "error reporting", "auto-updater"], parent: .experimentalFeatures),
+    SearchableSection(id: "mode-control", label: "Mode Control", keywords: ["disable auto mode", "disable hooks"], parent: .experimentalFeatures),
+    SearchableSection(id: "sandbox", label: "Sandbox", keywords: ["sandbox"], parent: .experimentalFeatures),
+    SearchableSection(id: "worktree", label: "Worktree", keywords: ["worktree"], parent: .experimentalFeatures),
+    SearchableSection(id: "spinner", label: "Spinner", keywords: ["spinner"], parent: .experimentalFeatures),
+    SearchableSection(id: "status-line", label: "Status Line", keywords: ["status line", "statusline"], parent: .experimentalFeatures),
+]
+
+let permissionsSections: [SearchableSection] = [
+    SearchableSection(id: "default-mode", label: "Default Mode", keywords: ["default mode", "bypass", "dangerous"], parent: .permissions),
+    SearchableSection(id: "tool-permissions", label: "Tool Permissions", keywords: ["allow", "deny", "ask", "tools"], parent: .permissions),
+]
+
+let environmentSections: [SearchableSection] = [
+    SearchableSection(id: "api", label: "API & Auth", keywords: ["api key", "api base"], parent: .environment),
+    SearchableSection(id: "model-overrides", label: "Model Overrides", keywords: ["model override"], parent: .environment),
+    SearchableSection(id: "performance", label: "Performance", keywords: ["tokens", "output tokens", "thinking tokens", "prompt caching", "mcp timeout"], parent: .environment),
+    SearchableSection(id: "network", label: "Network & Proxy", keywords: ["proxy", "http proxy"], parent: .environment),
+]
+
+let allSearchableSections: [SearchableSection] = generalSections + experimentalSections + permissionsSections + environmentSections
+
 struct SidebarView: View {
     @Binding var selection: NavigationItem
+    @Binding var scrollToSection: String?
     @EnvironmentObject var configManager: ConfigurationManager
     @State private var projects: [Project] = []
     @State private var isLoadingProjects = false
@@ -212,6 +264,33 @@ struct SidebarView: View {
         guard isSearching else { return true }
         let query = searchText.lowercased()
         return item.searchKeywords.contains { $0.localizedCaseInsensitiveContains(query) }
+    }
+
+    private func matchingSections(for item: NavigationItem) -> [SearchableSection] {
+        guard isSearching else { return [] }
+        let query = searchText.lowercased()
+        return allSearchableSections.filter { section in
+            section.parent == item && section.keywords.contains { $0.localizedCaseInsensitiveContains(query) }
+        }
+    }
+
+    @ViewBuilder
+    private func searchSubItems(for item: NavigationItem) -> some View {
+        if isSearching {
+            let sections = matchingSections(for: item)
+            ForEach(sections) { section in
+                Button {
+                    selection = item
+                    scrollToSection = section.id
+                } label: {
+                    Label(section.label, systemImage: "arrow.right")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 28)
+            }
+        }
     }
 
     var body: some View {
@@ -245,15 +324,19 @@ struct SidebarView: View {
                     Section("Settings") {
                         if matchesSearch(.general) {
                             navItem(.general, label: "General", systemImage: "gearshape")
+                            searchSubItems(for: .general)
                         }
                         if matchesSearch(.permissions) {
                             navItem(.permissions, label: "Permissions", systemImage: "lock.shield")
+                            searchSubItems(for: .permissions)
                         }
                         if matchesSearch(.environment) {
                             navItem(.environment, label: "Environment", systemImage: "terminal")
+                            searchSubItems(for: .environment)
                         }
                         if matchesSearch(.experimentalFeatures) {
                             navItem(.experimentalFeatures, label: "Experimental", systemImage: "flask")
+                            searchSubItems(for: .experimentalFeatures)
                         }
                         if matchesSearch(.hooks) {
                             navItem(.hooks, label: "Hooks", systemImage: "arrow.triangle.branch")

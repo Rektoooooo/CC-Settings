@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExperimentalFeaturesView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @Binding var scrollToSection: String?
     @State private var isSyncing = false
 
     // Thinking
@@ -57,6 +58,7 @@ struct ExperimentalFeaturesView: View {
     @State private var statusLinePadding: String = ""
 
     var body: some View {
+        ScrollViewReader { proxy in
         Form {
             // MARK: - Warning
             Section {
@@ -125,7 +127,7 @@ struct ExperimentalFeaturesView: View {
                 }
             } header: {
                 Text("Thinking")
-            }
+            }.id("thinking")
 
             // MARK: - Agent Teams
             Section {
@@ -139,7 +141,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Agent Teams")
-            }
+            }.id("agent-teams")
 
             // MARK: - Performance
             Section {
@@ -162,7 +164,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Performance")
-            }
+            }.id("performance")
 
             // MARK: - Privacy & Telemetry
             Section {
@@ -194,7 +196,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Privacy & Updates")
-            }
+            }.id("privacy")
 
             // MARK: - Mode Control
             Section {
@@ -219,7 +221,7 @@ struct ExperimentalFeaturesView: View {
                 )
             } header: {
                 Text("Mode Control")
-            }
+            }.id("mode-control")
 
             // MARK: - Sandbox
             Section {
@@ -330,7 +332,7 @@ struct ExperimentalFeaturesView: View {
                 }
             } header: {
                 Text("Sandbox")
-            }
+            }.id("sandbox")
 
             // MARK: - Worktree
             Section {
@@ -353,7 +355,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Worktree")
-            }
+            }.id("worktree")
 
             // MARK: - Spinner
             Section {
@@ -386,7 +388,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Spinner Customization")
-            }
+            }.id("spinner")
 
             // MARK: - Status Line
             Section {
@@ -405,7 +407,7 @@ struct ExperimentalFeaturesView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text("Status Line")
-            }
+            }.id("status-line")
         }
         .formStyle(.grouped)
         .onDisappear {
@@ -426,6 +428,15 @@ struct ExperimentalFeaturesView: View {
             loadSettings()
             DispatchQueue.main.async { isSyncing = false }
         }
+        .onChange(of: scrollToSection) {
+            if let target = scrollToSection {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation { proxy.scrollTo(target, anchor: .top) }
+                    scrollToSection = nil
+                }
+            }
+        }
+        } // ScrollViewReader
     }
 
     // MARK: - Budget Helpers
