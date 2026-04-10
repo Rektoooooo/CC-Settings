@@ -5,57 +5,60 @@ struct ExperimentalFeaturesView: View {
     @Binding var scrollToSection: String?
     @State private var isSyncing = false
 
+    private static var s: ClaudeSettings { ConfigurationManager.shared.settings }
+    private static var env: [String: String] { s.env }
+
     // Thinking
-    @State private var thinkingEnabled: Bool = false
-    @State private var thinkingBudget: Double = 10000
+    @State private var thinkingEnabled: Bool = s.alwaysThinkingEnabled ?? false
+    @State private var thinkingBudget: Double = Double(s.thinkingBudgetTokens ?? 10000)
 
     // Agent Teams
-    @State private var agentTeamsEnabled: Bool = false
+    @State private var agentTeamsEnabled: Bool = env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] == "1"
 
     // Performance
-    @State private var skipWebFetchPreflight: Bool = false
-    @State private var disableNonEssentialCalls: Bool = false
+    @State private var skipWebFetchPreflight: Bool = s.skipWebFetchPreflight ?? false
+    @State private var disableNonEssentialCalls: Bool = env["DISABLE_NON_ESSENTIAL_MODEL_CALLS"] == "1"
 
     // Privacy
-    @State private var disableTelemetry: Bool = false
-    @State private var disableErrorReporting: Bool = false
-    @State private var disableAutoUpdater: Bool = false
+    @State private var disableTelemetry: Bool = env["DISABLE_TELEMETRY"] == "1"
+    @State private var disableErrorReporting: Bool = env["DISABLE_ERROR_REPORTING"] == "1"
+    @State private var disableAutoUpdater: Bool = env["DISABLE_AUTOUPDATER"] == "1"
 
     // Mode Control
-    @State private var disableAutoMode: Bool = false
-    @State private var disableAllHooks: Bool = false
+    @State private var disableAutoMode: Bool = s.disableAutoMode == "disable"
+    @State private var disableAllHooks: Bool = s.disableAllHooks ?? false
 
     // Sandbox (legacy)
-    @State private var enableWeakerSandbox: Bool = false
-    @State private var unsandboxedCommands: String = ""
-    @State private var allowLocalBinding: Bool = false
-    @State private var allowAllUnixSockets: Bool = false
-    @State private var allowedDomains: String = ""
+    @State private var enableWeakerSandbox: Bool = s.enableWeakerSandbox ?? false
+    @State private var unsandboxedCommands: String = (s.unsandboxedCommands ?? []).joined(separator: ", ")
+    @State private var allowLocalBinding: Bool = s.allowLocalBinding ?? false
+    @State private var allowAllUnixSockets: Bool = s.allowAllUnixSockets ?? false
+    @State private var allowedDomains: String = (s.allowedDomains ?? []).joined(separator: ", ")
 
     // Sandbox (new nested)
-    @State private var sandboxEnabled: Bool = false
-    @State private var sandboxFailIfUnavailable: Bool = false
-    @State private var autoAllowBashIfSandboxed: Bool = true
-    @State private var enableWeakerNetworkIsolation: Bool = false
-    @State private var sandboxAllowWrite: String = ""
-    @State private var sandboxDenyWrite: String = ""
-    @State private var sandboxDenyRead: String = ""
-    @State private var sandboxAllowRead: String = ""
+    @State private var sandboxEnabled: Bool = s.sandbox?.enabled ?? false
+    @State private var sandboxFailIfUnavailable: Bool = s.sandbox?.failIfUnavailable ?? false
+    @State private var autoAllowBashIfSandboxed: Bool = s.sandbox?.autoAllowBashIfSandboxed ?? true
+    @State private var enableWeakerNetworkIsolation: Bool = s.sandbox?.enableWeakerNetworkIsolation ?? false
+    @State private var sandboxAllowWrite: String = (s.sandbox?.filesystem?.allowWrite ?? []).joined(separator: ", ")
+    @State private var sandboxDenyWrite: String = (s.sandbox?.filesystem?.denyWrite ?? []).joined(separator: ", ")
+    @State private var sandboxDenyRead: String = (s.sandbox?.filesystem?.denyRead ?? []).joined(separator: ", ")
+    @State private var sandboxAllowRead: String = (s.sandbox?.filesystem?.allowRead ?? []).joined(separator: ", ")
 
     // Worktree
-    @State private var worktreeSparsePaths: String = ""
-    @State private var worktreeSymlinkDirs: String = ""
+    @State private var worktreeSparsePaths: String = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
+    @State private var worktreeSymlinkDirs: String = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
 
     // Spinner
-    @State private var spinnerTipsEnabled: Bool = true
-    @State private var spinnerVerbsMode: String = "append"
-    @State private var spinnerVerbs: String = ""
-    @State private var customTips: String = ""
-    @State private var excludeDefaultTips: Bool = false
+    @State private var spinnerTipsEnabled: Bool = s.spinnerTipsEnabled ?? true
+    @State private var spinnerVerbsMode: String = s.spinnerVerbsMode ?? "append"
+    @State private var spinnerVerbs: String = (s.spinnerVerbs ?? []).joined(separator: ", ")
+    @State private var customTips: String = (s.spinnerTipsOverride?.tips ?? s.customTips ?? []).joined(separator: ", ")
+    @State private var excludeDefaultTips: Bool = s.spinnerTipsOverride?.excludeDefault ?? s.excludeDefaultTips ?? false
 
     // Status Line
-    @State private var statusLineCommand: String = ""
-    @State private var statusLinePadding: String = ""
+    @State private var statusLineCommand: String = s.statusLine?.command ?? s.statusLineCommand ?? ""
+    @State private var statusLinePadding: String = s.statusLine?.padding.map { String($0) } ?? ""
 
     var body: some View {
         ScrollViewReader { proxy in

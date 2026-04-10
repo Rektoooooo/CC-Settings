@@ -8,60 +8,64 @@ struct GeneralSettingsView: View {
     @Environment(\.sparkleUpdater) private var sparkleUpdater
     @Binding var scrollToSection: String?
 
+    // All @State defaults read from the singleton so the FIRST render shows real values.
+    // ConfigurationManager.shared.loadAll() runs synchronously before any view is created.
+    private static var s: ClaudeSettings { ConfigurationManager.shared.settings }
+
     // Model
-    @State private var selectedModel: String = "sonnet"
-    @State private var fastMode: Bool = false
-    @State private var fastModePerSessionOptIn: Bool = false
+    @State private var selectedModel: String = s.model
+    @State private var fastMode: Bool = s.fastMode ?? false
+    @State private var fastModePerSessionOptIn: Bool = s.fastModePerSessionOptIn ?? false
 
     // Appearance
-    @State private var prefersReducedMotion: Bool = false
+    @State private var prefersReducedMotion: Bool = s.prefersReducedMotion ?? false
 
     // Language & Output
-    @State private var language: String = ""
-    @State private var effortLevel: String = ""
-    @State private var outputStyle: String = ""
-    @State private var verbose: Bool = false
+    @State private var language: String = s.language ?? ""
+    @State private var effortLevel: String = s.effortLevel ?? ""
+    @State private var outputStyle: String = s.outputStyle ?? ""
+    @State private var verbose: Bool = s.verbose ?? false
 
     // Behavior
-    @State private var showTurnDuration: Bool = true
-    @State private var respectGitignore: Bool = true
-    @State private var defaultShell: String = "bash"
-    @State private var includeGitInstructions: Bool = true
-    @State private var showThinkingSummaries: Bool = false
-    @State private var showClearContextOnPlanAccept: Bool = false
-    @State private var voiceEnabled: Bool = false
-    @State private var autoCompactEnabled: Bool = true
-    @State private var autoCompactInstructions: String = ""
-    @State private var plansDirectory: String = ""
+    @State private var showTurnDuration: Bool = s.showTurnDuration ?? true
+    @State private var respectGitignore: Bool = s.respectGitignore ?? true
+    @State private var defaultShell: String = s.defaultShell ?? "bash"
+    @State private var includeGitInstructions: Bool = s.includeGitInstructions ?? true
+    @State private var showThinkingSummaries: Bool = s.showThinkingSummaries ?? false
+    @State private var showClearContextOnPlanAccept: Bool = s.showClearContextOnPlanAccept ?? false
+    @State private var voiceEnabled: Bool = s.voiceEnabled ?? false
+    @State private var autoCompactEnabled: Bool = s.autoCompact != nil
+    @State private var autoCompactInstructions: String = s.autoCompact?.customInstructions ?? ""
+    @State private var plansDirectory: String = s.plansDirectory ?? ""
 
     // Memory
-    @State private var autoMemoryEnabled: Bool = false
-    @State private var autoMemoryDirectory: String = ""
+    @State private var autoMemoryEnabled: Bool = s.autoMemoryEnabled ?? false
+    @State private var autoMemoryDirectory: String = s.autoMemoryDirectory ?? ""
 
     // Git
-    @State private var mainBranch: String = ""
-    @State private var selectedGitApp: String = "system"
-    @State private var customGitAppPath: String = ""
+    @State private var mainBranch: String = s.mainBranch ?? ""
+    @State private var selectedGitApp: String = s.preferredGitApp?.rawValue ?? "system"
+    @State private var customGitAppPath: String = s.customGitAppPath ?? ""
 
     // Updates
-    @State private var autoUpdates: Bool = true
-    @State private var autoUpdatesChannel: String = "latest"
+    @State private var autoUpdates: Bool = s.autoUpdates ?? true
+    @State private var autoUpdatesChannel: String = s.autoUpdatesChannel ?? "latest"
 
     // Notifications
-    @State private var preferredNotifChannel: String = "iterm2"
+    @State private var preferredNotifChannel: String = s.preferredNotifChannel ?? "iterm2"
 
     // Data Retention
-    @State private var cleanupPeriodDays: Double = 30
+    @State private var cleanupPeriodDays: Double = Double(s.cleanupPeriodDays ?? 30)
 
     // Attribution
-    @State private var commitAttribution: String = ""
-    @State private var prAttribution: String = ""
+    @State private var commitAttribution: String = s.attribution?.commit ?? ""
+    @State private var prAttribution: String = s.attribution?.pr ?? ""
 
     // Teams
-    @State private var teammateMode: String = "auto"
+    @State private var teammateMode: String = s.teammateMode ?? "auto"
 
     // API Key Helper
-    @State private var apiKeyHelper: String = ""
+    @State private var apiKeyHelper: String = s.apiKeyHelper ?? ""
 
     // Claude Code Version
     @State private var installedVersion: String = ""

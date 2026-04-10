@@ -5,36 +5,38 @@ struct EnvironmentView: View {
     @Binding var scrollToSection: String?
     @State private var isSyncing = false
 
+    private static var env: [String: String] { ConfigurationManager.shared.settings.env }
+
     // API & Auth
-    @State private var anthropicApiKey: String = ""
-    @State private var apiBaseURL: String = ""
+    @State private var anthropicApiKey: String = env["ANTHROPIC_API_KEY"] ?? ""
+    @State private var apiBaseURL: String = env["API_BASE_URL"] ?? ""
 
     // Model Overrides
-    @State private var anthropicModel: String = ""
-    @State private var subagentModel: String = ""
-    @State private var defaultOpusModel: String = ""
-    @State private var defaultSonnetModel: String = ""
-    @State private var defaultHaikuModel: String = ""
+    @State private var anthropicModel: String = env["ANTHROPIC_MODEL"] ?? ""
+    @State private var subagentModel: String = env["CLAUDE_CODE_SUBAGENT_MODEL"] ?? ""
+    @State private var defaultOpusModel: String = env["ANTHROPIC_DEFAULT_OPUS_MODEL"] ?? ""
+    @State private var defaultSonnetModel: String = env["ANTHROPIC_DEFAULT_SONNET_MODEL"] ?? ""
+    @State private var defaultHaikuModel: String = env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] ?? ""
 
     // Performance
-    @State private var maxOutputTokens: String = ""
-    @State private var maxThinkingTokens: String = ""
-    @State private var autoCompactPct: String = ""
-    @State private var disablePromptCaching: Bool = false
-    @State private var disablePromptCachingHaiku: Bool = false
-    @State private var disablePromptCachingSonnet: Bool = false
-    @State private var disablePromptCachingOpus: Bool = false
-    @State private var mcpTimeout: String = ""
-    @State private var mcpToolTimeout: String = ""
+    @State private var maxOutputTokens: String = env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] ?? ""
+    @State private var maxThinkingTokens: String = env["MAX_THINKING_TOKENS"] ?? ""
+    @State private var autoCompactPct: String = env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] ?? ""
+    @State private var disablePromptCaching: Bool = env["DISABLE_PROMPT_CACHING"] == "1"
+    @State private var disablePromptCachingHaiku: Bool = env["DISABLE_PROMPT_CACHING_HAIKU"] == "1"
+    @State private var disablePromptCachingSonnet: Bool = env["DISABLE_PROMPT_CACHING_SONNET"] == "1"
+    @State private var disablePromptCachingOpus: Bool = env["DISABLE_PROMPT_CACHING_OPUS"] == "1"
+    @State private var mcpTimeout: String = env["MCP_TIMEOUT"] ?? ""
+    @State private var mcpToolTimeout: String = env["MCP_TOOL_TIMEOUT"] ?? ""
 
     // Network & Proxy
-    @State private var httpProxy: String = ""
-    @State private var httpsProxy: String = ""
-    @State private var noProxy: String = ""
+    @State private var httpProxy: String = env["HTTP_PROXY"] ?? ""
+    @State private var httpsProxy: String = env["HTTPS_PROXY"] ?? ""
+    @State private var noProxy: String = env["NO_PROXY"] ?? ""
 
     // Display & Misc
-    @State private var hideAccountInfo: Bool = false
-    @State private var disableBugCommand: Bool = false
+    @State private var hideAccountInfo: Bool = env["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
+    @State private var disableBugCommand: Bool = env["DISABLE_BUG_COMMAND"] == "1"
 
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
