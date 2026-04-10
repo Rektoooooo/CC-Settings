@@ -199,6 +199,51 @@ struct HooksConfig: Codable, Equatable {
     var WorktreeRemove: [HookGroup]?
     var SessionStart: [HookGroup]?
     var SessionEnd: [HookGroup]?
+    var UserPromptSubmit: [HookGroup]?
+    var PermissionDenied: [HookGroup]?
+
+    // Tolerant decoder: unknown hook types are silently ignored instead of failing
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        func decode(_ key: String) -> [HookGroup]? {
+            guard let k = DynamicCodingKey(stringValue: key) else { return nil }
+            return try? container.decodeIfPresent([HookGroup].self, forKey: k)
+        }
+        PreToolUse = decode("PreToolUse")
+        PostToolUse = decode("PostToolUse")
+        PrePromptSubmit = decode("PrePromptSubmit")
+        PostPromptSubmit = decode("PostPromptSubmit")
+        PostToolUseFailure = decode("PostToolUseFailure")
+        PermissionRequest = decode("PermissionRequest")
+        Notification = decode("Notification")
+        Stop = decode("Stop")
+        SubagentStart = decode("SubagentStart")
+        SubagentStop = decode("SubagentStop")
+        PreCompact = decode("PreCompact")
+        PostCompact = decode("PostCompact")
+        Elicitation = decode("Elicitation")
+        ElicitationResult = decode("ElicitationResult")
+        TeammateIdle = decode("TeammateIdle")
+        TaskCompleted = decode("TaskCompleted")
+        Setup = decode("Setup")
+        InstructionsLoaded = decode("InstructionsLoaded")
+        ConfigChange = decode("ConfigChange")
+        WorktreeCreate = decode("WorktreeCreate")
+        WorktreeRemove = decode("WorktreeRemove")
+        SessionStart = decode("SessionStart")
+        SessionEnd = decode("SessionEnd")
+        UserPromptSubmit = decode("UserPromptSubmit")
+        PermissionDenied = decode("PermissionDenied")
+    }
+
+    init() {}
+}
+
+private struct DynamicCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { return nil }
 }
 
 struct HookGroup: Codable, Equatable, Identifiable {

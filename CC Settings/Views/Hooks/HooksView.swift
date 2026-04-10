@@ -26,6 +26,8 @@ enum HookType: String, CaseIterable, Identifiable {
     case worktreeRemove = "WorktreeRemove"
     case sessionStart = "SessionStart"
     case sessionEnd = "SessionEnd"
+    case userPromptSubmit = "UserPromptSubmit"
+    case permissionDenied = "PermissionDenied"
 
     var id: String { rawValue }
 
@@ -54,6 +56,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .worktreeRemove: return "Worktree Remove"
         case .sessionStart: return "Session Start"
         case .sessionEnd: return "Session End"
+        case .userPromptSubmit: return "User Prompt Submit"
+        case .permissionDenied: return "Permission Denied"
         }
     }
 
@@ -82,6 +86,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .worktreeRemove: return "minus.rectangle.fill"
         case .sessionStart: return "power.circle.fill"
         case .sessionEnd: return "power.circle"
+        case .userPromptSubmit: return "person.crop.square.fill"
+        case .permissionDenied: return "xmark.shield.fill"
         }
     }
 
@@ -110,6 +116,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .worktreeRemove: return .pink
         case .sessionStart: return .green
         case .sessionEnd: return .red
+        case .userPromptSubmit: return .blue
+        case .permissionDenied: return .red
         }
     }
 
@@ -138,6 +146,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .worktreeRemove: return "Runs when a git worktree is removed"
         case .sessionStart: return "Runs when a session starts"
         case .sessionEnd: return "Runs when a session ends"
+        case .userPromptSubmit: return "Runs when a user submits a prompt"
+        case .permissionDenied: return "Runs when a permission is denied"
         }
     }
 
@@ -166,6 +176,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .worktreeRemove: return "echo \"Worktree removed\""
         case .sessionStart: return "echo \"Session started at $(date)\""
         case .sessionEnd: return "echo \"Session ended at $(date)\""
+        case .userPromptSubmit: return "echo \"User submitted prompt\""
+        case .permissionDenied: return "echo \"Permission denied for $TOOL_NAME\""
         }
     }
 }
@@ -782,7 +794,11 @@ struct HooksView: View {
             case .worktreeCreate: groups = hooks?.WorktreeCreate ?? []
             case .worktreeRemove: groups = hooks?.WorktreeRemove ?? []
             case .sessionStart: groups = hooks?.SessionStart ?? []
+            case .userPromptSubmit: groups = hooks?.UserPromptSubmit ?? []
+            case .permissionDenied: groups = hooks?.PermissionDenied ?? []
             case .sessionEnd: groups = hooks?.SessionEnd ?? []
+            case .userPromptSubmit: groups = hooks?.UserPromptSubmit ?? []
+            case .permissionDenied: groups = hooks?.PermissionDenied ?? []
             }
             for (index, group) in groups.enumerated() {
                 result.append(ScopedHookGroup(hookType: hookType, group: group, scope: scope, indexInScope: index))
@@ -826,6 +842,8 @@ struct HooksView: View {
         case .worktreeRemove: return hooks?.WorktreeRemove ?? []
         case .sessionStart: return hooks?.SessionStart ?? []
         case .sessionEnd: return hooks?.SessionEnd ?? []
+        case .userPromptSubmit: return hooks?.UserPromptSubmit ?? []
+        case .permissionDenied: return hooks?.PermissionDenied ?? []
         }
     }
 
@@ -888,6 +906,8 @@ struct HooksView: View {
         case .worktreeRemove: configManager.settings.hooks?.WorktreeRemove = value
         case .sessionStart: configManager.settings.hooks?.SessionStart = value
         case .sessionEnd: configManager.settings.hooks?.SessionEnd = value
+        case .userPromptSubmit: configManager.settings.hooks?.UserPromptSubmit = value
+        case .permissionDenied: configManager.settings.hooks?.PermissionDenied = value
         }
         if let hooks = configManager.settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -901,7 +921,8 @@ struct HooksView: View {
            hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
            hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
            hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
-           hooks.SessionEnd == nil {
+           hooks.SessionEnd == nil &&
+           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil {
             configManager.settings.hooks = nil
         }
         configManager.saveEncodedField("hooks", value: configManager.settings.hooks)
@@ -937,6 +958,8 @@ struct HooksView: View {
         case .worktreeRemove: settings.hooks?.WorktreeRemove = value
         case .sessionStart: settings.hooks?.SessionStart = value
         case .sessionEnd: settings.hooks?.SessionEnd = value
+        case .userPromptSubmit: settings.hooks?.UserPromptSubmit = value
+        case .permissionDenied: settings.hooks?.PermissionDenied = value
         }
         if let hooks = settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -950,7 +973,8 @@ struct HooksView: View {
            hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
            hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
            hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
-           hooks.SessionEnd == nil {
+           hooks.SessionEnd == nil &&
+           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil {
             settings.hooks = nil
         }
         configManager.saveProjectSettings(settings, projectPath: projectPath)
