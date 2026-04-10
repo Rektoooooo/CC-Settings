@@ -279,16 +279,20 @@ struct SidebarView: View {
         if isSearching {
             let sections = matchingSections(for: item)
             ForEach(sections) { section in
-                Button {
-                    selection = item
-                    scrollToSection = section.id
-                } label: {
-                    Label(section.label, systemImage: "arrow.right")
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(section.label)
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
-                .buttonStyle(.plain)
-                .padding(.leading, 28)
+                .padding(.leading, 24)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selection = item
+                    scrollToSection = section.id
+                }
             }
         }
     }
