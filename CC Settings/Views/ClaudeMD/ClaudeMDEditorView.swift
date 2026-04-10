@@ -144,6 +144,13 @@ struct ClaudeMDEditorView: View {
             Spacer()
 
             if hasContent {
+                // Templates button
+                Button {
+                    showTemplateSheet = true
+                } label: {
+                    Label("Templates", systemImage: "doc.on.doc")
+                }
+
                 // Insert button
                 Button {
                     showInsertPopover.toggle()
