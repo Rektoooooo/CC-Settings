@@ -262,8 +262,15 @@ struct HookGroup: Codable, Equatable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        matcher = try container.decodeIfPresent(HookMatcher.self, forKey: .matcher)
-        hooks = try container.decode([HookDefinition].self, forKey: .hooks)
+        // matcher can be a string ("*") or an object ({"tool": ..., "pattern": ...})
+        if let matcherObj = try? container.decodeIfPresent(HookMatcher.self, forKey: .matcher) {
+            matcher = matcherObj
+        } else if let matcherStr = try? container.decodeIfPresent(String.self, forKey: .matcher) {
+            matcher = HookMatcher(tool: matcherStr, pattern: nil)
+        } else {
+            matcher = nil
+        }
+        hooks = (try? container.decode([HookDefinition].self, forKey: .hooks)) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -286,13 +293,14 @@ struct HookDefinition: Codable, Equatable, Identifiable {
     var agent: String?
     var url: String?
     var ifCondition: String?
+    var timeout: Int?
 
     enum CodingKeys: String, CodingKey {
-        case type, command, prompt, agent, url
+        case type, command, prompt, agent, url, timeout
         case ifCondition = "if"
     }
 
-    init(type: String = "command", command: String? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil) {
+    init(type: String = "command", command: String? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil, timeout: Int? = nil) {
         self.type = type
         self.command = command
         self.prompt = prompt
@@ -309,6 +317,7 @@ struct HookDefinition: Codable, Equatable, Identifiable {
         agent = try container.decodeIfPresent(String.self, forKey: .agent)
         url = try container.decodeIfPresent(String.self, forKey: .url)
         ifCondition = try container.decodeIfPresent(String.self, forKey: .ifCondition)
+        timeout = try container.decodeIfPresent(Int.self, forKey: .timeout)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -319,6 +328,7 @@ struct HookDefinition: Codable, Equatable, Identifiable {
         try container.encodeIfPresent(agent, forKey: .agent)
         try container.encodeIfPresent(url, forKey: .url)
         try container.encodeIfPresent(ifCondition, forKey: .ifCondition)
+        try container.encodeIfPresent(timeout, forKey: .timeout)
     }
 }
 
