@@ -263,18 +263,13 @@ struct HooksView: View {
     @State private var scopeFilter: ScopeFilter = .all
 
     // Add hook state
-    @State private var addingForType: HookType?
+    @State private var showAddSheet = false
+    @State private var addHookType: HookType = .preToolUse
     @State private var addScope: ConfigScope = .global
-    @State private var newTool: String = ""
-    @State private var newPattern: String = ""
-    @State private var newCommands: [String] = [""]
 
     // Edit state
-    @State private var editingId: String?
-    @State private var editTool: String = ""
-    @State private var editPattern: String = ""
-    @State private var editCommands: [String] = [""]
-    @State private var editScopedGroup: ScopedHookGroup?
+    @State private var editingHook: ScopedHookGroup?
+    @State private var showEditSheet = false
 
     private var availableScopes: [ConfigScope] {
         var scopes: [ConfigScope] = [.global]
@@ -309,6 +304,20 @@ struct HooksView: View {
                 return false
             }
         }
+    }
+
+    private var hookTypesWithHooks: [HookType] {
+        HookType.allCases.filter { !hooksForType($0).isEmpty }
+    }
+
+    private func matcherSummary(for group: HookGroup) -> String {
+        guard let m = group.matcher else { return "All tools" }
+        let tool = m.tool ?? ""
+        let pattern = m.pattern ?? ""
+        if !tool.isEmpty && !pattern.isEmpty { return "\(tool) matching /\(pattern)/" }
+        if !tool.isEmpty { return "\(tool) only" }
+        if !pattern.isEmpty { return "Matching /\(pattern)/" }
+        return "All tools"
     }
 
     var body: some View {
@@ -346,9 +355,44 @@ struct HooksView: View {
                 }
             }
 
-            // MARK: - Hook Type Sections
-            ForEach(HookType.allCases) { hookType in
+            // MARK: - Hook Sections (only types that have hooks)
+            ForEach(hookTypesWithHooks) { hookType in
                 hookSection(for: hookType)
+            }
+
+            // MARK: - Add New Hook
+            Section {
+                HStack(spacing: 12) {
+                    Picker("Hook Type", selection: $addHookType) {
+                        ForEach(HookType.allCases) { type in
+                            Label(type.displayName, systemImage: type.icon).tag(type)
+                        }
+                    }
+                    .frame(maxWidth: 250)
+
+                    if filteredProjects.count > 0 {
+                        Picker("Scope", selection: $addScope) {
+                            Label("Global", systemImage: "globe").tag(ConfigScope.global)
+                            ForEach(filteredProjects) { project in
+                                Label(project.displayName, systemImage: "folder")
+                                    .tag(ConfigScope.project(id: project.id, path: project.originalPath))
+                            }
+                        }
+                        .frame(maxWidth: 200)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Label("Add Hook", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            } header: {
+                Text("Add New Hook")
             }
         }
         .formStyle(.grouped)
@@ -362,39 +406,49 @@ struct HooksView: View {
             loadAllHooks()
             DispatchQueue.main.async { isSyncing = false }
         }
+        .sheet(isPresented: $showAddSheet) {
+            HookEditorSheet(
+                mode: .add,
+                hookType: addHookType,
+                scope: addScope,
+                onSave: { tool, pattern, commands in
+                    var model = HookGroupModel()
+                    model.matcherTool = tool
+                    model.matcherPattern = pattern
+                    model.commands = commands
+                    appendGroup(model.toHookGroup(), for: addHookType, scope: addScope)
+                }
+            )
+        }
+        .sheet(isPresented: $showEditSheet) {
+            if let hook = editingHook {
+                HookEditorSheet(
+                    mode: .edit,
+                    hookType: hook.hookType,
+                    scope: hook.scope,
+                    initialTool: hook.group.matcher?.tool ?? "",
+                    initialPattern: hook.group.matcher?.pattern ?? "",
+                    initialCommands: hook.group.hooks.compactMap(\.command),
+                    onSave: { tool, pattern, commands in
+                        var model = HookGroupModel()
+                        model.matcherTool = tool
+                        model.matcherPattern = pattern
+                        model.commands = commands
+                        replaceGroup(at: hook.indexInScope, with: model.toHookGroup(), for: hook.hookType, scope: hook.scope)
+                    }
+                )
+            }
+        }
     }
 
     // MARK: - Section for Each Hook Type
 
     @ViewBuilder
     private func hookSection(for hookType: HookType) -> some View {
+        let hooks = hooksForType(hookType)
         Section {
-            let hooks = hooksForType(hookType)
-            if hooks.isEmpty && addingForType != hookType {
-                Text("No hooks configured")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .italic()
-            } else {
-                ForEach(hooks) { scopedHook in
-                    if editingId == scopedHook.id {
-                        inlineEditForm(hookType: hookType)
-                    } else {
-                        hookGroupRow(scopedHook: scopedHook)
-                    }
-                }
-            }
-
-            // Inline add form
-            if addingForType == hookType {
-                inlineAddForm(hookType: hookType)
-            } else {
-                Button {
-                    resetAddForm()
-                    addingForType = hookType
-                } label: {
-                    Label("Add Hook", systemImage: "plus")
-                }
+            ForEach(hooks) { scopedHook in
+                hookGroupRow(scopedHook: scopedHook)
             }
         } header: {
             HStack(spacing: 6) {
@@ -402,15 +456,12 @@ struct HooksView: View {
                     .foregroundColor(hookType.color)
                 Text(hookType.displayName)
                 Spacer()
-                let count = hooksForType(hookType).count
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.15), in: Capsule())
-                }
+                Text("\(hooks.count)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.15), in: Capsule())
             }
         } footer: {
             Text(hookType.description)
@@ -423,48 +474,16 @@ struct HooksView: View {
 
     @ViewBuilder
     private func hookGroupRow(scopedHook: ScopedHookGroup) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // Scope badge + matcher line
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
                 ScopeBadge(scope: scopedHook.scope)
-
-                if let matcher = scopedHook.group.matcher {
-                    if let tool = matcher.tool {
-                        Text("Tool:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(tool)
-                            .font(.system(.caption, design: .monospaced))
-                            .fontWeight(.medium)
-                    }
-                    if let pattern = matcher.pattern {
-                        if matcher.tool != nil {
-                            Text("|")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Text("Pattern:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(pattern)
-                            .font(.system(.caption, design: .monospaced))
-                            .fontWeight(.medium)
-                    }
-                } else {
-                    Text("Matches all")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .italic()
-                }
-
                 Spacer()
-
                 Button {
-                    startEditing(scopedHook: scopedHook)
+                    editingHook = scopedHook
+                    showEditSheet = true
                 } label: {
                     Image(systemName: "pencil")
                         .foregroundColor(.secondary)
-                        .font(.caption)
                 }
                 .buttonStyle(.plain)
 
@@ -473,26 +492,45 @@ struct HooksView: View {
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
-                        .font(.caption)
                 }
                 .buttonStyle(.plain)
             }
 
-            // Commands
-            ForEach(scopedHook.group.hooks.indices, id: \.self) { i in
-                HStack(spacing: 4) {
-                    Text("$")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(scopedHook.hookType.color)
-                    Text(scopedHook.group.hooks[i].command ?? "")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
+            HStack(spacing: 6) {
+                Text("When:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+                Text(matcherSummary(for: scopedHook.group))
+                    .font(.caption)
+            }
+
+            HStack(alignment: .top, spacing: 6) {
+                Text("Run:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+                VStack(alignment: .leading, spacing: 2) {
+                    let commands = scopedHook.group.hooks.compactMap(\.command)
+                    if let first = commands.first {
+                        Text("$ \(first)")
+                            .font(.system(.caption, design: .monospaced))
+                            .lineLimit(1)
+                    }
+                    if commands.count > 1 {
+                        Text("+ \(commands.count - 1) more command\(commands.count > 2 ? "s" : "")")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .contextMenu {
+            Button("Edit") {
+                editingHook = scopedHook
+                showEditSheet = true
+            }
             Button("Show in Finder") {
                 let settingsPath: String
                 if scopedHook.scope.isGlobal {
@@ -507,236 +545,14 @@ struct HooksView: View {
                 NSWorkspace.shared.selectFile(settingsPath,
                     inFileViewerRootedAtPath: URL(fileURLWithPath: settingsPath).deletingLastPathComponent().path)
             }
-        }
-    }
-
-    // MARK: - Inline Add Form
-
-    @ViewBuilder
-    private func inlineAddForm(hookType: HookType) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Scope picker
-            HStack(spacing: 8) {
-                Text("Add to:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Picker("", selection: $addScope) {
-                    Label("Global", systemImage: "globe").tag(ConfigScope.global)
-                    ForEach(filteredProjects) { project in
-                        Label(project.displayName, systemImage: "folder")
-                            .tag(ConfigScope.project(id: project.id, path: project.originalPath))
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(maxWidth: 200)
-            }
-
-            // Matcher fields
-            GroupBox("Matcher (optional)") {
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("Tool")
-                            .font(.caption)
-                            .frame(width: 50, alignment: .trailing)
-                        TextField("e.g. Bash, Read, Write", text: $newTool)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    HStack {
-                        Text("Pattern")
-                            .font(.caption)
-                            .frame(width: 50, alignment: .trailing)
-                        TextField("regex, e.g. git\\s+push.*", text: $newPattern)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            // Commands
-            GroupBox("Commands") {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(newCommands.indices, id: \.self) { i in
-                        HStack(spacing: 6) {
-                            Text("$")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(hookType.color)
-                            TextField(hookType.placeholder, text: $newCommands[i])
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                            if newCommands.count > 1 {
-                                Button {
-                                    newCommands.remove(at: i)
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
-                                        .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    Button {
-                        newCommands.append("")
-                    } label: {
-                        Label("Add Command", systemImage: "plus")
-                            .font(.caption)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            // Actions
-            HStack {
-                Spacer()
-                Button("Cancel") {
-                    addingForType = nil
-                }
-                Button("Add") {
-                    saveNewHook(for: hookType)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(!hasValidNewCommands)
+            Divider()
+            Button("Delete", role: .destructive) {
+                deleteHook(scopedHook)
             }
         }
-        .padding(.vertical, 4)
     }
 
-    // MARK: - Inline Edit Form
-
-    @ViewBuilder
-    private func inlineEditForm(hookType: HookType) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            GroupBox("Matcher (optional)") {
-                VStack(spacing: 6) {
-                    HStack {
-                        Text("Tool")
-                            .font(.caption)
-                            .frame(width: 50, alignment: .trailing)
-                        TextField("e.g. Bash, Read, Write", text: $editTool)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    HStack {
-                        Text("Pattern")
-                            .font(.caption)
-                            .frame(width: 50, alignment: .trailing)
-                        TextField("regex", text: $editPattern)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            GroupBox("Commands") {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(editCommands.indices, id: \.self) { i in
-                        HStack(spacing: 6) {
-                            Text("$")
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundColor(hookType.color)
-                            TextField("command", text: $editCommands[i])
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                            if editCommands.count > 1 {
-                                Button {
-                                    editCommands.remove(at: i)
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
-                                        .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    Button {
-                        editCommands.append("")
-                    } label: {
-                        Label("Add Command", systemImage: "plus")
-                            .font(.caption)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            HStack {
-                Spacer()
-                Button("Cancel") {
-                    editingId = nil
-                    editScopedGroup = nil
-                }
-                Button("Save") {
-                    saveEdit()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(!hasValidEditCommands)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    // MARK: - Validation
-
-    private var hasValidNewCommands: Bool {
-        newCommands.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-
-    private var hasValidEditCommands: Bool {
-        editCommands.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    }
-
-    // MARK: - Actions
-
-    private func resetAddForm() {
-        newTool = ""
-        newPattern = ""
-        newCommands = [""]
-        addScope = .global
-    }
-
-    private func startEditing(scopedHook: ScopedHookGroup) {
-        editingId = scopedHook.id
-        editScopedGroup = scopedHook
-        editTool = scopedHook.group.matcher?.tool ?? ""
-        editPattern = scopedHook.group.matcher?.pattern ?? ""
-        editCommands = scopedHook.group.hooks.map { $0.command ?? "" }
-        if editCommands.isEmpty { editCommands = [""] }
-    }
-
-    private func saveNewHook(for hookType: HookType) {
-        var model = HookGroupModel()
-        model.matcherTool = newTool
-        model.matcherPattern = newPattern
-        model.commands = newCommands
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        let newGroup = model.toHookGroup()
-        appendGroup(newGroup, for: hookType, scope: addScope)
-
-        addingForType = nil
-        resetAddForm()
-    }
-
-    private func saveEdit() {
-        guard let scopedHook = editScopedGroup else { return }
-
-        var model = HookGroupModel()
-        model.matcherTool = editTool
-        model.matcherPattern = editPattern
-        model.commands = editCommands
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        replaceGroup(at: scopedHook.indexInScope, with: model.toHookGroup(),
-                     for: scopedHook.hookType, scope: scopedHook.scope)
-
-        editingId = nil
-        editScopedGroup = nil
-    }
+    // MARK: - Actions (unused inline forms removed — now uses sheet)
 
     private func deleteHook(_ scopedHook: ScopedHookGroup) {
         removeGroup(at: scopedHook.indexInScope, for: scopedHook.hookType, scope: scopedHook.scope)
@@ -987,4 +803,159 @@ struct HooksView: View {
 struct CommandEntry: Identifiable, Equatable {
     let id = UUID()
     var text: String = ""
+}
+
+// MARK: - Hook Editor Sheet
+
+struct HookEditorSheet: View {
+    enum Mode { case add, edit }
+
+    let mode: Mode
+    let hookType: HookType
+    let scope: ConfigScope
+    var initialTool: String = ""
+    var initialPattern: String = ""
+    var initialCommands: [String] = []
+    let onSave: (String, String, [String]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var tool: String = ""
+    @State private var pattern: String = ""
+    @State private var commands: [String] = [""]
+
+    private var isValid: Bool {
+        commands.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: hookType.icon)
+                        .foregroundColor(hookType.color)
+                    Text(mode == .add ? "Add \(hookType.displayName) Hook" : "Edit \(hookType.displayName) Hook")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                Spacer()
+                ScopeBadge(scope: scope)
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // When to Run
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("When to Run")
+                            .font(.headline)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Tool Name")
+                                .font(.subheadline.bold())
+                            TextField("e.g. Bash, Read, Write, Edit", text: $tool)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                            Text("Only trigger for this specific tool. Leave empty to match all tools.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Pattern")
+                                .font(.subheadline.bold())
+                            TextField("e.g. git\\s+push.*", text: $pattern)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                            Text("Regex pattern to match against tool input. Optional.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Divider()
+
+                    // Commands
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Shell Commands")
+                            .font(.headline)
+
+                        Text("Commands to execute when this hook triggers. Each runs in order.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        ForEach(commands.indices, id: \.self) { i in
+                            HStack(spacing: 8) {
+                                Text("$")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(hookType.color)
+                                TextField(hookType.placeholder, text: $commands[i])
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(.body, design: .monospaced))
+                                if commands.count > 1 {
+                                    Button {
+                                        commands.remove(at: i)
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        Button {
+                            commands.append("")
+                        } label: {
+                            Label("Add Command", systemImage: "plus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding()
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                Text(hookType.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                Button(mode == .add ? "Add Hook" : "Save") {
+                    let cleanCommands = commands
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    onSave(tool, pattern, cleanCommands)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid)
+            }
+            .padding()
+        }
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: 700,
+               minHeight: 400, idealHeight: 500, maxHeight: 650)
+        .onAppear {
+            tool = initialTool
+            pattern = initialPattern
+            commands = initialCommands.isEmpty ? [""] : initialCommands
+        }
+    }
 }
