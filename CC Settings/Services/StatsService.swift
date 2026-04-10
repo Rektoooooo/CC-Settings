@@ -27,12 +27,25 @@ struct UsageStats: Codable {
     var totalOutputTokens: Int = 0
     var totalCacheReadTokens: Int = 0
     var totalCacheCreationTokens: Int = 0
+    var totalTokens: Int = 0
     var modelsUsed: [NamedCount] = []
     var toolsUsed: [NamedCount] = []
     var dailyActivity: [DailyEntry] = []
     var topProjects: [ProjectEntry] = []
     var avgSessionDuration: TimeInterval = 0
     var avgMessagesPerSession: Double = 0
+
+    // Highlights
+    var activeDaysLast30: Int = 0
+    var activeDaysTotal: Int = 0
+    var currentStreak: Int = 0
+    var longestStreak: Int = 0
+    var longestSessionDuration: TimeInterval = 0
+    var longestSessionProject: String?
+    var mostActiveDay: String?
+    var mostActiveDayCount: Int = 0
+    var favoriteModel: String?
+
     var cachedAt: Date = Date()
 }
 
@@ -103,6 +116,8 @@ final class StatsService: ObservableObject {
         var projectStats: [ProjectEntry] = []
         var totalDuration: TimeInterval = 0
         var sessionsWithDuration = 0
+        var longestDuration: TimeInterval = 0
+        var longestProject: String?
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
@@ -125,7 +140,7 @@ final class StatsService: ObservableObject {
                 result.totalCacheCreationTokens += scan.tokens.cacheCreationTokens
                 projectTokens += scan.tokens.inputTokens + scan.tokens.outputTokens
 
-                for model in scan.metadata.modelsUsed {
+                for model in scan.metadata.modelsUsed where model != "<synthetic>" {
                     modelCounts[model, default: 0] += 1
                 }
                 for tool in scan.metadata.toolsUsed {
@@ -142,6 +157,10 @@ final class StatsService: ObservableObject {
                     if duration > 0 {
                         totalDuration += duration
                         sessionsWithDuration += 1
+                        if duration > longestDuration {
+                            longestDuration = duration
+                            longestProject = project.displayName
+                        }
                     }
                 }
             }
@@ -181,6 +200,52 @@ final class StatsService: ObservableObject {
         }
         if result.totalSessions > 0 {
             result.avgMessagesPerSession = Double(result.totalMessages) / Double(result.totalSessions)
+        }
+
+        // Total tokens
+        result.totalTokens = result.totalInputTokens + result.totalOutputTokens
+
+        // Longest session
+        result.longestSessionDuration = longestDuration
+        result.longestSessionProject = longestProject
+
+        // Active days
+        result.activeDaysTotal = dailyCounts.count
+        let last30Keys = Set(daily.map { dateFormatter.string(from: $0.date) })
+        result.activeDaysLast30 = dailyCounts.keys.filter { last30Keys.contains($0) && dailyCounts[$0]! > 0 }.count
+
+        // Streaks
+        var currentStreak = 0
+        var bestStreak = 0
+        var streak = 0
+        for offset in 0..<365 {
+            if let date = calendar.date(byAdding: .day, value: -offset, to: today) {
+                let key = dateFormatter.string(from: date)
+                if dailyCounts[key, default: 0] > 0 {
+                    streak += 1
+                    bestStreak = max(bestStreak, streak)
+                    if offset <= 1 { currentStreak = streak }
+                } else {
+                    if offset > 1 { streak = 0 }
+                }
+            }
+        }
+        result.currentStreak = currentStreak
+        result.longestStreak = bestStreak
+
+        // Most active day
+        if let best = dailyCounts.max(by: { $0.value < $1.value }) {
+            if let date = dateFormatter.date(from: best.key) {
+                let displayFmt = DateFormatter()
+                displayFmt.dateFormat = "MMM d"
+                result.mostActiveDay = displayFmt.string(from: date)
+                result.mostActiveDayCount = best.value
+            }
+        }
+
+        // Favorite model (already filtered <synthetic>)
+        if let top = modelCounts.max(by: { $0.value < $1.value }) {
+            result.favoriteModel = top.key
         }
 
         // Calculate total storage for ALL of ~/.claude/, not just session files

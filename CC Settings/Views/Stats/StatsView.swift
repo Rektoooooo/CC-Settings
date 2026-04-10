@@ -53,20 +53,24 @@ struct StatsView: View {
                 let gap: CGFloat = 10
 
                 VStack(spacing: gap) {
-                    // Row 1: Activity (2/3) + Token Breakdown (1/3)
+                    // Row 1: Activity (65%) + Highlights (35%)
                     HStack(alignment: .top, spacing: gap) {
                         StatsCard(title: "ACTIVITY", subtitle: "Last 30 Days") {
                             ActivityChart(dailyActivity: stats.dailyActivity)
                         }
                         .frame(width: w * 0.65)
 
-                        StatsCard(title: "TOKEN BREAKDOWN") {
-                            TokenBreakdownView(stats: stats)
+                        StatsCard(title: "HIGHLIGHTS") {
+                            QuickStatsCard(stats: stats)
                         }
                     }
 
-                    // Row 2: Model (1/3) + Tools (1/3) + Top Projects (1/3)
+                    // Row 2: Token Breakdown + Models + Tools
                     HStack(alignment: .top, spacing: gap) {
+                        StatsCard(title: "TOKEN BREAKDOWN") {
+                            TokenBreakdownView(stats: stats)
+                        }
+
                         StatsCard(title: "MODELS") {
                             ModelDistributionChart(models: stats.modelsUsed)
                         }
@@ -74,10 +78,11 @@ struct StatsView: View {
                         StatsCard(title: "TOP TOOLS") {
                             TopToolsChart(tools: Array(stats.toolsUsed.prefix(12)))
                         }
+                    }
 
-                        StatsCard(title: "TOP PROJECTS") {
-                            TopProjectsView(projects: stats.topProjects, stats: stats)
-                        }
+                    // Row 3: Top Projects (full width)
+                    StatsCard(title: "TOP PROJECTS") {
+                        TopProjectsView(projects: stats.topProjects, stats: stats)
                     }
                 }
                 .padding(12)
@@ -312,7 +317,7 @@ private struct ModelDistributionChart: View {
     @State private var hoveredModel: String?
 
     private var displayModels: [NamedCount] {
-        Array(models.prefix(6))
+        Array(models.filter { $0.name != "<synthetic>" }.prefix(6))
     }
 
     private var totalCount: Int {
@@ -386,10 +391,11 @@ private struct ModelDistributionChart: View {
     }
 
     private func formatModelName(_ model: String) -> String {
-        model
+        if let known = findModel(byModelId: model) { return known.displayName }
+        return model
             .replacingOccurrences(of: "claude-", with: "")
-            .replacingOccurrences(of: "-20250", with: " 25-")
-            .replacingOccurrences(of: "-20240", with: " 24-")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
     }
 
     private func formatPercent(_ count: Int) -> String {
@@ -515,23 +521,38 @@ private struct TokenBreakdownView: View {
 
             Spacer(minLength: 0)
 
-            // Categories
+            // Input vs Output (the actual tokens you used)
             VStack(alignment: .leading, spacing: 6) {
                 tokenRow("Input", count: stats.totalInputTokens, color: .themeAccent)
                 tokenRow("Output", count: stats.totalOutputTokens, color: .green)
-                tokenRow("Cache Read", count: stats.totalCacheReadTokens, color: .orange)
-                tokenRow("Cache Creation", count: stats.totalCacheCreationTokens, color: .purple)
             }
 
             Spacer(minLength: 0)
 
-            // Averages inline
-            HStack(spacing: 12) {
-                miniStat("Avg Duration", value: formatDuration(stats.avgSessionDuration))
-                miniStat("Msgs/Session", value: String(format: "%.0f", stats.avgMessagesPerSession))
-                if stats.totalSessions > 0 {
-                    let avg = (stats.totalInputTokens + stats.totalOutputTokens) / max(stats.totalSessions, 1)
-                    miniStat("Tokens/Session", value: formatCompact(avg))
+            if stats.totalCacheReadTokens > 0 || stats.totalCacheCreationTokens > 0 {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Prompt Cache")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    tokenRow("Cache Read", count: stats.totalCacheReadTokens, color: .orange)
+                    tokenRow("Cache Creation", count: stats.totalCacheCreationTokens, color: .purple)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            if stats.totalSessions > 0 {
+                let avg = totalTokens / max(stats.totalSessions, 1)
+                HStack(spacing: 5) {
+                    Circle().fill(Color.secondary).frame(width: 6, height: 6)
+                    Text("Avg/Session")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer(minLength: 4)
+                    Text(formatCompact(avg))
+                        .font(.caption2.monospaced())
                 }
             }
         }
@@ -651,5 +672,73 @@ private struct TopProjectsView: View {
             return String(format: "%.1fK", Double(count) / 1_000)
         }
         return "\(count)"
+    }
+}
+
+// MARK: - Quick Stats Highlights Card
+
+private struct QuickStatsCard: View {
+    let stats: UsageStats
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 14) {
+                highlightRow(icon: "sparkles", label: "Favorite Model", value: friendlyModelName(stats.favoriteModel ?? "—"))
+                highlightRow(icon: "number", label: "Total Tokens", value: formatCompact(stats.totalTokens))
+                highlightRow(icon: "calendar", label: "Active Days", value: "\(stats.activeDaysLast30)/30")
+                highlightRow(icon: "timer", label: "Longest Session", value: formatDuration(stats.longestSessionDuration))
+                highlightRow(icon: "flame", label: "Current Streak", value: "\(stats.currentStreak) day\(stats.currentStreak == 1 ? "" : "s")")
+                highlightRow(icon: "trophy", label: "Best Streak", value: "\(stats.longestStreak) day\(stats.longestStreak == 1 ? "" : "s")")
+                highlightRow(icon: "star", label: "Most Active", value: stats.mostActiveDay ?? "—")
+                highlightRow(icon: "clock", label: "Avg Duration", value: formatDuration(stats.avgSessionDuration))
+                highlightRow(icon: "message", label: "Msgs/Session", value: String(format: "%.0f", stats.avgMessagesPerSession))
+                highlightRow(icon: "folder", label: "Active Projects", value: "\(stats.totalProjects)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func highlightRow(icon: String, label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption)
+                .foregroundColor(.themeAccent)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(.callout, design: .rounded))
+                    .fontWeight(.semibold)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+    }
+
+    private func formatCompact(_ count: Int) -> String {
+        if count >= 1_000_000_000 { return String(format: "%.1fB", Double(count) / 1_000_000_000) }
+        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+        return "\(count)"
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        if seconds <= 0 { return "—" }
+        let totalMinutes = Int(seconds / 60)
+        let days = totalMinutes / (60 * 24)
+        let hours = (totalMinutes % (60 * 24)) / 60
+        let minutes = totalMinutes % 60
+        if days > 0 { return "\(days)d \(hours)h \(minutes)m" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
+
+    private func friendlyModelName(_ raw: String) -> String {
+        if raw == "—" { return raw }
+        if let known = findModel(byModelId: raw) { return known.displayName }
+        return raw.replacingOccurrences(of: "claude-", with: "")
+                  .replacingOccurrences(of: "-", with: " ")
+                  .capitalized
     }
 }
