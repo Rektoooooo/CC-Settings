@@ -458,35 +458,29 @@ struct SidebarView: View {
                     }
                 }
 
-                if !isSearching {
+                let showStats = matchesSearch(.stats)
+                let showCleanup = matchesSearch(.cleanup)
+                let showSync = matchesSearch(.sync)
+                if showStats || showCleanup || showSync {
                     Section("Maintenance") {
-                        navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis")
-                        navItem(.cleanup, label: "Cleanup", systemImage: "trash")
-                        navItem(.sync, label: "Version Control", systemImage: "arrow.triangle.branch")
-                    }
-                } else if matchesSearch(.stats) || matchesSearch(.cleanup) || matchesSearch(.sync) {
-                    Section("Maintenance") {
-                        if matchesSearch(.stats) {
-                            navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis")
-                        }
-                        if matchesSearch(.cleanup) {
-                            navItem(.cleanup, label: "Cleanup", systemImage: "trash")
-                        }
-                        if matchesSearch(.sync) {
-                            navItem(.sync, label: "Version Control", systemImage: "arrow.triangle.branch")
-                        }
+                        if showStats { navItem(.stats, label: "Stats", systemImage: "chart.bar.xaxis") }
+                        if showCleanup { navItem(.cleanup, label: "Cleanup", systemImage: "trash") }
+                        if showSync { navItem(.sync, label: "Version Control", systemImage: "arrow.triangle.branch") }
                     }
                 }
             }
             .listStyle(.sidebar)
             .onChange(of: searchText) {
                 guard isSearching else { return }
-                // Auto-select first matching section to prevent stale selection rendering
                 let allItems: [NavigationItem] = [.general, .permissions, .environment, .experimentalFeatures, .hooks, .hud,
                                                    .claudeMDEditor, .sessionHistory, .commands, .skills, .plugins, .mcpServers,
                                                    .agents, .rules, .stats, .cleanup, .sync]
-                if !matchesSearch(selection), let first = allItems.first(where: matchesSearch) {
-                    selection = first
+                if !matchesSearch(selection) {
+                    if let first = allItems.first(where: matchesSearch) {
+                        selection = first
+                    } else {
+                        selection = .none
+                    }
                 }
             }
         }
