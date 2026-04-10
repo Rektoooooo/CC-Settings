@@ -158,7 +158,7 @@ enum NavigationItem: Hashable {
         case .projectSessions:
             return ["project", "sessions", "history"]
         case .claudeMDEditor:
-            return ["claude.md", "markdown", "editor", "instructions", "system prompt"]
+            return ["claude.md", "markdown", "editor", "instructions", "system prompt", "templates", "template"]
         case .sessionHistory:
             return ["session", "history", "chat", "conversation", "transcript"]
         case .commands:
