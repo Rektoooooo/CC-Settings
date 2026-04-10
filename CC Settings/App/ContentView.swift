@@ -14,7 +14,6 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 350)
         } detail: {
             detailView
-                .id(selection)
         }
         .navigationSplitViewStyle(.balanced)
     }
