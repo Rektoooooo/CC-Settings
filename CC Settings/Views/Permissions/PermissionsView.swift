@@ -146,10 +146,14 @@ struct PermissionsView: View {
 
     @State private var toolPermissions: [ClaudeTool: PermissionState] = [:]
     @State private var customRules: [CustomPermissionRule] = []
-    @State private var defaultMode: DefaultPermissionMode = .defaultMode
-    @State private var disableBypassPermissions: Bool = false
-    @State private var skipDangerousModePrompt: Bool = false
-    @State private var additionalDirectories: [String] = []
+    private static var p: PermissionsConfig { ConfigurationManager.shared.settings.permissions }
+    @State private var defaultMode: DefaultPermissionMode = {
+        if let raw = p.defaultMode, let mode = DefaultPermissionMode(rawValue: raw) { return mode }
+        return .defaultMode
+    }()
+    @State private var disableBypassPermissions: Bool = p.disableBypassPermissionsMode == "disable"
+    @State private var skipDangerousModePrompt: Bool = p.skipDangerousModePermissionPrompt ?? false
+    @State private var additionalDirectories: [String] = p.additionalDirectories ?? []
     @State private var newDirectory: String = ""
     @State private var showingAddRule = false
     @State private var newRuleToolName: String = "Bash"
