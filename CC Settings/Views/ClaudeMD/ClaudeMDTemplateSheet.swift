@@ -41,7 +41,7 @@ struct ClaudeMDTemplateSheet: View {
                             ForEach(group.templates) { template in
                                 HStack(spacing: 10) {
                                     Image(systemName: template.icon)
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.themeAccent)
                                         .frame(width: 20)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(template.name)
