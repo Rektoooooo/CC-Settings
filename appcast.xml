@@ -3,6 +3,30 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.1.7</title>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>1.1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>13 CLAUDE.md templates organized by category (iOS, Android, Next.js, Python, Go, Rust, Monorepo, etc.)</li>
+                    <li>Auto-backup before applying a template — restore from backup button in toolbar</li>
+                    <li>Search now shows sub-sections and scrolls directly to the matched setting</li>
+                    <li>Expanded search keywords — Fast Mode, shell, memory, voice, and many more now findable</li>
+                    <li>Fixed settings reset on new install (guarded all onChange handlers)</li>
+                    <li>Fixed sidebar ghost items and section headers during search</li>
+                    <li>Fixed search crash when clearing text</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 10 Apr 2026 18:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.1.7/CC-Settings-1.1.7.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="mNLth7EXJUXAgyj1hwd7RAWsG9wOnTYF3IchMj4surJZnvgH6CEb5JMurdWMApmHKiHqIZvhXPZ55/ValnFXAw=="
+                length="5581853"
+            />
+        </item>
+        <item>
             <title>Version 1.1.6</title>
             <sparkle:version>12</sparkle:version>
             <sparkle:shortVersionString>1.1.6</sparkle:shortVersionString>
