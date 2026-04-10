@@ -3,6 +3,28 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.1.9</title>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>1.1.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Stats dashboard redesign — new Highlights card with streaks, active days, longest session, favorite model</li>
+                    <li>Friendly model names (Opus 4.6 instead of claude-opus-4-6), no more &lt;synthetic&gt;</li>
+                    <li>Fixed token breakdown — Input vs Output as primary, cache stats as secondary</li>
+                    <li>Top Projects now full width</li>
+                    <li>New app icon</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 10 Apr 2026 22:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.1.9/CC-Settings-1.1.9.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="RVah1yB3hrpBhseYKcLpcJgJl94UBNGUhRGUIqPcqiCfnBZaoEmxmgmQ+g2O75otYXkWG9cf0am+6ePPx54PBQ=="
+                length="5696759"
+            />
+        </item>
+        <item>
             <title>Version 1.1.8</title>
             <sparkle:version>14</sparkle:version>
             <sparkle:shortVersionString>1.1.8</sparkle:shortVersionString>
