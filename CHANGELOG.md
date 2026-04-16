@@ -2,6 +2,18 @@
 
 All notable changes to CC Settings are documented here.
 
+## [1.2.1] — 2026-04-16
+
+### Added
+- Opus 4.7 and Opus 4.7 (1M context) in the model picker
+- `Xhigh` effort level (between High and Max) to match Claude Code's new intelligence scale
+- Project-level effort override now exposes the full scale (Auto/Low/Medium/High/Xhigh/Max)
+
+### Changed
+- HUD previews and model-format examples updated to Opus 4.7
+- Environment placeholder examples bumped to `claude-opus-4-7`
+- General effort caption is now model-agnostic ("Controls adaptive reasoning effort on Opus models")
+
 ## [1.0.1] — 2026-02-23
 
 ### Fixed

@@ -3,6 +3,27 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.2.1</title>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Added Opus 4.7 and Opus 4.7 (1M context) to the model picker</li>
+                    <li>New Xhigh effort level between High and Max, matching Claude Code&rsquo;s expanded intelligence scale</li>
+                    <li>Project-level effort override now exposes the full scale (Auto/Low/Medium/High/Xhigh/Max)</li>
+                    <li>HUD previews and environment placeholders refreshed to Opus 4.7</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 16 Apr 2026 18:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.2.1/CC-Settings-1.2.1.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="Es/2HfgKjl8MHj8Dv7OV2uvuGzidSBhr8LF3R+rlc3mZACwE3VHGsmOXYFzz8TotwvmRh2/UktE6jET12OrHCQ=="
+                length="6689172"
+            />
+        </item>
+        <item>
             <title>Version 1.2.0</title>
             <sparkle:version>16</sparkle:version>
             <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>

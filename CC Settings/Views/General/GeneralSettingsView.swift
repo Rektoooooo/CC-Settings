@@ -339,10 +339,11 @@ struct GeneralSettingsView: View {
                 Text("Low").tag("low")
                 Text("Medium").tag("medium")
                 Text("High").tag("high")
+                Text("Xhigh").tag("xhigh")
                 Text("Max").tag("max")
             }
             .pickerStyle(.segmented)
-            Text("Controls Opus 4.6 adaptive reasoning effort.")
+            Text("Controls adaptive reasoning effort on Opus models.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 

@@ -35,6 +35,8 @@ struct ModelVersion: Identifiable, Equatable, Hashable {
 
 let allModelVersions: [ModelVersion] = [
     // Opus
+    ModelVersion(id: "claude-opus-4-7[1m]", family: .opus, version: "4.7 (1M)", modelId: "claude-opus-4-7[1m]", displayName: "Opus 4.7 (1M context)", isLatest: false),
+    ModelVersion(id: "claude-opus-4-7", family: .opus, version: "4.7", modelId: "claude-opus-4-7", displayName: "Opus 4.7", isLatest: false),
     ModelVersion(id: "claude-opus-4-6[1m]", family: .opus, version: "4.6 (1M)", modelId: "claude-opus-4-6[1m]", displayName: "Opus 4.6 (1M context)", isLatest: false),
     ModelVersion(id: "claude-opus-4-6", family: .opus, version: "4.6", modelId: "claude-opus-4-6", displayName: "Opus 4.6", isLatest: false),
     ModelVersion(id: "claude-opus-4-20250514", family: .opus, version: "4.0", modelId: "claude-opus-4-20250514", displayName: "Opus 4.0", isLatest: false),

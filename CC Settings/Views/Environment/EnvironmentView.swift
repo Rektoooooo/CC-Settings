@@ -63,7 +63,7 @@ struct EnvironmentView: View {
 
             // MARK: - Model Overrides
             Section {
-                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-opus-4-6)"))
+                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-opus-4-7)"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Override the model used by Claude Code. This takes priority over the model setting.")
@@ -83,7 +83,7 @@ struct EnvironmentView: View {
                             Text("opus =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-opus-4-6", text: $defaultOpusModel)
+                            TextField("e.g. claude-opus-4-7", text: $defaultOpusModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }

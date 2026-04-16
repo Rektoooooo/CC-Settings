@@ -139,8 +139,12 @@ struct ProjectSettingsView: View {
             ) {
                 Picker("", selection: $effortLevel) {
                     Text("Normal").tag("")
+                    Text("Auto").tag("auto")
                     Text("Low").tag("low")
+                    Text("Medium").tag("medium")
                     Text("High").tag("high")
+                    Text("Xhigh").tag("xhigh")
+                    Text("Max").tag("max")
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: effortLevel) {
