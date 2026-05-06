@@ -37,6 +37,19 @@ struct EnvironmentView: View {
     // Display & Misc
     @State private var hideAccountInfo: Bool = env["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
     @State private var disableBugCommand: Bool = env["DISABLE_BUG_COMMAND"] == "1"
+    @State private var hideCwd: Bool = env["CLAUDE_CODE_HIDE_CWD"] == "1"
+    @State private var forceSyncOutput: Bool = env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] == "1"
+
+    // Updates
+    @State private var disableUpdates: Bool = env["DISABLE_UPDATES"] == "1"
+    @State private var packageManagerAutoUpdate: Bool = env["CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE"] == "1"
+
+    // Subagents & Discovery
+    @State private var forkSubagent: Bool = env["CLAUDE_CODE_FORK_SUBAGENT"] == "1"
+    @State private var enableGatewayModelDiscovery: Bool = env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] == "1"
+
+    // Bedrock
+    @State private var bedrockServiceTier: String = env["ANTHROPIC_BEDROCK_SERVICE_TIER"] ?? ""
 
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
@@ -223,13 +236,76 @@ struct EnvironmentView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
+                Toggle("Hide Working Directory in Logo", isOn: $hideCwd)
+                    .onChange(of: hideCwd) { _, _ in save() }
+                Text("Hide the cwd shown in the startup logo.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
                 Toggle("Disable Bug Report Command", isOn: $disableBugCommand)
                     .onChange(of: disableBugCommand) { _, _ in save() }
                 Text("Remove the /bug command from Claude Code.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Toggle("Force Synchronized Terminal Output", isOn: $forceSyncOutput)
+                    .onChange(of: forceSyncOutput) { _, _ in save() }
+                Text("Forces sync output on terminals where auto-detection misses (e.g. Emacs eat).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Display")
+            }
+
+            // MARK: - Updates
+            Section {
+                Toggle("Disable All Updates", isOn: $disableUpdates)
+                    .onChange(of: disableUpdates) { _, _ in save() }
+                Text("Blocks all update paths including manual `claude update`. Stricter than DISABLE_AUTOUPDATER.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Package Manager Auto-Update", isOn: $packageManagerAutoUpdate)
+                    .onChange(of: packageManagerAutoUpdate) { _, _ in save() }
+                Text("On Homebrew or WinGet installs, run the upgrade in the background and prompt to restart.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Updates")
+            }
+
+            // MARK: - Subagents & Gateway Discovery
+            Section {
+                Toggle("Enable Forked Subagents", isOn: $forkSubagent)
+                    .onChange(of: forkSubagent) { _, _ in save() }
+                Text("Enables forked subagents on external builds (CLAUDE_CODE_FORK_SUBAGENT).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Enable Gateway Model Discovery", isOn: $enableGatewayModelDiscovery)
+                    .onChange(of: enableGatewayModelDiscovery) { _, _ in save() }
+                Text("Lets the /model picker list models from your gateway's /v1/models endpoint when ANTHROPIC_BASE_URL is set.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Subagents & Gateway Discovery")
+            }
+
+            // MARK: - Bedrock
+            Section {
+                Picker("Service Tier", selection: $bedrockServiceTier) {
+                    Text("Default").tag("")
+                    Text("default").tag("default")
+                    Text("flex").tag("flex")
+                    Text("priority").tag("priority")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: bedrockServiceTier) { _, _ in save() }
+                Text("Sent as the X-Amzn-Bedrock-Service-Tier header. Only used when running on Bedrock.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Bedrock")
             }
 
             // MARK: - Custom Variables
@@ -294,6 +370,10 @@ struct EnvironmentView: View {
         "MCP_TIMEOUT", "MCP_TOOL_TIMEOUT",
         "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
         "CLAUDE_CODE_HIDE_ACCOUNT_INFO", "DISABLE_BUG_COMMAND",
+        "CLAUDE_CODE_HIDE_CWD", "CLAUDE_CODE_FORCE_SYNC_OUTPUT",
+        "DISABLE_UPDATES", "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE",
+        "CLAUDE_CODE_FORK_SUBAGENT", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+        "ANTHROPIC_BEDROCK_SERVICE_TIER",
     ]
 
     // MARK: - Data Sync
@@ -331,6 +411,19 @@ struct EnvironmentView: View {
         // Display
         hideAccountInfo = env["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
         disableBugCommand = env["DISABLE_BUG_COMMAND"] == "1"
+        hideCwd = env["CLAUDE_CODE_HIDE_CWD"] == "1"
+        forceSyncOutput = env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] == "1"
+
+        // Updates
+        disableUpdates = env["DISABLE_UPDATES"] == "1"
+        packageManagerAutoUpdate = env["CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE"] == "1"
+
+        // Subagents & Discovery
+        forkSubagent = env["CLAUDE_CODE_FORK_SUBAGENT"] == "1"
+        enableGatewayModelDiscovery = env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] == "1"
+
+        // Bedrock
+        bedrockServiceTier = env["ANTHROPIC_BEDROCK_SERVICE_TIER"] ?? ""
 
         // Custom: everything not in managed keys
         customVars = env
@@ -382,6 +475,19 @@ struct EnvironmentView: View {
         // Display
         setFlag("CLAUDE_CODE_HIDE_ACCOUNT_INFO", hideAccountInfo)
         setFlag("DISABLE_BUG_COMMAND", disableBugCommand)
+        setFlag("CLAUDE_CODE_HIDE_CWD", hideCwd)
+        setFlag("CLAUDE_CODE_FORCE_SYNC_OUTPUT", forceSyncOutput)
+
+        // Updates
+        setFlag("DISABLE_UPDATES", disableUpdates)
+        setFlag("CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE", packageManagerAutoUpdate)
+
+        // Subagents & Discovery
+        setFlag("CLAUDE_CODE_FORK_SUBAGENT", forkSubagent)
+        setFlag("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", enableGatewayModelDiscovery)
+
+        // Bedrock
+        setString("ANTHROPIC_BEDROCK_SERVICE_TIER", bedrockServiceTier)
 
         // Custom vars
         for v in customVars {

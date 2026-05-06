@@ -35,6 +35,7 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
     var env: [String: String]?
     var url: String?
     var headers: [String: String]?
+    var alwaysLoad: Bool?
 
     var transportType: MCPTransportType {
         if let t = type {
@@ -61,9 +62,10 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
         case env
         case url
         case headers
+        case alwaysLoad
     }
 
-    init(id: String, type: String? = nil, command: String? = nil, args: [String]? = nil, env: [String: String]? = nil, url: String? = nil, headers: [String: String]? = nil) {
+    init(id: String, type: String? = nil, command: String? = nil, args: [String]? = nil, env: [String: String]? = nil, url: String? = nil, headers: [String: String]? = nil, alwaysLoad: Bool? = nil) {
         self.id = id
         self.type = type
         self.command = command
@@ -71,6 +73,7 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
         self.env = env
         self.url = url
         self.headers = headers
+        self.alwaysLoad = alwaysLoad
     }
 
     init(from decoder: Decoder) throws {
@@ -79,6 +82,7 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
         self.type = try container.decodeIfPresent(String.self, forKey: .type)
         self.command = try container.decodeIfPresent(String.self, forKey: .command)
         self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.alwaysLoad = try container.decodeIfPresent(Bool.self, forKey: .alwaysLoad)
 
         // args: coerce non-string values to strings
         if let stringArgs = try? container.decodeIfPresent([String].self, forKey: .args) {
@@ -116,6 +120,7 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
         try container.encodeIfPresent(env, forKey: .env)
         try container.encodeIfPresent(url, forKey: .url)
         try container.encodeIfPresent(headers, forKey: .headers)
+        try container.encodeIfPresent(alwaysLoad, forKey: .alwaysLoad)
     }
 }
 

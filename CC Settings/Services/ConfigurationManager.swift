@@ -275,6 +275,7 @@ class ConfigurationManager: ObservableObject {
         "skipWebFetchPreflight", "alwaysThinkingEnabled", "thinkingBudgetTokens",
         "mainBranch", "preferredGitApp", "customGitAppPath",
         "theme", "language", "effortLevel", "outputStyle", "verbose", "prefersReducedMotion",
+        "skillOverrides", "prUrlTemplate",
         "showTurnDuration", "respectGitignore", "autoCompact", "plansDirectory",
         "includeGitInstructions", "showThinkingSummaries", "showClearContextOnPlanAccept",
         "defaultShell",

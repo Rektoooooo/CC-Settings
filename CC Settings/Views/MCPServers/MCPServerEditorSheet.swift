@@ -15,6 +15,7 @@ struct MCPServerEditorSheet: View {
     @State private var args: [ArgEntry] = [ArgEntry()]
     @State private var url: String = ""
     @State private var envVars: [EnvEntry] = [EnvEntry()]
+    @State private var alwaysLoad: Bool = false
     @State private var nameError: String?
     @State private var selectedScope: ConfigScope
 
@@ -47,6 +48,7 @@ struct MCPServerEditorSheet: View {
                 let entries = (server.env ?? [:]).sorted(by: { $0.key < $1.key }).map { EnvEntry(key: $0.key, value: $0.value) }
                 return entries.isEmpty ? [EnvEntry()] : entries
             }())
+            _alwaysLoad = State(initialValue: server.alwaysLoad ?? false)
         }
     }
 
@@ -80,21 +82,24 @@ struct MCPServerEditorSheet: View {
                 type: "stdio",
                 command: command.trimmingCharacters(in: .whitespacesAndNewlines),
                 args: trimmedArgs.isEmpty ? nil : trimmedArgs,
-                env: envDict.isEmpty ? nil : envDict
+                env: envDict.isEmpty ? nil : envDict,
+                alwaysLoad: alwaysLoad ? true : nil
             )
         case .sse:
             return MCPServerConfig(
                 id: name,
                 type: "sse",
                 env: envDict.isEmpty ? nil : envDict,
-                url: url.trimmingCharacters(in: .whitespacesAndNewlines)
+                url: url.trimmingCharacters(in: .whitespacesAndNewlines),
+                alwaysLoad: alwaysLoad ? true : nil
             )
         case .http:
             return MCPServerConfig(
                 id: name,
                 type: "http",
                 env: envDict.isEmpty ? nil : envDict,
-                url: url.trimmingCharacters(in: .whitespacesAndNewlines)
+                url: url.trimmingCharacters(in: .whitespacesAndNewlines),
+                alwaysLoad: alwaysLoad ? true : nil
             )
         }
     }
@@ -204,6 +209,16 @@ struct MCPServerEditorSheet: View {
 
                     // Environment variables
                     envVarsFields
+
+                    Divider()
+
+                    // Tool loading behavior
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Always Load Tools", isOn: $alwaysLoad)
+                        Text("Skip tool-search deferral — all tools from this server are immediately available to the model. Use sparingly to avoid context bloat.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
                     Divider()
 

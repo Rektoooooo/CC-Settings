@@ -25,6 +25,7 @@ struct GeneralSettingsView: View {
     @State private var effortLevel: String = s.effortLevel ?? ""
     @State private var outputStyle: String = s.outputStyle ?? ""
     @State private var verbose: Bool = s.verbose ?? false
+    @State private var skillOverrides: String = s.skillOverrides ?? ""
 
     // Behavior
     @State private var showTurnDuration: Bool = s.showTurnDuration ?? true
@@ -60,6 +61,7 @@ struct GeneralSettingsView: View {
     // Attribution
     @State private var commitAttribution: String = s.attribution?.commit ?? ""
     @State private var prAttribution: String = s.attribution?.pr ?? ""
+    @State private var prUrlTemplate: String = s.prUrlTemplate ?? ""
 
     // Teams
     @State private var teammateMode: String = s.teammateMode ?? "auto"
@@ -356,6 +358,17 @@ struct GeneralSettingsView: View {
             Text("Show full bash and command outputs.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Picker("Skill Visibility", selection: $skillOverrides) {
+                Text("Default").tag("")
+                Text("Name Only").tag("name-only")
+                Text("User-Invocable Only").tag("user-invocable-only")
+                Text("Off").tag("off")
+            }
+            .pickerStyle(.segmented)
+            Text("Controls how skills appear to the model and to /. \"Name Only\" hides descriptions, \"User-Invocable Only\" hides skills from the model (still visible via /), \"Off\" hides them everywhere.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -537,6 +550,13 @@ struct GeneralSettingsView: View {
             Text("Text appended to pull request descriptions.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            TextField("PR URL Template", text: $prUrlTemplate, prompt: Text("https://github.com/{owner}/{repo}/pull/{number}"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("Custom code-review URL for the footer PR badge. Leave empty to use github.com.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -635,6 +655,10 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("verbose", value: verbose ? true : nil)
             }
+            .onChange(of: skillOverrides) {
+                guard isLoaded else { return }
+                configManager.saveField("skillOverrides", value: skillOverrides.isEmpty ? nil : skillOverrides)
+            }
             .onChange(of: showTurnDuration) {
                 guard isLoaded else { return }
                 configManager.saveField("showTurnDuration", value: showTurnDuration ? nil : false)
@@ -724,6 +748,11 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 saveAttribution()
             }
+            .onChange(of: prUrlTemplate) {
+                guard isLoaded else { return }
+                let trimmed = prUrlTemplate.trimmingCharacters(in: .whitespacesAndNewlines)
+                configManager.saveField("prUrlTemplate", value: trimmed.isEmpty ? nil : trimmed)
+            }
             .onChange(of: teammateMode) {
                 guard isLoaded else { return }
                 configManager.saveField("teammateMode", value: teammateMode == "auto" ? nil : teammateMode)
@@ -754,6 +783,7 @@ struct GeneralSettingsView: View {
         effortLevel = s.effortLevel ?? ""
         outputStyle = s.outputStyle ?? ""
         verbose = s.verbose ?? false
+        skillOverrides = s.skillOverrides ?? ""
 
         // Behavior
         showTurnDuration = s.showTurnDuration ?? true
@@ -793,6 +823,7 @@ struct GeneralSettingsView: View {
         // Attribution
         commitAttribution = s.attribution?.commit ?? ""
         prAttribution = s.attribution?.pr ?? ""
+        prUrlTemplate = s.prUrlTemplate ?? ""
 
         // Teams
         teammateMode = s.teammateMode ?? "auto"

@@ -20,6 +20,7 @@ struct ClaudeSettings: Equatable {
     var outputStyle: String?
     var verbose: Bool?
     var prefersReducedMotion: Bool?
+    var skillOverrides: String?
 
     // Behavior
     var showTurnDuration: Bool?
@@ -55,6 +56,7 @@ struct ClaudeSettings: Equatable {
 
     // Attribution
     var attribution: AttributionConfig?
+    var prUrlTemplate: String?
 
     // Teams
     var teammateMode: String?
@@ -117,6 +119,7 @@ extension ClaudeSettings: Codable {
         outputStyle = try c.decodeIfPresent(String.self, forKey: .outputStyle)
         verbose = try c.decodeIfPresent(Bool.self, forKey: .verbose)
         prefersReducedMotion = try c.decodeIfPresent(Bool.self, forKey: .prefersReducedMotion)
+        skillOverrides = try c.decodeIfPresent(String.self, forKey: .skillOverrides)
         showTurnDuration = try c.decodeIfPresent(Bool.self, forKey: .showTurnDuration)
         respectGitignore = try c.decodeIfPresent(Bool.self, forKey: .respectGitignore)
         autoCompact = try c.decodeIfPresent(AutoCompactConfig.self, forKey: .autoCompact)
@@ -136,6 +139,7 @@ extension ClaudeSettings: Codable {
         preferredNotifChannel = try c.decodeIfPresent(String.self, forKey: .preferredNotifChannel)
         cleanupPeriodDays = try c.decodeIfPresent(Int.self, forKey: .cleanupPeriodDays)
         attribution = try c.decodeIfPresent(AttributionConfig.self, forKey: .attribution)
+        prUrlTemplate = try c.decodeIfPresent(String.self, forKey: .prUrlTemplate)
         teammateMode = try c.decodeIfPresent(String.self, forKey: .teammateMode)
         disableAutoMode = try c.decodeIfPresent(String.self, forKey: .disableAutoMode)
         disableAllHooks = try c.decodeIfPresent(Bool.self, forKey: .disableAllHooks)
