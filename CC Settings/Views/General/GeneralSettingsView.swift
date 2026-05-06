@@ -335,7 +335,6 @@ struct GeneralSettingsView: View {
 
             Picker("Effort Level", selection: $effortLevel) {
                 Text("Default").tag("")
-                Text("Auto").tag("auto")
                 Text("Low").tag("low")
                 Text("Medium").tag("medium")
                 Text("High").tag("high")
