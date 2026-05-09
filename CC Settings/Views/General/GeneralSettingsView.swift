@@ -862,6 +862,16 @@ struct GeneralSettingsView: View {
             let pipe = Pipe()
             let outputLock = NSLock()
             var collected = Data()
+            var processRetainer: Process? = process
+            var pipeRetainer: Pipe? = pipe
+            var isHandleClosed = false
+            let closeHandleIfNeeded: (FileHandle) -> Void = { fileHandle in
+                if !isHandleClosed {
+                    fileHandle.readabilityHandler = nil
+                    fileHandle.closeFile()
+                    isHandleClosed = true
+                }
+            }
 
             process.executableURL = URL(fileURLWithPath: resolved)
             process.arguments = args
@@ -871,28 +881,39 @@ struct GeneralSettingsView: View {
             let handle = pipe.fileHandleForReading
             handle.readabilityHandler = { fileHandle in
                 let chunk = fileHandle.availableData
-                guard !chunk.isEmpty else { return }
                 outputLock.lock()
                 defer { outputLock.unlock() }
+                guard !chunk.isEmpty else {
+                    closeHandleIfNeeded(fileHandle)
+                    return
+                }
                 collected.append(chunk)
             }
 
             process.terminationHandler = { _ in
                 outputLock.lock()
                 defer { outputLock.unlock() }
-                handle.readabilityHandler = nil
-                let remainder = handle.availableData
-                if !remainder.isEmpty {
-                    collected.append(remainder)
+                if !isHandleClosed {
+                    let remainder = handle.availableData
+                    if !remainder.isEmpty {
+                        collected.append(remainder)
+                    }
                 }
+                closeHandleIfNeeded(handle)
                 let output = String(data: collected, encoding: .utf8) ?? ""
                 continuation.resume(returning: output)
+                pipeRetainer = nil
+                processRetainer = nil
             }
 
             do {
                 try process.run()
             } catch {
-                handle.readabilityHandler = nil
+                outputLock.lock()
+                defer { outputLock.unlock() }
+                closeHandleIfNeeded(handle)
+                pipeRetainer = nil
+                processRetainer = nil
                 continuation.resume(returning: "Error: \(error.localizedDescription)")
             }
         }
