@@ -860,7 +860,7 @@ struct GeneralSettingsView: View {
         return await withCheckedContinuation { continuation in
             let process = Process()
             let pipe = Pipe()
-            let outputQueue = DispatchQueue(label: "GeneralSettingsView.runShell")
+            let outputLock = NSLock()
             var collected = Data()
 
             process.executableURL = URL(fileURLWithPath: resolved)
@@ -872,21 +872,21 @@ struct GeneralSettingsView: View {
             handle.readabilityHandler = { fileHandle in
                 let chunk = fileHandle.availableData
                 guard !chunk.isEmpty else { return }
-                outputQueue.sync {
-                    collected.append(chunk)
-                }
+                outputLock.lock()
+                collected.append(chunk)
+                outputLock.unlock()
             }
 
             process.terminationHandler = { _ in
                 handle.readabilityHandler = nil
                 let remainder = handle.availableData
-                outputQueue.sync {
-                    if !remainder.isEmpty {
-                        collected.append(remainder)
-                    }
-                    let output = String(data: collected, encoding: .utf8) ?? ""
-                    continuation.resume(returning: output)
+                outputLock.lock()
+                if !remainder.isEmpty {
+                    collected.append(remainder)
                 }
+                let output = String(data: collected, encoding: .utf8) ?? ""
+                outputLock.unlock()
+                continuation.resume(returning: output)
             }
 
             do {
