@@ -873,19 +873,19 @@ struct GeneralSettingsView: View {
                 let chunk = fileHandle.availableData
                 guard !chunk.isEmpty else { return }
                 outputLock.lock()
+                defer { outputLock.unlock() }
                 collected.append(chunk)
-                outputLock.unlock()
             }
 
             process.terminationHandler = { _ in
+                outputLock.lock()
+                defer { outputLock.unlock() }
                 handle.readabilityHandler = nil
                 let remainder = handle.availableData
-                outputLock.lock()
                 if !remainder.isEmpty {
                     collected.append(remainder)
                 }
                 let output = String(data: collected, encoding: .utf8) ?? ""
-                outputLock.unlock()
                 continuation.resume(returning: output)
             }
 
