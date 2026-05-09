@@ -862,6 +862,8 @@ struct GeneralSettingsView: View {
             let pipe = Pipe()
             let outputLock = NSLock()
             var collected = Data()
+            var retainedProcess: Process? = process
+            var retainedPipe: Pipe? = pipe
 
             process.executableURL = URL(fileURLWithPath: resolved)
             process.arguments = args
@@ -871,7 +873,10 @@ struct GeneralSettingsView: View {
             let handle = pipe.fileHandleForReading
             handle.readabilityHandler = { fileHandle in
                 let chunk = fileHandle.availableData
-                guard !chunk.isEmpty else { return }
+                guard !chunk.isEmpty else {
+                    fileHandle.readabilityHandler = nil
+                    return
+                }
                 outputLock.lock()
                 defer { outputLock.unlock() }
                 collected.append(chunk)
@@ -885,14 +890,20 @@ struct GeneralSettingsView: View {
                 if !remainder.isEmpty {
                     collected.append(remainder)
                 }
+                handle.closeFile()
                 let output = String(data: collected, encoding: .utf8) ?? ""
                 continuation.resume(returning: output)
+                retainedPipe = nil
+                retainedProcess = nil
             }
 
             do {
                 try process.run()
             } catch {
                 handle.readabilityHandler = nil
+                handle.closeFile()
+                retainedPipe = nil
+                retainedProcess = nil
                 continuation.resume(returning: "Error: \(error.localizedDescription)")
             }
         }
