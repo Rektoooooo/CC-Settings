@@ -232,8 +232,11 @@ struct GeneralSettingsView: View {
             Text("Claude Code")
         }
         .onAppear {
-            fetchInstalledVersion()
-            checkForUpdates()
+            Task { @MainActor in
+                await Task.yield()
+                fetchInstalledVersion()
+                checkForUpdates()
+            }
         }
     }
 
@@ -854,20 +857,65 @@ struct GeneralSettingsView: View {
             resolved = command
         }
 
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: resolved)
-        process.arguments = args
-        process.standardOutput = pipe
-        process.standardError = pipe
+        return await withCheckedContinuation { continuation in
+            let process = Process()
+            let pipe = Pipe()
+            let outputLock = NSLock()
+            var collected = Data()
+            var processRetainer: Process? = process
+            var pipeRetainer: Pipe? = pipe
+            var isHandleClosed = false
+            let closeHandleIfNeeded: (FileHandle) -> Void = { fileHandle in
+                if !isHandleClosed {
+                    fileHandle.readabilityHandler = nil
+                    fileHandle.closeFile()
+                    isHandleClosed = true
+                }
+            }
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8) ?? ""
-        } catch {
-            return "Error: \(error.localizedDescription)"
+            process.executableURL = URL(fileURLWithPath: resolved)
+            process.arguments = args
+            process.standardOutput = pipe
+            process.standardError = pipe
+
+            let handle = pipe.fileHandleForReading
+            handle.readabilityHandler = { fileHandle in
+                let chunk = fileHandle.availableData
+                outputLock.lock()
+                defer { outputLock.unlock() }
+                guard !chunk.isEmpty else {
+                    closeHandleIfNeeded(fileHandle)
+                    return
+                }
+                collected.append(chunk)
+            }
+
+            process.terminationHandler = { _ in
+                outputLock.lock()
+                defer { outputLock.unlock() }
+                if !isHandleClosed {
+                    let remainder = handle.availableData
+                    if !remainder.isEmpty {
+                        collected.append(remainder)
+                    }
+                }
+                closeHandleIfNeeded(handle)
+                let output = String(data: collected, encoding: .utf8) ?? ""
+                continuation.resume(returning: output)
+                pipeRetainer = nil
+                processRetainer = nil
+            }
+
+            do {
+                try process.run()
+            } catch {
+                outputLock.lock()
+                defer { outputLock.unlock() }
+                closeHandleIfNeeded(handle)
+                pipeRetainer = nil
+                processRetainer = nil
+                continuation.resume(returning: "Error: \(error.localizedDescription)")
+            }
         }
     }
 
