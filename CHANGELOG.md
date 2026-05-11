@@ -2,7 +2,7 @@
 
 All notable changes to CC Settings are documented here.
 
-## [1.2.2] — 2026-05-06
+## [1.2.2] — 2026-05-11
 
 ### Added
 - `skillOverrides` setting (Default / Name Only / User-Invocable Only / Off) in General → Language & Output
@@ -16,6 +16,7 @@ All notable changes to CC Settings are documented here.
 
 ### Fixed
 - Removed invalid "Auto" tag from effort-level pickers — Claude Code's effort scale is `low / medium / high / xhigh / max`
+- Startup freeze: subprocess execution in `runShell` no longer blocks executor threads under the `async` API surface — thanks @lemoran (#6)
 
 ## [1.2.1] — 2026-04-16
 
