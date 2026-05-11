@@ -3,6 +3,27 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.2.2</title>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Tier 1 Claude Code catch-up (2.1.117&ndash;2.1.129): <code>skillOverrides</code>, <code>prUrlTemplate</code>, MCP <code>alwaysLoad</code></li>
+                    <li>New env vars in Environment view: <code>CLAUDE_CODE_HIDE_CWD</code>, <code>DISABLE_UPDATES</code>, <code>ANTHROPIC_BEDROCK_SERVICE_TIER</code>, and others</li>
+                    <li>Fixed startup freeze &mdash; subprocess execution in <code>runShell</code> no longer blocks executor threads (thanks @lemoran, #6)</li>
+                    <li>Removed invalid &ldquo;Auto&rdquo; tag from effort pickers (valid scale is low/medium/high/xhigh/max)</li>
+                </ul>
+            ]]></description>
+            <pubDate>Mon, 11 May 2026 08:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.2.2/CC-Settings-1.2.2.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="gU6F+dUdi13IXh29ueoUL45XIusq0xTPts/dd2pMQdfjxOFpN8GaBq76/hcE17q+sy9tiGJjUmoNZBaCPEV3BA=="
+                length="6707234"
+            />
+        </item>
+        <item>
             <title>Version 1.2.1</title>
             <sparkle:version>17</sparkle:version>
             <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
