@@ -153,11 +153,19 @@ Every release **must** include a signed, notarized DMG uploaded to GitHub Releas
 - **Code signing identity**: `Developer ID Application: IC Servis, s.r.o. (PH3V9JYRDW)`
 - **Team ID**: `PH3V9JYRDW`
 - **Apple ID**: `sebastian.kucera@icloud.com`
-- **App-specific password**: stored in Keychain or generate a new one at [account.apple.com](https://account.apple.com) > Sign-In and Security > App-Specific Passwords
-- **Sparkle EdDSA key**: stored in Keychain (generated via `generate_keys`)
-- **Sparkle tools location**: download from [Sparkle releases](https://github.com/sparkle-project/Sparkle/releases) and extract to `/tmp/sparkle/`
+- **Notarytool credentials**: stored in Keychain under profile `CC-Settings-Notarize`. To (re)create: `xcrun notarytool store-credentials "CC-Settings-Notarize" --apple-id "sebastian.kucera@icloud.com" --team-id "PH3V9JYRDW" --password "<app-specific-password>"`. Generate the app-specific password at [account.apple.com](https://account.apple.com) → Sign-In and Security → App-Specific Passwords.
+- **Sparkle EdDSA key**: stored in Keychain (account `ed25519`). The matching public key embedded in the app is `EXlWEgu6DpdzLNS+Qt6Yr5XZnP/IotgJun7O6tUJIkg=`. Verify with `generate_keys -p`. If lost, the only way to keep auto-update working is to recover it from another machine that has the same Keychain item — generating a new keypair breaks auto-update for all existing installs.
+- **Sparkle tools**: live inside the Release-build SPM artifact at `/tmp/cc-settings-build/SourcePackages/artifacts/sparkle/Sparkle/bin/` (`sign_update`, `generate_keys`). Do NOT use `/tmp/sparkle/` — it's volatile and gone after reboot.
 
-### Steps
+### Setup on a new machine (one-time)
+
+If `security find-identity -v -p codesigning` shows 0 valid identities:
+
+1. **Developer ID cert**: either import an existing `.p12` backup, or issue a new one. To issue new — generate a CSR (`openssl req -new -newkey rsa:2048 -nodes -keyout key.pem -out csr.csr -subj "/emailAddress=.../CN=.../C=CZ"`), upload at [developer.apple.com](https://developer.apple.com/account/resources/certificates/add) → Developer ID Application → G2 profile, download `.cer`, then bundle into `.p12` and import: `openssl x509 -in cert.cer -inform DER -out cert.pem && openssl pkcs12 -export -legacy -in cert.pem -inkey key.pem -out cert.p12 -passout pass:temp && security import cert.p12 -k ~/Library/Keychains/login.keychain-db -P temp -T /usr/bin/codesign`.
+2. **Apple intermediate**: a newly-issued G2 cert needs Apple's intermediate to validate. Install once: `curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o /tmp/g2.cer && security import /tmp/g2.cer -k ~/Library/Keychains/login.keychain-db`.
+3. **Sparkle key**: do NOT run `generate_keys` without `-f` — that creates a brand new keypair and breaks auto-update for existing users. Instead, export from the other machine with `generate_keys -x ~/Desktop/sparkle-private-key.txt` and import here with `generate_keys -f ~/Desktop/sparkle-private-key.txt`.
+
+### Release steps
 
 ```bash
 # 1. Bump version in BOTH files
@@ -178,11 +186,33 @@ xcodebuild -project "CC Settings.xcodeproj" -scheme "CC Settings" \
   OTHER_CODE_SIGN_FLAGS="--options runtime --timestamp" \
   build
 
-# 3. Create styled DMG (requires: brew install create-dmg)
+# 3. Re-sign Sparkle's nested executables with Developer ID + timestamp.
+#    Xcode only signs the outer .app — Sparkle's Autoupdate, Updater.app, and
+#    XPCServices ship adhoc-signed, which notarization REJECTS. Skip this step
+#    and Apple returns "The binary is not signed with a valid Developer ID
+#    certificate" for every Sparkle-internal binary.
+APP="/tmp/cc-settings-build/Build/Products/Release/CC Settings.app"
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+IDENTITY="Developer ID Application: IC Servis, s.r.o. (PH3V9JYRDW)"
+sign() { codesign --force --options runtime --timestamp --sign "$IDENTITY" "$1"; }
+# Inside-out — bundles must be re-signed after their contents:
+sign "$SPARKLE/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader"
+sign "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+sign "$SPARKLE/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer"
+sign "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+sign "$SPARKLE/Versions/B/Autoupdate"
+sign "$SPARKLE/Versions/B/Updater.app/Contents/MacOS/Updater"
+sign "$SPARKLE/Versions/B/Updater.app"
+sign "$SPARKLE"
+sign "$APP"
+codesign --verify --deep --strict "$APP"   # must say "valid on disk"
+
+# 4. Create styled DMG (requires: brew install create-dmg)
+#    NOTE: --background flag omitted because /tmp/dmg-background.png is volatile.
+#    If you have the background asset somewhere persistent, add it back here.
 rm -f /tmp/CC-Settings-<version>.dmg
 create-dmg \
   --volname "CC Settings" \
-  --background "/tmp/dmg-background.png" \
   --window-pos 200 120 \
   --window-size 660 400 \
   --icon-size 80 \
@@ -193,36 +223,53 @@ create-dmg \
   "/tmp/CC-Settings-<version>.dmg" \
   "/tmp/cc-settings-build/Build/Products/Release/CC Settings.app"
 
-# 4. Notarize with Apple
+# 5. Notarize with Apple (uses stored keychain profile — no password in CLI)
 xcrun notarytool submit /tmp/CC-Settings-<version>.dmg \
-  --apple-id "sebastian.kucera@icloud.com" \
-  --team-id "PH3V9JYRDW" \
-  --password "<app-specific-password>" \
+  --keychain-profile "CC-Settings-Notarize" \
   --wait
-# If "Invalid", check the log:
-#   xcrun notarytool log <submission-id> --apple-id ... --team-id ... --password ...
+# If "Invalid", inspect the log to see exactly which binary tripped it:
+#   xcrun notarytool log <submission-id> --keychain-profile "CC-Settings-Notarize"
 
-# 5. Staple the notarization ticket to the DMG
+# 6. Staple the notarization ticket to the DMG
 xcrun stapler staple /tmp/CC-Settings-<version>.dmg
+xcrun stapler validate /tmp/CC-Settings-<version>.dmg
 
-# 6. Sign DMG for Sparkle auto-updates
-/tmp/sparkle/bin/sign_update /tmp/CC-Settings-<version>.dmg
-# This outputs: sparkle:edSignature="..." length="..."
+# 7. Sign DMG for Sparkle auto-updates
+/tmp/cc-settings-build/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update \
+  /tmp/CC-Settings-<version>.dmg
+# Outputs: sparkle:edSignature="..." length="..."
 
-# 7. Update appcast.xml — add a new <item> with:
+# 8. Update appcast.xml — prepend a new <item> at the top of <channel>:
 #    - sparkle:version (CURRENT_PROJECT_VERSION)
 #    - sparkle:shortVersionString (MARKETING_VERSION)
-#    - enclosure url pointing to the GitHub release DMG
-#    - sparkle:edSignature and length from step 6
+#    - <pubDate>Mon, 11 May 2026 08:00:00 +0000</pubDate> (RFC-2822 format)
+#    - enclosure url: https://github.com/Rektoooooo/CC-Settings/releases/download/v<version>/CC-Settings-<version>.dmg
+#    - sparkle:edSignature and length from step 7
 
-# 8. Commit, push, create GitHub release, upload DMG
+# 9. Commit, push, tag, create GitHub release, upload DMG
 git add -A && git commit -m "Prepare v<version> release"
 git push origin main
+git tag -a v<version> -m "v<version> — <one-line summary>"
+git push origin v<version>
 gh release create v<version> --title "v<version>" --notes "..."
 gh release upload v<version> /tmp/CC-Settings-<version>.dmg
 ```
 
 **Important**: The DMG is for distribution only — do NOT commit it to the repo. It's listed in `.gitignore`. Always upload via `gh release upload`.
+
+### Common notarization failures
+
+| Failure | Cause | Fix |
+|---|---|---|
+| `not signed with a valid Developer ID certificate` on Sparkle binaries | Skipped step 3 (Sparkle re-sign) | Re-sign Sparkle inside-out, rebuild DMG |
+| `signature does not include a secure timestamp` | Codesign ran without `--timestamp` | Add `--timestamp` to OTHER_CODE_SIGN_FLAGS and to each manual `codesign` call |
+| `Apple ID and password are not matching` from notarytool | App-specific password expired/rotated | Re-run `notarytool store-credentials` with a fresh password |
+| `submission status: Invalid` with no useful issues | Server-side hiccup | Wait 5 min, re-submit. If consistent, run `notarytool log <id>` |
+
+### Contributor PR notes
+
+- The Release config uses **Swift 6 strict concurrency**. Captures of `var` across concurrent closures (`readabilityHandler`, `terminationHandler`, `Task.detached`, etc.) will fail to compile in Release even when they pass in Debug. Wrap shared mutable state in a `final class State: @unchecked Sendable { let lock = NSLock(); var ... }` and capture the class by reference.
+- Always rebuild **in Release** before tagging a version — Debug skips some concurrency diagnostics.
 
 ## What NOT to Do
 
