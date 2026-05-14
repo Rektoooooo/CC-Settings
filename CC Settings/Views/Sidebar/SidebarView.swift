@@ -654,8 +654,8 @@ struct SidebarView: View {
                 fm: fm
             )
 
-            // Count themes: top-level .json files under ~/.claude/themes/
-            let thmCount = Self.countFiles(
+            // Count themes: built-in themes plus top-level .json files under ~/.claude/themes/
+            let thmCount = ThemePresets.builtIns.count + Self.countFiles(
                 in: claudeDir.appendingPathComponent("themes"),
                 matching: { $0.pathExtension.lowercased() == "json" },
                 fm: fm
@@ -709,6 +709,7 @@ struct SidebarView: View {
             await MainActor.run {
                 commandsCount = cmdCount + projectCounts.commands
                 skillsCount = sklCount + projectCounts.skills
+                themesCount = thmCount
                 pluginsCount = plgCount
                 mcpServersCount = mcpCount
                 agentsCount = agtCount + projectCounts.agents

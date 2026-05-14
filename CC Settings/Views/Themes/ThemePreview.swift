@@ -139,11 +139,11 @@ struct ThemePreview: View {
 
     // MARK: - Color resolution
 
-    // Background / foreground / cursor follow the user's macOS appearance — Claude Code
-    // uses the terminal's surface colors, not theme-specified ones. Everything else
-    // (accent, status, syntax) comes from the theme so users can see their palette.
-    private var background: Color { Color(NSColor.textBackgroundColor) }
-    private var foreground: Color { Color(NSColor.labelColor) }
+    // Background / foreground come from the theme so the preview reflects the
+    // theme's actual surface colors (white for light themes, dark for dark ones).
+    // Themes that don't specify them — e.g. Auto — fall back to the macOS appearance.
+    private var background: Color { resolved(\.background, fallback: Color(NSColor.textBackgroundColor)) }
+    private var foreground: Color { resolved(\.foreground, fallback: Color(NSColor.labelColor)) }
     private var accent: Color { resolved(\.accent, fallback: foreground) }
     private var success: Color { resolved(\.success, fallback: .green) }
     private var errorColor: Color { resolved(\.error, fallback: .red) }

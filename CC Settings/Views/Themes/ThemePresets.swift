@@ -46,21 +46,21 @@ enum ThemePresets {
             icon: "moon.fill",
             description: "Claude Code's default dark theme — VS Code-style syntax highlighting with red/green diff stripes.",
             approximateColors: ThemeColors(
-                background: "#1c1c1c",
-                foreground: "#e6e6e6",
+                background: "#1e1e1e",
+                foreground: "#f8f8f2",
                 cursor: "#ffffff",
                 selection: "#3a3a3a",
-                accent: "#da7756",
-                error: "#f48771",   // diff `-` foreground (paired with red bg)
+                accent: "#e53f73",
+                error: "#cc625e",   // diff `-` marker / line number
                 warning: "#d29922",
-                success: "#b3e88a", // diff `+` foreground (paired with green bg)
+                success: "#72c560", // diff `+` marker / line number
                 muted: "#858585",
-                keyword: "#569cd6", // let / var / func / struct / return — light blue
-                string: "#ce9178",  // string literals — orange-brown
-                comment: "#888888",
-                number: "#b5cea8",  // numbers — pale green
-                function: "#dcdcaa", // function names — pale yellow
-                type: "#6dd5ff"     // types (String, Int) — bright sky cyan
+                keyword: "#84d6ec", // let / var / func / struct — cyan
+                string: "#e4db82",  // string literals — pale yellow
+                comment: "#747160",
+                number: "#b586f8",  // numbers — purple
+                function: "#b3e053", // function names — lime green
+                type: "#b3e053"     // types (String, Int) — lime green
             )
         ),
         BuiltInTheme(
@@ -70,20 +70,20 @@ enum ThemePresets {
             description: "Claude Code's default light theme — GitHub-style syntax highlighting with red/green diff stripes.",
             approximateColors: ThemeColors(
                 background: "#ffffff",
-                foreground: "#1f2328",
+                foreground: "#333333",
                 cursor: "#000000",
                 selection: "#add6ff",
-                accent: "#da7756",
-                error: "#cf222e",
+                accent: "#992c5c",
+                error: "#be3536",   // diff `-` marker / line number
                 warning: "#bf8700",
-                success: "#1a7f37",
-                muted: "#656d76",
-                keyword: "#cf222e",
-                string: "#0a3069",
-                comment: "#6e7781",
-                number: "#0550ae",
-                function: "#8250df",
-                type: "#116329"
+                success: "#458846", // diff `+` marker / line number
+                muted: "#969896",
+                keyword: "#992c5c", // let / var / func / struct — magenta
+                string: "#1f358c",  // string literals — navy
+                comment: "#969896",
+                number: "#3a84af",  // numbers — blue
+                function: "#755e9f", // function names — purple
+                type: "#3a84af"     // types (String, Int) — blue
             )
         ),
         BuiltInTheme(
@@ -92,21 +92,21 @@ enum ThemePresets {
             icon: "moon.stars.fill",
             description: "Dark theme but diff `+` lines are blue instead of green — keeps add/remove distinguishable for red-green color vision.",
             approximateColors: ThemeColors(
-                background: "#1c1c1c",
-                foreground: "#e6e6e6",
+                background: "#1e1e1e",
+                foreground: "#f8f8f2",
                 cursor: "#ffffff",
                 selection: "#264f78",
-                accent: "#da7756",
-                error: "#f48771",   // diff `-` stays reddish
+                accent: "#e53f73",
+                error: "#cc625e",   // diff `-` stays reddish
                 warning: "#d29922",
-                success: "#6bb6e0", // diff `+` becomes BLUE (key colorblind shift)
+                success: "#659ec4", // diff `+` marker becomes BLUE (colorblind shift)
                 muted: "#858585",
-                keyword: "#569cd6",
-                string: "#ce9178",
-                comment: "#888888",
-                number: "#b5cea8",
-                function: "#dcdcaa",
-                type: "#6dd5ff"
+                keyword: "#84d6ec",
+                string: "#e4db82",
+                comment: "#747160",
+                number: "#b586f8",
+                function: "#b3e053",
+                type: "#b3e053"
             )
         ),
         BuiltInTheme(
@@ -116,20 +116,20 @@ enum ThemePresets {
             description: "Light theme but diff `+` lines are blue instead of green — keeps add/remove distinguishable for red-green color vision.",
             approximateColors: ThemeColors(
                 background: "#ffffff",
-                foreground: "#1f2328",
+                foreground: "#333333",
                 cursor: "#000000",
                 selection: "#add6ff",
-                accent: "#da7756",
-                error: "#cf222e",
+                accent: "#992c5c",
+                error: "#be3536",
                 warning: "#bf8700",
-                success: "#0550ae", // diff `+` becomes BLUE
-                muted: "#656d76",
-                keyword: "#cf222e",
-                string: "#0a3069",
-                comment: "#6e7781",
-                number: "#0550ae",
-                function: "#8250df",
-                type: "#116329"
+                success: "#325686", // diff `+` marker becomes BLUE
+                muted: "#969896",
+                keyword: "#992c5c",
+                string: "#1f358c",
+                comment: "#969896",
+                number: "#3a84af",
+                function: "#755e9f",
+                type: "#3a84af"
             )
         ),
         BuiltInTheme(
@@ -138,29 +138,29 @@ enum ThemePresets {
             icon: "rectangle.split.3x1.fill",
             description: "Restricted to the terminal's basic ANSI 16-color palette — useful in environments where TrueColor isn't available, or to respect the terminal's own color scheme. Diff lines aren't background-highlighted.",
             approximateColors: ThemeColors(
-                background: "#1a1a1a",
-                foreground: "#cccccc",
+                background: "#1e1e1e",
+                foreground: "#d1d1d1",
                 cursor: "#ffffff",
                 selection: "#3a3a3a",
-                accent: "#00cccc",
-                error: "#cc0000",
-                warning: "#cccc00",
-                success: "#00cc00",
-                muted: "#808080",
-                keyword: "#00cccc",
-                string: "#cccc00",
-                comment: "#808080",
-                number: "#0066cc",
-                function: "#00cc00",
-                type: "#00cccc",
+                accent: "#78f1f2",
+                error: "#ec5a3a",
+                warning: "#efef53",
+                success: "#77ea51",
+                muted: "#717171",
+                keyword: "#78f1f2",
+                string: "#efef53",
+                comment: "#717171",
+                number: "#6f48f6",
+                function: "#efef53",
+                type: "#78f1f2",
                 ansiBlack: "#000000",
-                ansiRed: "#cc0000",
-                ansiGreen: "#00cc00",
-                ansiYellow: "#cccc00",
-                ansiBlue: "#0066cc",
-                ansiMagenta: "#cc00cc",
-                ansiCyan: "#00cccc",
-                ansiWhite: "#cccccc"
+                ansiRed: "#ec5a3a",
+                ansiGreen: "#77ea51",
+                ansiYellow: "#efef53",
+                ansiBlue: "#6f48f6",
+                ansiMagenta: "#e454f0",
+                ansiCyan: "#78f1f2",
+                ansiWhite: "#d1d1d1"
             )
         ),
         BuiltInTheme(
@@ -173,25 +173,25 @@ enum ThemePresets {
                 foreground: "#1a1a1a",
                 cursor: "#000000",
                 selection: "#cccccc",
-                accent: "#0066cc",
-                error: "#cc0000",
-                warning: "#666600",
-                success: "#006600",
-                muted: "#666666",
-                keyword: "#006666",
-                string: "#666600",
-                comment: "#666666",
-                number: "#0066cc",
-                function: "#006600",
-                type: "#006666",
+                accent: "#ec5af7",
+                error: "#ec5a3a",
+                warning: "#efef53",
+                success: "#77ea51",
+                muted: "#909090",
+                keyword: "#78f1f2",
+                string: "#77ea51",
+                comment: "#909090",
+                number: "#6f48f6",
+                function: "#efef53",
+                type: "#78f1f2",
                 ansiBlack: "#000000",
-                ansiRed: "#cc0000",
-                ansiGreen: "#006600",
-                ansiYellow: "#666600",
-                ansiBlue: "#0066cc",
-                ansiMagenta: "#660066",
-                ansiCyan: "#006666",
-                ansiWhite: "#cccccc"
+                ansiRed: "#ec5a3a",
+                ansiGreen: "#77ea51",
+                ansiYellow: "#efef53",
+                ansiBlue: "#6f48f6",
+                ansiMagenta: "#ec5af7",
+                ansiCyan: "#78f1f2",
+                ansiWhite: "#d1d1d1"
             )
         ),
     ]

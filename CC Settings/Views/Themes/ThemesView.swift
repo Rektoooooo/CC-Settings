@@ -16,6 +16,7 @@ enum ThemeSelection: Hashable {
 
 struct ThemesView: View {
     @EnvironmentObject var configManager: ConfigurationManager
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var themes: [ThemeFile] = []
     @State private var selection: ThemeSelection?
@@ -156,9 +157,6 @@ struct ThemesView: View {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
                 Spacer()
-                Text("\(themes.count) custom")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -592,6 +590,15 @@ struct ThemesView: View {
         var colors: ThemeColors
         if let preset = preset {
             colors = preset.colors
+            // Preset templates ship with a fixed (dark) surface — swap it to a
+            // light or dark surface to match the app's current appearance.
+            if colorScheme == .light {
+                colors.background = "#ffffff"
+                colors.foreground = "#1f2328"
+            } else {
+                colors.background = "#1e1e1e"
+                colors.foreground = "#f8f8f2"
+            }
         } else {
             colors = ThemeColors.starter
         }
