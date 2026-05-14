@@ -3,6 +3,27 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.2.3</title>
+            <sparkle:version>19</sparkle:version>
+            <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Built-in theme previews now use accurate palettes resampled pixel-for-pixel from Claude Code's own rendering</li>
+                    <li>Theme preview surfaces adapt &mdash; light themes render on white, dark themes on a dark background</li>
+                    <li>Preset templates adopt a light or dark surface based on the app's appearance</li>
+                    <li>Sidebar Themes badge now counts built-in themes plus custom files</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 14 May 2026 20:30:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.2.3/CC-Settings-1.2.3.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="aphFQh3AyM5iMJ6xcBYw31IPdzsHJCSUpF3Iv1c1ruj39Q2HqXMrG9f4J7nIss6BmKeOSCVT3IkHXvrGngRSAw=="
+                length="6984028"
+            />
+        </item>
+        <item>
             <title>Version 1.2.2</title>
             <sparkle:version>18</sparkle:version>
             <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
