@@ -208,6 +208,10 @@ struct HookGroupModel: Identifiable, Equatable {
     var matcherTool: String = ""
     var matcherPattern: String = ""
     var commands: [String] = [""]
+    /// Comma-separated args per command (parallel to `commands`). Empty string = shell form.
+    var argsList: [String] = [""]
+    /// Per-hook continueOnBlock (PostToolUse). Parallel to `commands`.
+    var continueOnBlockList: [Bool] = [false]
 
     init() {}
 
@@ -215,9 +219,25 @@ struct HookGroupModel: Identifiable, Equatable {
         self.matcherTool = group.matcher?.tool ?? ""
         self.matcherPattern = group.matcher?.pattern ?? ""
         self.commands = group.hooks.map { $0.command ?? "" }
+        self.argsList = group.hooks.map { ($0.args ?? []).joined(separator: ", ") }
+        self.continueOnBlockList = group.hooks.map { $0.continueOnBlock ?? false }
         if self.commands.isEmpty {
             self.commands = [""]
+            self.argsList = [""]
+            self.continueOnBlockList = [false]
         }
+    }
+
+    mutating func appendCommand() {
+        commands.append("")
+        argsList.append("")
+        continueOnBlockList.append(false)
+    }
+
+    mutating func removeCommand(at index: Int) {
+        commands.remove(at: index)
+        argsList.remove(at: index)
+        continueOnBlockList.remove(at: index)
     }
 
     func toHookGroup() -> HookGroup {
@@ -234,10 +254,20 @@ struct HookGroupModel: Identifiable, Equatable {
             )
         }
 
-        let hooks = commands
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .map { HookDefinition(command: $0) }
+        let hooks: [HookDefinition] = commands.indices.compactMap { i in
+            let cmd = commands[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !cmd.isEmpty else { return nil }
+            let parsedArgs: [String]? = {
+                let raw = argsList.indices.contains(i) ? argsList[i] : ""
+                let parts = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                return parts.isEmpty ? nil : parts
+            }()
+            let cob: Bool? = {
+                guard continueOnBlockList.indices.contains(i), continueOnBlockList[i] else { return nil }
+                return true
+            }()
+            return HookDefinition(command: cmd, args: parsedArgs, continueOnBlock: cob)
+        }
 
         return HookGroup(matcher: matcher, hooks: hooks)
     }
@@ -411,11 +441,7 @@ struct HooksView: View {
                 mode: .add,
                 hookType: addHookType,
                 scope: addScope,
-                onSave: { tool, pattern, commands in
-                    var model = HookGroupModel()
-                    model.matcherTool = tool
-                    model.matcherPattern = pattern
-                    model.commands = commands
+                onSave: { model in
                     appendGroup(model.toHookGroup(), for: addHookType, scope: addScope)
                 }
             )
@@ -429,11 +455,9 @@ struct HooksView: View {
                     initialTool: hook.group.matcher?.tool ?? "",
                     initialPattern: hook.group.matcher?.pattern ?? "",
                     initialCommands: hook.group.hooks.compactMap(\.command),
-                    onSave: { tool, pattern, commands in
-                        var model = HookGroupModel()
-                        model.matcherTool = tool
-                        model.matcherPattern = pattern
-                        model.commands = commands
+                    initialArgsList: hook.group.hooks.map { ($0.args ?? []).joined(separator: ", ") },
+                    initialContinueOnBlockList: hook.group.hooks.map { $0.continueOnBlock ?? false },
+                    onSave: { model in
                         replaceGroup(at: hook.indexInScope, with: model.toHookGroup(), for: hook.hookType, scope: hook.scope)
                     }
                 )
@@ -816,12 +840,16 @@ struct HookEditorSheet: View {
     var initialTool: String = ""
     var initialPattern: String = ""
     var initialCommands: [String] = []
-    let onSave: (String, String, [String]) -> Void
+    var initialArgsList: [String] = []
+    var initialContinueOnBlockList: [Bool] = []
+    let onSave: (HookGroupModel) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var tool: String = ""
     @State private var pattern: String = ""
     @State private var commands: [String] = [""]
+    @State private var argsList: [String] = [""]
+    @State private var continueOnBlockList: [Bool] = [false]
 
     private var isValid: Bool {
         commands.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -895,27 +923,50 @@ struct HookEditorSheet: View {
                             .foregroundColor(.secondary)
 
                         ForEach(commands.indices, id: \.self) { i in
-                            HStack(spacing: 8) {
-                                Text("$")
-                                    .font(.system(.body, design: .monospaced))
-                                    .foregroundColor(hookType.color)
-                                TextField(hookType.placeholder, text: $commands[i])
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(.body, design: .monospaced))
-                                if commands.count > 1 {
-                                    Button {
-                                        commands.remove(at: i)
-                                    } label: {
-                                        Image(systemName: "minus.circle.fill")
-                                            .foregroundColor(.red)
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) {
+                                    Text("$")
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundColor(hookType.color)
+                                    TextField(hookType.placeholder, text: $commands[i])
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(.body, design: .monospaced))
+                                    if commands.count > 1 {
+                                        Button {
+                                            commands.remove(at: i)
+                                            if argsList.indices.contains(i) { argsList.remove(at: i) }
+                                            if continueOnBlockList.indices.contains(i) { continueOnBlockList.remove(at: i) }
+                                        } label: {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
+                                }
+
+                                HStack(spacing: 8) {
+                                    Text("args")
+                                        .font(.caption.monospaced())
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 40, alignment: .leading)
+                                    TextField("(optional) comma-separated — exec form, no shell parsing", text: bindingForArgs(at: i))
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.caption.monospaced())
+                                }
+
+                                if hookType == .postToolUse {
+                                    Toggle("Continue turn if this hook rejects the tool result", isOn: bindingForContinueOnBlock(at: i))
+                                        .font(.caption)
+                                        .padding(.leading, 48)
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
 
                         Button {
                             commands.append("")
+                            argsList.append("")
+                            continueOnBlockList.append(false)
                         } label: {
                             Label("Add Command", systemImage: "plus.circle")
                         }
@@ -938,10 +989,13 @@ struct HookEditorSheet: View {
                 }
                 .keyboardShortcut(.cancelAction)
                 Button(mode == .add ? "Add Hook" : "Save") {
-                    let cleanCommands = commands
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        .filter { !$0.isEmpty }
-                    onSave(tool, pattern, cleanCommands)
+                    var model = HookGroupModel()
+                    model.matcherTool = tool
+                    model.matcherPattern = pattern
+                    model.commands = commands
+                    model.argsList = argsList
+                    model.continueOnBlockList = continueOnBlockList
+                    onSave(model)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -956,6 +1010,35 @@ struct HookEditorSheet: View {
             tool = initialTool
             pattern = initialPattern
             commands = initialCommands.isEmpty ? [""] : initialCommands
+            // Pad parallel arrays to match commands length
+            argsList = (0..<commands.count).map { i in
+                initialArgsList.indices.contains(i) ? initialArgsList[i] : ""
+            }
+            continueOnBlockList = (0..<commands.count).map { i in
+                initialContinueOnBlockList.indices.contains(i) ? initialContinueOnBlockList[i] : false
+            }
         }
+    }
+
+    // MARK: - Safe index bindings (index may briefly outlive the array during ForEach updates)
+
+    private func bindingForArgs(at index: Int) -> Binding<String> {
+        Binding(
+            get: { argsList.indices.contains(index) ? argsList[index] : "" },
+            set: { newValue in
+                guard argsList.indices.contains(index) else { return }
+                argsList[index] = newValue
+            }
+        )
+    }
+
+    private func bindingForContinueOnBlock(at index: Int) -> Binding<Bool> {
+        Binding(
+            get: { continueOnBlockList.indices.contains(index) ? continueOnBlockList[index] : false },
+            set: { newValue in
+                guard continueOnBlockList.indices.contains(index) else { return }
+                continueOnBlockList[index] = newValue
+            }
+        )
     }
 }

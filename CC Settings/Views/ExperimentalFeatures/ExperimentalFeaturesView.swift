@@ -48,6 +48,7 @@ struct ExperimentalFeaturesView: View {
     // Worktree
     @State private var worktreeSparsePaths: String = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
     @State private var worktreeSymlinkDirs: String = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
+    @State private var worktreeBaseRef: String = s.worktree?.baseRef ?? ""
 
     // Spinner
     @State private var spinnerTipsEnabled: Bool = s.spinnerTipsEnabled ?? true
@@ -339,6 +340,17 @@ struct ExperimentalFeaturesView: View {
 
             // MARK: - Worktree
             Section {
+                Picker("Base Ref", selection: $worktreeBaseRef) {
+                    Text("Default (fresh)").tag("")
+                    Text("Fresh — origin/<default>").tag("fresh")
+                    Text("HEAD — local HEAD").tag("head")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: worktreeBaseRef) { _, _ in saveWorktree() }
+                Text("Where new worktrees branch from. \"Fresh\" branches from origin/<default> (drops unpushed commits). \"HEAD\" preserves them. Claude Code defaults to fresh.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
                 TextField("Sparse Checkout Paths", text: $worktreeSparsePaths, prompt: Text("src, docs, tests"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
@@ -518,6 +530,7 @@ struct ExperimentalFeaturesView: View {
         // Worktree
         worktreeSparsePaths = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
         worktreeSymlinkDirs = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
+        worktreeBaseRef = s.worktree?.baseRef ?? ""
 
         // Spinner — prefer nested overrides, fall back to flat fields
         spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
@@ -586,6 +599,8 @@ struct ExperimentalFeaturesView: View {
         var wt: [String: Any] = [:]
         if let v = parseCSV(worktreeSparsePaths) { wt["sparsePaths"] = v }
         if let v = parseCSV(worktreeSymlinkDirs) { wt["symlinkDirectories"] = v }
+        let trimmedBaseRef = worktreeBaseRef.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedBaseRef.isEmpty { wt["baseRef"] = trimmedBaseRef }
         configManager.saveField("worktree", value: wt.isEmpty ? nil : wt)
     }
 

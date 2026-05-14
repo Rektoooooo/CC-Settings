@@ -51,6 +51,13 @@ struct EnvironmentView: View {
     // Bedrock
     @State private var bedrockServiceTier: String = env["ANTHROPIC_BEDROCK_SERVICE_TIER"] ?? ""
 
+    // Added 2026-05 — Claude Code 2.1.132 → 2.1.141
+    @State private var disableAlternateScreen: Bool = env["CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN"] == "1"
+    @State private var envEffortLevel: String = env["CLAUDE_CODE_EFFORT_LEVEL"] ?? ""
+    @State private var enableFeedbackSurveyForOtel: Bool = env["CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL"] == "1"
+    @State private var pluginPreferHttps: Bool = env["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"] == "1"
+    @State private var workspaceId: String = env["ANTHROPIC_WORKSPACE_ID"] ?? ""
+
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
 
@@ -68,6 +75,13 @@ struct EnvironmentView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Custom API endpoint URL. Leave empty for default Anthropic API.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Workspace ID", text: $workspaceId, prompt: Text("Workload identity federation workspace"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Scopes the minted token to a specific workspace when workload identity federation covers more than one.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
@@ -120,6 +134,13 @@ struct EnvironmentView: View {
                     .padding(.vertical, 4)
                 }
                 Text("Pin the \"opus\", \"sonnet\", \"haiku\" aliases to specific model versions.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Effort Level Override", text: $envEffortLevel, prompt: Text("low / medium / high / xhigh / max"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Env-var override for effort level. Takes priority over the effortLevel setting in General.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
@@ -253,8 +274,36 @@ struct EnvironmentView: View {
                 Text("Forces sync output on terminals where auto-detection misses (e.g. Emacs eat).")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Toggle("Disable Fullscreen Alternate Screen", isOn: $disableAlternateScreen)
+                    .onChange(of: disableAlternateScreen) { _, _ in save() }
+                Text("Keeps the conversation in the terminal's native scrollback instead of using the alternate-screen renderer.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Display")
+            }
+
+            // MARK: - Plugins
+            Section {
+                Toggle("Prefer HTTPS for Plugin Clones", isOn: $pluginPreferHttps)
+                    .onChange(of: pluginPreferHttps) { _, _ in save() }
+                Text("Clones GitHub plugin sources over HTTPS instead of SSH. Useful in environments without a GitHub SSH key.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Plugins")
+            }
+
+            // MARK: - Telemetry
+            Section {
+                Toggle("Re-enable Feedback Survey for OTEL", isOn: $enableFeedbackSurveyForOtel)
+                    .onChange(of: enableFeedbackSurveyForOtel) { _, _ in save() }
+                Text("For enterprises capturing session quality survey responses through OpenTelemetry.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Telemetry")
             }
 
             // MARK: - Updates
@@ -374,6 +423,9 @@ struct EnvironmentView: View {
         "DISABLE_UPDATES", "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE",
         "CLAUDE_CODE_FORK_SUBAGENT", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
         "ANTHROPIC_BEDROCK_SERVICE_TIER",
+        "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", "CLAUDE_CODE_EFFORT_LEVEL",
+        "CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS",
+        "ANTHROPIC_WORKSPACE_ID",
     ]
 
     // MARK: - Data Sync
@@ -424,6 +476,13 @@ struct EnvironmentView: View {
 
         // Bedrock
         bedrockServiceTier = env["ANTHROPIC_BEDROCK_SERVICE_TIER"] ?? ""
+
+        // Claude Code 2.1.132 → 2.1.141
+        disableAlternateScreen = env["CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN"] == "1"
+        envEffortLevel = env["CLAUDE_CODE_EFFORT_LEVEL"] ?? ""
+        enableFeedbackSurveyForOtel = env["CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL"] == "1"
+        pluginPreferHttps = env["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"] == "1"
+        workspaceId = env["ANTHROPIC_WORKSPACE_ID"] ?? ""
 
         // Custom: everything not in managed keys
         customVars = env
@@ -488,6 +547,13 @@ struct EnvironmentView: View {
 
         // Bedrock
         setString("ANTHROPIC_BEDROCK_SERVICE_TIER", bedrockServiceTier)
+
+        // Claude Code 2.1.132 → 2.1.141
+        setFlag("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", disableAlternateScreen)
+        setString("CLAUDE_CODE_EFFORT_LEVEL", envEffortLevel)
+        setFlag("CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL", enableFeedbackSurveyForOtel)
+        setFlag("CLAUDE_CODE_PLUGIN_PREFER_HTTPS", pluginPreferHttps)
+        setString("ANTHROPIC_WORKSPACE_ID", workspaceId)
 
         // Custom vars
         for v in customVars {

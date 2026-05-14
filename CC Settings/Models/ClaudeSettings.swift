@@ -213,6 +213,7 @@ struct SandboxNetwork: Codable, Equatable {
 struct WorktreeConfig: Codable, Equatable {
     var sparsePaths: [String]?
     var symlinkDirectories: [String]?
+    var baseRef: String?
 }
 
 // MARK: - Auto Compact
@@ -356,46 +357,55 @@ struct HookDefinition: Codable, Equatable, Identifiable {
     var id = UUID()
     var type: String = "command"
     var command: String?
+    var args: [String]?
     var prompt: String?
     var agent: String?
     var url: String?
     var ifCondition: String?
     var timeout: Int?
+    var continueOnBlock: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case type, command, prompt, agent, url, timeout
+        case type, command, args, prompt, agent, url, timeout, continueOnBlock
         case ifCondition = "if"
     }
 
-    init(type: String = "command", command: String? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil, timeout: Int? = nil) {
+    init(type: String = "command", command: String? = nil, args: [String]? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil, timeout: Int? = nil, continueOnBlock: Bool? = nil) {
         self.type = type
         self.command = command
+        self.args = args
         self.prompt = prompt
         self.agent = agent
         self.url = url
         self.ifCondition = ifCondition
+        self.timeout = timeout
+        self.continueOnBlock = continueOnBlock
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         type = try container.decode(String.self, forKey: .type)
         command = try container.decodeIfPresent(String.self, forKey: .command)
+        args = try container.decodeIfPresent([String].self, forKey: .args)
         prompt = try container.decodeIfPresent(String.self, forKey: .prompt)
         agent = try container.decodeIfPresent(String.self, forKey: .agent)
         url = try container.decodeIfPresent(String.self, forKey: .url)
         ifCondition = try container.decodeIfPresent(String.self, forKey: .ifCondition)
         timeout = try container.decodeIfPresent(Int.self, forKey: .timeout)
+        continueOnBlock = try container.decodeIfPresent(Bool.self, forKey: .continueOnBlock)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(type, forKey: .type)
         try container.encodeIfPresent(command, forKey: .command)
+        try container.encodeIfPresent(args, forKey: .args)
         try container.encodeIfPresent(prompt, forKey: .prompt)
         try container.encodeIfPresent(agent, forKey: .agent)
         try container.encodeIfPresent(url, forKey: .url)
         try container.encodeIfPresent(ifCondition, forKey: .ifCondition)
         try container.encodeIfPresent(timeout, forKey: .timeout)
+        try container.encodeIfPresent(continueOnBlock, forKey: .continueOnBlock)
     }
 }
 
