@@ -11,7 +11,7 @@
 </div>
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/b13e9566-7c99-4926-96da-3b89d3ee6cbd" controls muted width="820"></video>
+  <img src="CC-showcase.webp" alt="CC Settings demo" width="820">
 </div>
 
 ## Install
