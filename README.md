@@ -14,7 +14,15 @@
 
 ## Install
 
-### Download (recommended)
+### Homebrew
+
+```bash
+brew install --cask rektoooooo/tap/cc-settings
+```
+
+Update later with `brew upgrade --cask cc-settings`.
+
+### Download
 
 Grab the latest DMG from [**Releases**](https://github.com/Rektoooooo/CC-Settings/releases/latest), open it, and drag CC Settings to your Applications folder. The app is **code-signed and notarized by Apple** — it opens normally, no Gatekeeper warning.
 
