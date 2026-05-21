@@ -10,7 +10,10 @@
   </p>
 </div>
 
-![CC Settings screenshot](screenshot.png)
+<div align="center">
+  <video src="https://github.com/Rektoooooo/CC-Settings/raw/main/CC-showcase.mp4" controls muted width="820"></video>
+  <p><em><a href="https://github.com/Rektoooooo/CC-Settings/raw/main/CC-showcase.mp4">▶ Watch the demo</a> if the player doesn't load.</em></p>
+</div>
 
 ## Install
 
