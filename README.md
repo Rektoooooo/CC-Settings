@@ -11,8 +11,7 @@
 </div>
 
 <div align="center">
-  <video src="https://github.com/Rektoooooo/CC-Settings/raw/main/CC-showcase.mp4" controls muted width="820"></video>
-  <p><em><a href="https://github.com/Rektoooooo/CC-Settings/raw/main/CC-showcase.mp4">▶ Watch the demo</a> if the player doesn't load.</em></p>
+  <video src="https://github.com/user-attachments/assets/b13e9566-7c99-4926-96da-3b89d3ee6cbd" controls muted width="820"></video>
 </div>
 
 ## Install
