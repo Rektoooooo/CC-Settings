@@ -7,98 +7,107 @@ struct MCPServerDetailView: View {
     var onDelete: (() -> Void)?
     var onMove: (() -> Void)?
 
+    @EnvironmentObject var configManager: ConfigurationManager
+    @ObservedObject private var discovery = MCPDiscoveryService.shared
+
     @State private var showDeleteAlert = false
+    @State private var newToolName: String = ""
 
     var body: some View {
-        GlassEffectContainer {
-            VStack(spacing: 0) {
-                // Toolbar
-                HStack(spacing: 8) {
-                    Image(systemName: server.transportType.icon)
-                        .foregroundColor(server.transportType == .stdio ? .themeAccent : .purple)
-                        .font(.title3)
+        VStack(spacing: 0) {
+            // Toolbar
+            HStack(spacing: 8) {
+                Image(systemName: server.transportType.icon)
+                    .foregroundColor(server.transportType == .stdio ? .themeAccent : .purple)
+                    .font(.title3)
 
-                    Text(server.id)
-                        .font(.headline.monospaced())
-                        .lineLimit(1)
+                Text(server.id)
+                    .font(.headline.monospaced())
+                    .lineLimit(1)
 
-                    Text(server.transportType.displayName)
-                        .font(.caption.monospaced())
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(server.transportType == .stdio ? Color.themeAccent : Color.purple)
-                        .cornerRadius(4)
+                Text(server.transportType.displayName)
+                    .font(.caption.monospaced())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(server.transportType == .stdio ? Color.themeAccent : Color.purple)
+                    .cornerRadius(4)
 
-                    ScopeBadge(scope: scope)
+                ScopeBadge(scope: scope)
 
-                    Spacer()
+                Spacer()
 
-                    if onMove != nil {
-                        Button {
-                            onMove?()
-                        } label: {
-                            Label("Move", systemImage: "arrow.right.arrow.left")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-
+                if onMove != nil {
                     Button {
-                        onEdit?()
+                        onMove?()
                     } label: {
-                        Label("Edit", systemImage: "pencil")
+                        Label("Move", systemImage: "arrow.right.arrow.left")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-
-                    Button(role: .destructive) {
-                        showDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .foregroundColor(.red)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Delete server")
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .glassToolbar()
 
-                // Content
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Server Info Grid
-                        serverInfoGrid
-
-                        // Quick Actions
-                        quickActionsBar
-
-                        // Full Command
-                        if server.transportType == .stdio, let command = server.command {
-                            fullCommandSection(command: command, args: server.args)
-                        }
-
-                        // Arguments
-                        if let args = server.args, !args.isEmpty {
-                            argumentsSection(args)
-                        }
-
-                        // Environment Variables
-                        if let env = server.env, !env.isEmpty {
-                            envVarsSection(env)
-                        }
-
-                        // Headers
-                        if let headers = server.headers, !headers.isEmpty {
-                            headersSection(headers)
-                        }
-                    }
-                    .padding(16)
+                Button {
+                    onEdit?()
+                } label: {
+                    Label("Edit", systemImage: "pencil")
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button(role: .destructive) {
+                    showDeleteAlert = true
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+                .help("Delete server")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassToolbar()
+
+            // Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Server Info Grid
+                    serverInfoGrid
+
+                    // Quick Actions
+                    quickActionsBar
+
+                    // Actions & Auto-Approval
+                    toolsSection
+
+                    // Full Command
+                    if server.transportType == .stdio, let command = server.command {
+                        fullCommandSection(command: command, args: server.args)
+                    }
+
+                    // Arguments
+                    if let args = server.args, !args.isEmpty {
+                        argumentsSection(args)
+                    }
+
+                    // Environment Variables
+                    if let env = server.env, !env.isEmpty {
+                        envVarsSection(env)
+                    }
+
+                    // Headers
+                    if let headers = server.headers, !headers.isEmpty {
+                        headersSection(headers)
+                    }
+                }
+                .padding(16)
             }
         }
         .frame(minWidth: 400)
+        .task(id: server.id) {
+            if case .loaded = discovery.currentState(for: server.id) { return }
+            await discovery.discover(server)
+        }
         .alert("Delete Server", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -359,5 +368,207 @@ struct MCPServerDetailView: View {
             .padding(12)
             .glassContainer()
         }
+    }
+
+    // MARK: - Actions & Auto-Approval
+
+    @ViewBuilder
+    private var toolsSection: some View {
+        let tools = displayTools
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Actions & Auto-Approval")
+                    .font(.subheadline.bold())
+
+                if case .loading = discovery.currentState(for: server.id) {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Spacer()
+
+                Button {
+                    Task { await discovery.discover(server) }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .help("Refresh action list")
+                .disabled({ if case .loading = discovery.currentState(for: server.id) { return true } else { return false } }())
+            }
+
+            if let status = discoveryStatusText {
+                Text(status)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                // Master toggle
+                Toggle(isOn: allServerBinding) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checklist")
+                            .font(.caption)
+                            .foregroundColor(.themeAccent)
+                        Text("Auto-accept all actions" + (tools.isEmpty ? "" : " (\(tools.count))"))
+                            .font(.caption.bold())
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+
+                Text("Adds `mcp__\(server.id)` to permissions.allow — every action from this server is approved automatically, including ones added later.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 6)
+
+                if !tools.isEmpty {
+                    Divider()
+                    ForEach(tools) { tool in
+                        toolRow(tool)
+                        if tool.id != tools.last?.id { Divider() }
+                    }
+                } else if case .loading = discovery.currentState(for: server.id) {
+                    Text("Discovering actions…")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 6)
+                } else {
+                    Text("No actions discovered yet. Add one manually below.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 6)
+                }
+
+                Divider()
+
+                // Manual add (fallback for undiscovered / unreachable servers)
+                HStack(spacing: 6) {
+                    TextField("Add action by name…", text: $newToolName, prompt: Text("e.g. browser_navigate"))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption.monospaced())
+                        .onSubmit { addManualTool() }
+                    Button("Add") { addManualTool() }
+                        .font(.caption)
+                        .disabled(newToolName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .padding(.top, 6)
+            }
+            .padding(12)
+            .glassContainer()
+        }
+    }
+
+    @ViewBuilder
+    private func toolRow(_ tool: MCPTool) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(tool.name)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                if let description = tool.description, !description.isEmpty {
+                    Text(description)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            Toggle("", isOn: toolBinding(tool.name))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .disabled(allServerAllowed)
+                .help(allServerAllowed ? "Covered by auto-accept all" : "Auto-accept this action")
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var discoveryStatusText: String? {
+        switch discovery.currentState(for: server.id) {
+        case .loaded(_, let live):
+            return live ? "Discovered live via tools/list" : "Server unreachable — showing previously used actions"
+        case .failed(let message):
+            return "Discovery failed: \(message)"
+        case .idle, .loading:
+            return nil
+        }
+    }
+
+    // MARK: - Permission state
+
+    private var toolPrefix: String { "mcp__\(server.id)__" }
+    private var allServerKey: String { "mcp__\(server.id)" }
+    private func toolKey(_ name: String) -> String { "mcp__\(server.id)__\(name)" }
+
+    private var allowList: [String] { configManager.settings.permissions.allow ?? [] }
+
+    private var allServerAllowed: Bool { allowList.contains(allServerKey) }
+
+    /// Tool names to display: discovered (or usage-derived) ∪ anything already
+    /// auto-accepted for this server in permissions.allow.
+    private var displayTools: [MCPTool] {
+        var byName: [String: MCPTool] = [:]
+
+        let base: [MCPTool]
+        if case .loaded(let tools, _) = discovery.currentState(for: server.id) {
+            base = tools
+        } else {
+            base = discovery.usageDerivedTools(for: server.id)
+        }
+        for tool in base { byName[tool.name] = tool }
+
+        for entry in allowList where entry.hasPrefix(toolPrefix) {
+            let name = String(entry.dropFirst(toolPrefix.count))
+            if byName[name] == nil { byName[name] = MCPTool(name: name, description: nil) }
+        }
+
+        return byName.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var allServerBinding: Binding<Bool> {
+        Binding(
+            get: { allServerAllowed },
+            set: { newValue in
+                updateAllow { allow in
+                    allow.removeAll { $0 == allServerKey || $0.hasPrefix(toolPrefix) }
+                    if newValue { allow.append(allServerKey) }
+                }
+            }
+        )
+    }
+
+    private func toolBinding(_ name: String) -> Binding<Bool> {
+        Binding(
+            get: { allServerAllowed || allowList.contains(toolKey(name)) },
+            set: { newValue in
+                updateAllow { allow in
+                    if newValue {
+                        if !allow.contains(toolKey(name)) { allow.append(toolKey(name)) }
+                    } else {
+                        allow.removeAll { $0 == toolKey(name) }
+                    }
+                }
+            }
+        )
+    }
+
+    private func addManualTool() {
+        let name = newToolName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        updateAllow { allow in
+            if !allow.contains(toolKey(name)) { allow.append(toolKey(name)) }
+        }
+        newToolName = ""
+    }
+
+    /// Apply a mutation to permissions.allow and persist, preserving deny/ask/unknown keys.
+    private func updateAllow(_ transform: (inout [String]) -> Void) {
+        var allow = allowList
+        transform(&allow)
+        let deduped = Array(Set(allow)).sorted()
+        configManager.saveField("permissions.allow", value: deduped.isEmpty ? nil : deduped)
     }
 }

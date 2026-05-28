@@ -3,6 +3,28 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.3.0</title>
+            <sparkle:version>20</sparkle:version>
+            <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>MCP servers can now manage per-action auto-approval &mdash; each server lists its actions (discovered live via <code>tools/list</code>) with toggles that write <code>mcp__server__tool</code> rules to <code>permissions.allow</code></li>
+                    <li>&ldquo;Auto-accept all actions&rdquo; toggle approves an entire MCP server at once, including future actions</li>
+                    <li>Added Claude Opus 4.8 (and 1M context) to the model picker; retired the deprecated Opus 4.0 / Sonnet 4.0 entries</li>
+                    <li>Claude Code 2.1.142&ndash;2.1.154 catch-up: <code>MessageDisplay</code> hook, <code>worktree.bgIsolation</code>, <code>disallowed-tools</code> for commands, and enterprise settings (<code>allowAllClaudeAiMcps</code>, <code>pluginSuggestionMarketplaces</code>)</li>
+                    <li>HUD previews and model-override placeholders refreshed to Opus 4.8</li>
+                </ul>
+            ]]></description>
+            <pubDate>Thu, 28 May 2026 19:27:16 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.3.0/CC-Settings-1.3.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="HdD2aMxlf4ypupX4eBCbZjp5XrbK5mZs5S2V6InPDCxGTs98AZzUYgC3Sdgm9gQthuVzXsVpriADHZ2YAX2DAg=="
+                length="7088176"
+            />
+        </item>
+        <item>
             <title>Version 1.2.3</title>
             <sparkle:version>19</sparkle:version>
             <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>

@@ -8,6 +8,7 @@ enum HookType: String, CaseIterable, Identifiable {
     case postToolUseFailure = "PostToolUseFailure"
     case prePromptSubmit = "PrePromptSubmit"
     case postPromptSubmit = "PostPromptSubmit"
+    case messageDisplay = "MessageDisplay"
     case permissionRequest = "PermissionRequest"
     case notification = "Notification"
     case stop = "Stop"
@@ -38,6 +39,7 @@ enum HookType: String, CaseIterable, Identifiable {
         case .postToolUseFailure: return "Post Tool Use Failure"
         case .prePromptSubmit: return "Pre Prompt Submit"
         case .postPromptSubmit: return "Post Prompt Submit"
+        case .messageDisplay: return "Message Display"
         case .permissionRequest: return "Permission Request"
         case .notification: return "Notification"
         case .stop: return "Stop"
@@ -68,6 +70,7 @@ enum HookType: String, CaseIterable, Identifiable {
         case .postToolUseFailure: return "exclamationmark.triangle.fill"
         case .prePromptSubmit: return "arrow.up.square.fill"
         case .postPromptSubmit: return "arrow.down.square.fill"
+        case .messageDisplay: return "text.bubble.fill"
         case .permissionRequest: return "lock.shield.fill"
         case .notification: return "bell.fill"
         case .stop: return "stop.circle.fill"
@@ -98,6 +101,7 @@ enum HookType: String, CaseIterable, Identifiable {
         case .postToolUseFailure: return .red
         case .prePromptSubmit: return .green
         case .postPromptSubmit: return .orange
+        case .messageDisplay: return .teal
         case .permissionRequest: return .yellow
         case .notification: return .cyan
         case .stop: return .red
@@ -128,6 +132,7 @@ enum HookType: String, CaseIterable, Identifiable {
         case .postToolUseFailure: return "Runs after a tool execution fails"
         case .prePromptSubmit: return "Runs before a prompt is sent"
         case .postPromptSubmit: return "Runs after a prompt response"
+        case .messageDisplay: return "Transforms or hides assistant messages before display"
         case .permissionRequest: return "Runs when a permission is requested"
         case .notification: return "Runs when a notification is triggered"
         case .stop: return "Runs when Claude stops generating"
@@ -158,6 +163,7 @@ enum HookType: String, CaseIterable, Identifiable {
         case .postToolUseFailure: return "echo \"Tool failed: $TOOL_NAME\" >> errors.log"
         case .prePromptSubmit: return "date >> ~/.claude/prompt-log.txt"
         case .postPromptSubmit: return "say 'Done' &"
+        case .messageDisplay: return "jq '{ continue: true }'"
         case .permissionRequest: return "echo \"Permission requested for $TOOL_NAME\""
         case .notification: return "osascript -e 'display notification \"Claude\"'"
         case .stop: return "echo \"Claude stopped\" >> activity.log"
@@ -617,6 +623,7 @@ struct HooksView: View {
             case .postToolUseFailure: groups = hooks?.PostToolUseFailure ?? []
             case .prePromptSubmit: groups = hooks?.PrePromptSubmit ?? []
             case .postPromptSubmit: groups = hooks?.PostPromptSubmit ?? []
+            case .messageDisplay: groups = hooks?.MessageDisplay ?? []
             case .permissionRequest: groups = hooks?.PermissionRequest ?? []
             case .notification: groups = hooks?.Notification ?? []
             case .stop: groups = hooks?.Stop ?? []
@@ -664,6 +671,7 @@ struct HooksView: View {
         case .postToolUseFailure: return hooks?.PostToolUseFailure ?? []
         case .prePromptSubmit: return hooks?.PrePromptSubmit ?? []
         case .postPromptSubmit: return hooks?.PostPromptSubmit ?? []
+        case .messageDisplay: return hooks?.MessageDisplay ?? []
         case .permissionRequest: return hooks?.PermissionRequest ?? []
         case .notification: return hooks?.Notification ?? []
         case .stop: return hooks?.Stop ?? []
@@ -728,6 +736,7 @@ struct HooksView: View {
         case .postToolUseFailure: configManager.settings.hooks?.PostToolUseFailure = value
         case .prePromptSubmit: configManager.settings.hooks?.PrePromptSubmit = value
         case .postPromptSubmit: configManager.settings.hooks?.PostPromptSubmit = value
+        case .messageDisplay: configManager.settings.hooks?.MessageDisplay = value
         case .permissionRequest: configManager.settings.hooks?.PermissionRequest = value
         case .notification: configManager.settings.hooks?.Notification = value
         case .stop: configManager.settings.hooks?.Stop = value
@@ -753,6 +762,7 @@ struct HooksView: View {
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
            hooks.PostToolUseFailure == nil &&
            hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
+           hooks.MessageDisplay == nil &&
            hooks.PermissionRequest == nil && hooks.Notification == nil &&
            hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
            hooks.PreCompact == nil && hooks.PostCompact == nil &&
@@ -780,6 +790,7 @@ struct HooksView: View {
         case .postToolUseFailure: settings.hooks?.PostToolUseFailure = value
         case .prePromptSubmit: settings.hooks?.PrePromptSubmit = value
         case .postPromptSubmit: settings.hooks?.PostPromptSubmit = value
+        case .messageDisplay: settings.hooks?.MessageDisplay = value
         case .permissionRequest: settings.hooks?.PermissionRequest = value
         case .notification: settings.hooks?.Notification = value
         case .stop: settings.hooks?.Stop = value
@@ -805,6 +816,7 @@ struct HooksView: View {
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
            hooks.PostToolUseFailure == nil &&
            hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
+           hooks.MessageDisplay == nil &&
            hooks.PermissionRequest == nil && hooks.Notification == nil &&
            hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
            hooks.PreCompact == nil && hooks.PostCompact == nil &&

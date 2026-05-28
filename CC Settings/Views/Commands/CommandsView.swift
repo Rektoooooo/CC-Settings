@@ -8,6 +8,7 @@ struct SlashCommand: Identifiable, Hashable {
     var description: String
     var argumentHint: String
     var allowedTools: [String]
+    var disallowedTools: [String]
     var body: String
     let fileURL: URL
     let isSymlink: Bool
@@ -44,6 +45,7 @@ struct SlashCommand: Identifiable, Hashable {
         var description = ""
         var argumentHint = ""
         var allowedTools: [String] = []
+        var disallowedTools: [String] = []
         var bodyContent = content
 
         // Parse frontmatter between --- delimiters
@@ -64,6 +66,9 @@ struct SlashCommand: Identifiable, Hashable {
                         description = String(trimmed.dropFirst("description:".count)).trimmingCharacters(in: .whitespaces)
                     } else if trimmed.hasPrefix("argument-hint:") {
                         argumentHint = String(trimmed.dropFirst("argument-hint:".count)).trimmingCharacters(in: .whitespaces)
+                    } else if trimmed.hasPrefix("disallowed-tools:") {
+                        let toolsStr = String(trimmed.dropFirst("disallowed-tools:".count)).trimmingCharacters(in: .whitespaces)
+                        disallowedTools = toolsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
                     } else if trimmed.hasPrefix("allowed-tools:") {
                         let toolsStr = String(trimmed.dropFirst("allowed-tools:".count)).trimmingCharacters(in: .whitespaces)
                         allowedTools = toolsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
@@ -83,6 +88,7 @@ struct SlashCommand: Identifiable, Hashable {
             description: description,
             argumentHint: argumentHint,
             allowedTools: allowedTools,
+            disallowedTools: disallowedTools,
             body: bodyContent,
             fileURL: url,
             isSymlink: isSymlink,
@@ -95,7 +101,7 @@ struct SlashCommand: Identifiable, Hashable {
     func toMarkdown() -> String {
         var parts: [String] = []
 
-        if !description.isEmpty || !argumentHint.isEmpty || !allowedTools.isEmpty {
+        if !description.isEmpty || !argumentHint.isEmpty || !allowedTools.isEmpty || !disallowedTools.isEmpty {
             parts.append("---")
             if !description.isEmpty {
                 parts.append("description: \(description)")
@@ -105,6 +111,9 @@ struct SlashCommand: Identifiable, Hashable {
             }
             if !allowedTools.isEmpty {
                 parts.append("allowed-tools: \(allowedTools.joined(separator: ", "))")
+            }
+            if !disallowedTools.isEmpty {
+                parts.append("disallowed-tools: \(disallowedTools.joined(separator: ", "))")
             }
             parts.append("---")
             parts.append("")
@@ -538,16 +547,19 @@ private struct CommandDetailEditor: View {
     @State private var description: String = ""
     @State private var argumentHint: String = ""
     @State private var allowedTools: [String] = []
+    @State private var disallowedTools: [String] = []
     @State private var promptBody: String = ""
     @State private var viewMode: ViewMode = .source
     @State private var showDeleteAlert = false
     @State private var showMetadata = true
     @State private var newToolName: String = ""
+    @State private var newDisallowedToolName: String = ""
 
     // Originals for change tracking
     @State private var origDescription: String = ""
     @State private var origArgumentHint: String = ""
     @State private var origAllowedTools: [String] = []
+    @State private var origDisallowedTools: [String] = []
     @State private var origPromptBody: String = ""
 
     private var isReadOnly: Bool {
@@ -558,6 +570,7 @@ private struct CommandDetailEditor: View {
         description != origDescription ||
         argumentHint != origArgumentHint ||
         allowedTools != origAllowedTools ||
+        disallowedTools != origDisallowedTools ||
         promptBody != origPromptBody
     }
 
@@ -566,6 +579,7 @@ private struct CommandDetailEditor: View {
         cmd.description = description
         cmd.argumentHint = argumentHint
         cmd.allowedTools = allowedTools
+        cmd.disallowedTools = disallowedTools
         cmd.body = promptBody
         return cmd
     }
@@ -756,12 +770,22 @@ private struct CommandDetailEditor: View {
 
                     // Allowed tools
                     HStack(alignment: .top) {
-                        Text("Tools")
+                        Text("Allowed Tools")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .frame(width: 90, alignment: .trailing)
 
-                        toolsEditor
+                        toolsEditor(tools: $allowedTools, newToolName: $newToolName, tint: .orange, emptyLabel: "All tools allowed (none restricted)")
+                    }
+
+                    // Disallowed tools
+                    HStack(alignment: .top) {
+                        Text("Disallowed Tools")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(width: 90, alignment: .trailing)
+
+                        toolsEditor(tools: $disallowedTools, newToolName: $newDisallowedToolName, tint: .red, emptyLabel: "No tools disallowed")
                     }
                 }
                 .padding(.horizontal, 12)
@@ -773,17 +797,17 @@ private struct CommandDetailEditor: View {
     // MARK: - Tools Editor
 
     @ViewBuilder
-    private var toolsEditor: some View {
+    private func toolsEditor(tools: Binding<[String]>, newToolName: Binding<String>, tint: Color, emptyLabel: String) -> some View {
         if isReadOnly {
-            if allowedTools.isEmpty {
-                Text("All tools (default)")
+            if tools.wrappedValue.isEmpty {
+                Text(emptyLabel)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 FlowLayout(spacing: 4) {
-                    ForEach(allowedTools, id: \.self) { tool in
-                        toolChip(tool, removable: false)
+                    ForEach(tools.wrappedValue, id: \.self) { tool in
+                        toolChip(tool, tools: tools, tint: tint, removable: false)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -791,34 +815,34 @@ private struct CommandDetailEditor: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 // Current tools as removable chips
-                if !allowedTools.isEmpty {
+                if !tools.wrappedValue.isEmpty {
                     FlowLayout(spacing: 4) {
-                        ForEach(allowedTools, id: \.self) { tool in
-                            toolChip(tool, removable: true)
+                        ForEach(tools.wrappedValue, id: \.self) { tool in
+                            toolChip(tool, tools: tools, tint: tint, removable: true)
                         }
                     }
                 } else {
-                    Text("All tools allowed (none restricted)")
+                    Text(emptyLabel)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 // Add tool — known tools as quick buttons
-                let available = SlashCommand.knownTools.filter { !allowedTools.contains($0) }
+                let available = SlashCommand.knownTools.filter { !tools.wrappedValue.contains($0) }
                 if !available.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
                             ForEach(available, id: \.self) { tool in
                                 Button {
                                     withAnimation(.easeInOut(duration: 0.15)) {
-                                        allowedTools.append(tool)
+                                        tools.wrappedValue.append(tool)
                                     }
                                 } label: {
                                     Text("+ \(tool)")
                                         .font(.caption2)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
-                                        .background(Color.themeAccent.opacity(0.1))
+                                        .background(tint.opacity(0.1))
                                         .cornerRadius(4)
                                 }
                                 .buttonStyle(.plain)
@@ -829,32 +853,32 @@ private struct CommandDetailEditor: View {
 
                 // Custom tool name field
                 HStack(spacing: 4) {
-                    TextField("Custom tool...", text: $newToolName)
+                    TextField("Custom tool...", text: newToolName)
                         .textFieldStyle(.roundedBorder)
                         .font(.caption.monospaced())
                         .frame(maxWidth: 150)
                         .onSubmit {
-                            addCustomTool()
+                            addCustomTool(tools: tools, newToolName: newToolName)
                         }
                     Button("Add") {
-                        addCustomTool()
+                        addCustomTool(tools: tools, newToolName: newToolName)
                     }
                     .font(.caption)
-                    .disabled(newToolName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(newToolName.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func toolChip(_ name: String, removable: Bool) -> some View {
+    private func toolChip(_ name: String, tools: Binding<[String]>, tint: Color, removable: Bool) -> some View {
         HStack(spacing: 3) {
             Text(name)
                 .font(.caption2.monospaced())
             if removable {
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
-                        allowedTools.removeAll { $0 == name }
+                        tools.wrappedValue.removeAll { $0 == name }
                     }
                 } label: {
                     Image(systemName: "xmark")
@@ -866,17 +890,17 @@ private struct CommandDetailEditor: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Color.orange.opacity(0.15))
+        .background(tint.opacity(0.15))
         .cornerRadius(4)
     }
 
-    private func addCustomTool() {
-        let name = newToolName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty, !allowedTools.contains(name) else { return }
+    private func addCustomTool(tools: Binding<[String]>, newToolName: Binding<String>) {
+        let name = newToolName.wrappedValue.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !tools.wrappedValue.contains(name) else { return }
         withAnimation(.easeInOut(duration: 0.15)) {
-            allowedTools.append(name)
+            tools.wrappedValue.append(name)
         }
-        newToolName = ""
+        newToolName.wrappedValue = ""
     }
 
     // MARK: - Source / Preview
@@ -921,11 +945,13 @@ private struct CommandDetailEditor: View {
         description = command.description
         argumentHint = command.argumentHint
         allowedTools = command.allowedTools
+        disallowedTools = command.disallowedTools
         promptBody = command.body
 
         origDescription = command.description
         origArgumentHint = command.argumentHint
         origAllowedTools = command.allowedTools
+        origDisallowedTools = command.disallowedTools
         origPromptBody = command.body
     }
 }
@@ -1102,6 +1128,7 @@ struct CommandEditorSheet: View {
             description: description,
             argumentHint: "",
             allowedTools: [],
+            disallowedTools: [],
             body: "",
             fileURL: fileURL,
             isSymlink: false,

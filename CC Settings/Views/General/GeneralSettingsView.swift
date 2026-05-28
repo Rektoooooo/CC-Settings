@@ -66,6 +66,9 @@ struct GeneralSettingsView: View {
     // Teams
     @State private var teammateMode: String = s.teammateMode ?? "auto"
 
+    @State private var allowAllClaudeAiMcps: Bool = s.allowAllClaudeAiMcps ?? false
+    @State private var pluginSuggestionMarketplaces: String = (s.pluginSuggestionMarketplaces ?? []).joined(separator: ", ")
+
     // API Key Helper
     @State private var apiKeyHelper: String = s.apiKeyHelper ?? ""
 
@@ -96,6 +99,7 @@ struct GeneralSettingsView: View {
                 dataRetentionSection.id("data-retention")
                 attributionSection.id("attribution")
                 teamsSection.id("teams")
+                enterpriseSection.id("enterprise")
                 apiKeyHelperSection.id("api-key-helper")
                 aboutSection
             }
@@ -597,6 +601,24 @@ struct GeneralSettingsView: View {
     }
 
     @ViewBuilder
+    private var enterpriseSection: some View {
+        Section("Enterprise") {
+            Toggle("Allow All Claude.ai MCP Connectors", isOn: $allowAllClaudeAiMcps)
+            Text("Permit all cloud MCP connectors from Claude.ai without per-server approval. Typically a managed/org-admin setting.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Plugin Suggestion Marketplaces", text: $pluginSuggestionMarketplaces, prompt: Text("org-marketplace, team-tools"), axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(1...3)
+            Text("Comma-separated allowlist of plugin marketplaces suggested to users. Typically a managed/org-admin setting.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
     private var apiKeyHelperSection: some View {
         Section("API Key Helper") {
             HStack {
@@ -779,6 +801,18 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("teammateMode", value: teammateMode == "auto" ? nil : teammateMode)
             }
+            .onChange(of: allowAllClaudeAiMcps) {
+                guard isLoaded else { return }
+                configManager.saveField("allowAllClaudeAiMcps", value: allowAllClaudeAiMcps ? true : nil)
+            }
+            .onChange(of: pluginSuggestionMarketplaces) {
+                guard isLoaded else { return }
+                let parts: [String] = pluginSuggestionMarketplaces.components(separatedBy: ",")
+                let list: [String] = parts
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                configManager.saveField("pluginSuggestionMarketplaces", value: list.isEmpty ? nil : list)
+            }
             .onChange(of: apiKeyHelper) {
                 guard isLoaded else { return }
                 let trimmed = apiKeyHelper.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -849,6 +883,10 @@ struct GeneralSettingsView: View {
 
         // Teams
         teammateMode = s.teammateMode ?? "auto"
+
+        // Enterprise
+        allowAllClaudeAiMcps = s.allowAllClaudeAiMcps ?? false
+        pluginSuggestionMarketplaces = (s.pluginSuggestionMarketplaces ?? []).joined(separator: ", ")
 
         // API Key Helper
         apiKeyHelper = s.apiKeyHelper ?? ""

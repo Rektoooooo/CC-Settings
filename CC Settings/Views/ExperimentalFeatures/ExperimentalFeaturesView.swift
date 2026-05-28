@@ -49,6 +49,7 @@ struct ExperimentalFeaturesView: View {
     @State private var worktreeSparsePaths: String = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
     @State private var worktreeSymlinkDirs: String = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
     @State private var worktreeBaseRef: String = s.worktree?.baseRef ?? ""
+    @State private var worktreeBgIsolation: String = s.worktree?.bgIsolation ?? ""
 
     // Spinner
     @State private var spinnerTipsEnabled: Bool = s.spinnerTipsEnabled ?? true
@@ -368,6 +369,16 @@ struct ExperimentalFeaturesView: View {
                 Text("Comma-separated directories to symlink in worktrees.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Picker("Background Isolation", selection: $worktreeBgIsolation) {
+                    Text("Default (isolated worktree)").tag("")
+                    Text("None — edit working copy directly").tag("none")
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: worktreeBgIsolation) { _, _ in saveWorktree() }
+                Text("How background agents isolate their changes. \"None\" edits the current working copy directly instead of creating a separate worktree.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Worktree")
             }.id("worktree")
@@ -531,6 +542,7 @@ struct ExperimentalFeaturesView: View {
         worktreeSparsePaths = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
         worktreeSymlinkDirs = (s.worktree?.symlinkDirectories ?? []).joined(separator: ", ")
         worktreeBaseRef = s.worktree?.baseRef ?? ""
+        worktreeBgIsolation = s.worktree?.bgIsolation ?? ""
 
         // Spinner — prefer nested overrides, fall back to flat fields
         spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
@@ -601,6 +613,8 @@ struct ExperimentalFeaturesView: View {
         if let v = parseCSV(worktreeSymlinkDirs) { wt["symlinkDirectories"] = v }
         let trimmedBaseRef = worktreeBaseRef.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedBaseRef.isEmpty { wt["baseRef"] = trimmedBaseRef }
+        let trimmedBgIsolation = worktreeBgIsolation.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedBgIsolation.isEmpty { wt["bgIsolation"] = trimmedBgIsolation }
         configManager.saveField("worktree", value: wt.isEmpty ? nil : wt)
     }
 

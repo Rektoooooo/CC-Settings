@@ -61,6 +61,10 @@ struct ClaudeSettings: Equatable {
     // Teams
     var teammateMode: String?
 
+    // Enterprise / Managed
+    var pluginSuggestionMarketplaces: [String]?
+    var allowAllClaudeAiMcps: Bool?
+
     // Auto Mode
     var disableAutoMode: String?
     var autoMode: AutoModeConfig?
@@ -142,6 +146,8 @@ extension ClaudeSettings: Codable {
         attribution = try c.decodeIfPresent(AttributionConfig.self, forKey: .attribution)
         prUrlTemplate = try c.decodeIfPresent(String.self, forKey: .prUrlTemplate)
         teammateMode = try c.decodeIfPresent(String.self, forKey: .teammateMode)
+        pluginSuggestionMarketplaces = try c.decodeIfPresent([String].self, forKey: .pluginSuggestionMarketplaces)
+        allowAllClaudeAiMcps = try c.decodeIfPresent(Bool.self, forKey: .allowAllClaudeAiMcps)
         disableAutoMode = try c.decodeIfPresent(String.self, forKey: .disableAutoMode)
         autoMode = try c.decodeIfPresent(AutoModeConfig.self, forKey: .autoMode)
         disableAllHooks = try c.decodeIfPresent(Bool.self, forKey: .disableAllHooks)
@@ -216,6 +222,7 @@ struct WorktreeConfig: Codable, Equatable {
     var sparsePaths: [String]?
     var symlinkDirectories: [String]?
     var baseRef: String?
+    var bgIsolation: String?
 }
 
 // MARK: - Auto Compact
@@ -268,6 +275,7 @@ struct HooksConfig: Codable, Equatable {
     var PostToolUse: [HookGroup]?
     var PrePromptSubmit: [HookGroup]?
     var PostPromptSubmit: [HookGroup]?
+    var MessageDisplay: [HookGroup]?
     var PostToolUseFailure: [HookGroup]?
     var PermissionRequest: [HookGroup]?
     var Notification: [HookGroup]?
@@ -301,6 +309,7 @@ struct HooksConfig: Codable, Equatable {
         PostToolUse = decode("PostToolUse")
         PrePromptSubmit = decode("PrePromptSubmit")
         PostPromptSubmit = decode("PostPromptSubmit")
+        MessageDisplay = decode("MessageDisplay")
         PostToolUseFailure = decode("PostToolUseFailure")
         PermissionRequest = decode("PermissionRequest")
         Notification = decode("Notification")

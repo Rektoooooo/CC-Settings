@@ -90,7 +90,7 @@ struct EnvironmentView: View {
 
             // MARK: - Model Overrides
             Section {
-                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-opus-4-7)"))
+                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-opus-4-8)"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Override the model used by Claude Code. This takes priority over the model setting.")
@@ -110,7 +110,7 @@ struct EnvironmentView: View {
                             Text("opus =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-opus-4-7", text: $defaultOpusModel)
+                            TextField("e.g. claude-opus-4-8", text: $defaultOpusModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -118,7 +118,7 @@ struct EnvironmentView: View {
                             Text("sonnet =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-sonnet-4-5-20250514", text: $defaultSonnetModel)
+                            TextField("e.g. claude-sonnet-4-6", text: $defaultSonnetModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -126,7 +126,7 @@ struct EnvironmentView: View {
                             Text("haiku =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-3-5-haiku-20241022", text: $defaultHaikuModel)
+                            TextField("e.g. claude-haiku-4-5-20251001", text: $defaultHaikuModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
