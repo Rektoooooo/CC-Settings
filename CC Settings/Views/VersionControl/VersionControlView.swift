@@ -49,6 +49,7 @@ struct VersionControlView: View {
         .onAppear {
             loadRepositories()
         }
+        .onChange(of: configManager.externalChangeToken) { loadRepositories() }
         .onChange(of: selectedRepo) { _, newRepo in
             guard let repo = newRepo else { return }
             selectedFile = nil

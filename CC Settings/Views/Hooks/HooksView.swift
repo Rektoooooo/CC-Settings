@@ -379,6 +379,16 @@ struct HooksView: View {
         return "All tools"
     }
 
+    /// One-line summary of a hook by its real type (command/prompt/agent/url).
+    private func hookSummary(_ def: HookDefinition) -> String {
+        switch def.type {
+        case "prompt": return "prompt: \(def.prompt ?? "")"
+        case "agent": return "agent: \(def.agent ?? "")"
+        case "url": return "url: \(def.url ?? "")"
+        default: return "$ \(def.command ?? "")"
+        }
+    }
+
     var body: some View {
         Form {
             // MARK: - Scope Filter
@@ -565,14 +575,16 @@ struct HooksView: View {
                     .foregroundColor(.secondary)
                     .frame(width: 40, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 2) {
-                    let commands = scopedHook.group.hooks.compactMap(\.command)
-                    if let first = commands.first {
-                        Text("$ \(first)")
+                    // Summarize EVERY hook by its real type — command/prompt/agent/url —
+                    // so prompt/agent/url hooks no longer render as blank rows.
+                    let defs = scopedHook.group.hooks
+                    if let first = defs.first {
+                        Text(hookSummary(first))
                             .font(.system(.caption, design: .monospaced))
                             .lineLimit(1)
                     }
-                    if commands.count > 1 {
-                        Text("+ \(commands.count - 1) more command\(commands.count > 2 ? "s" : "")")
+                    if defs.count > 1 {
+                        Text("+ \(defs.count - 1) more\(defs.count > 2 ? "" : "")")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }

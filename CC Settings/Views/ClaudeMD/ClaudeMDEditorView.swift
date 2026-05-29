@@ -53,6 +53,11 @@ struct ClaudeMDEditorView: View {
             loadContent()
             hasLoadedInitial = true
         }
+        .onChange(of: configManager.externalChangeToken) {
+            // Resync from disk on external edits, but never clobber unsaved edits.
+            loadProjects()
+            if !hasChanges { loadContent() }
+        }
         .onChange(of: selectedScope) { oldValue, newValue in
             if hasLoadedInitial {
                 if hasChanges {

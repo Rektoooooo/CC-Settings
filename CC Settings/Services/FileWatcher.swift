@@ -12,6 +12,9 @@ class FileWatcher: ObservableObject {
 
     /// Per-file mtime+size tracking to skip reloads when nothing actually changed on disk.
     private var fileSnapshots: [String: FileSnapshot] = [:]
+    /// Per-directory content signature (sorted name+mtime+size) so adds/removes/edits
+    /// inside watched dirs (commands, skills, themes, projects, …) trigger a reload.
+    private var dirSignatures: [String: String] = [:]
 
     private struct FileSnapshot: Equatable {
         let mtime: Date
@@ -89,38 +92,57 @@ class FileWatcher: ObservableObject {
         return FileSnapshot(mtime: mtime, size: size)
     }
 
-    /// Returns true if any of the managed config files changed on disk since last snapshot.
+    /// Returns true if any watched config file OR directory changed on disk since the
+    /// last snapshot. Covers the core files plus ~/.claude.json (MCP), stats-cache,
+    /// and the catalog/content dirs (commands, skills, themes, projects, …) so the
+    /// app stops swallowing every change that isn't settings.json/CLAUDE.md.
     private func hasFilesChanged() -> Bool {
         let manager = ConfigurationManager.shared
-        let trackedPaths = [
-            manager.settingsURL.path,
-            manager.localSettingsURL.path,
-            manager.claudeMDURL.path,
-        ]
+        var changed = false
 
-        for path in trackedPaths {
+        for url in manager.changeWatchFiles {
+            let path = url.path
             guard let current = snapshotFile(at: path) else {
-                // File doesn't exist — changed if we had a previous snapshot
                 if fileSnapshots[path] != nil {
                     fileSnapshots.removeValue(forKey: path)
-                    return true
+                    changed = true
                 }
                 continue
             }
-
             if let previous = fileSnapshots[path] {
-                if current != previous {
-                    fileSnapshots[path] = current
-                    return true
-                }
+                if current != previous { fileSnapshots[path] = current; changed = true }
             } else {
-                // First time seeing this file
                 fileSnapshots[path] = current
-                return true
+                changed = true
             }
         }
 
-        return false
+        for url in manager.changeWatchDirs {
+            let path = url.path
+            let current = directorySignature(at: path)
+            if let previous = dirSignatures[path] {
+                if current != previous { dirSignatures[path] = current; changed = true }
+            } else {
+                dirSignatures[path] = current
+                changed = true
+            }
+        }
+
+        return changed
+    }
+
+    /// A cheap signature of a directory's immediate contents (sorted name|mtime|size).
+    /// Changes when a file is added, removed, or modified. Empty string if missing.
+    private func directorySignature(at path: String) -> String {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(atPath: path) else { return "" }
+        return entries.sorted().map { name -> String in
+            let full = (path as NSString).appendingPathComponent(name)
+            let attrs = try? fm.attributesOfItem(atPath: full)
+            let mtime = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            let size = (attrs?[.size] as? Int) ?? 0
+            return "\(name)|\(mtime)|\(size)"
+        }.joined(separator: ";")
     }
 
     private func createStream() {
@@ -185,6 +207,10 @@ class FileWatcher: ObservableObject {
                 // Refresh watched project paths in case new projects appeared
                 let projects = manager.loadProjects()
                 FileWatcher.shared.updateProjectPaths(projects)
+
+                // Notify views that hold their own @State (MCP, sessions, stats, git,
+                // themes, profiles, storage badges) so they re-run their loaders.
+                manager.externalChangeToken &+= 1
             }
         }
     }

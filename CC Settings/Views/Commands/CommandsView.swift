@@ -233,6 +233,7 @@ struct CommandsView: View {
         .onAppear {
             loadCommands()
         }
+        .onChange(of: configManager.externalChangeToken) { loadCommands() }
         .sheet(isPresented: $showNewCommandSheet) {
             CommandEditorSheet(
                 commandsURL: commandsURLForScope(editorTargetScope),

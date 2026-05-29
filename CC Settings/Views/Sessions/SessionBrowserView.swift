@@ -106,6 +106,7 @@ struct SessionBrowserView: View {
                 selectedProject = projects.first(where: { $0.id == pid })
             }
         }
+        .onChange(of: configManager.externalChangeToken) { loadProjects() }
     }
 
     // MARK: - Column 1: Projects

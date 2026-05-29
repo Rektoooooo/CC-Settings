@@ -80,6 +80,7 @@ struct ThemesView: View {
         }
         .onAppear { reload() }
         .onChange(of: configManager.settings) { _, _ in reload() }
+        .onChange(of: configManager.externalChangeToken) { reload() }
         .confirmationDialog(
             "Delete this theme?",
             isPresented: $showDeleteConfirm,

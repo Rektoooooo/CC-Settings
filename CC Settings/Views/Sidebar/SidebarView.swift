@@ -498,6 +498,10 @@ struct SidebarView: View {
             loadProjects()
             discoverSubfolders()
         }
+        .onChange(of: configManager.externalChangeToken) {
+            loadProjects()
+            discoverSubfolders()
+        }
     }
 
     private func matchesSearchForAnyProject() -> Bool {

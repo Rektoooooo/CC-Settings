@@ -127,6 +127,7 @@ struct AgentsView: View {
         .onAppear {
             loadAgents()
         }
+        .onChange(of: configManager.externalChangeToken) { loadAgents() }
     }
 
     // MARK: - Header

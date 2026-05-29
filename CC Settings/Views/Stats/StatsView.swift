@@ -27,6 +27,7 @@ struct StatsView: View {
         .onAppear {
             service.load(using: configManager)
         }
+        .onChange(of: configManager.externalChangeToken) { service.load(using: configManager) }
     }
 
     @ViewBuilder

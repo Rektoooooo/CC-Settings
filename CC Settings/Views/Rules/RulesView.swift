@@ -158,6 +158,7 @@ struct RulesView: View {
         .onAppear {
             loadRules()
         }
+        .onChange(of: configManager.externalChangeToken) { loadRules() }
     }
 
     // MARK: - Header

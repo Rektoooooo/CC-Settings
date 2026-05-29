@@ -105,6 +105,7 @@ struct MCPServersView: View {
         .onAppear {
             loadServers()
         }
+        .onChange(of: configManager.externalChangeToken) { loadServers() }
         .sheet(isPresented: $showEditorSheet) {
             MCPServerEditorSheet(
                 existingServer: editingServer?.config,

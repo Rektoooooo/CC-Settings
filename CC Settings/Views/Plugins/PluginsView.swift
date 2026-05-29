@@ -171,7 +171,7 @@ struct PluginsView: View {
                         Image(systemName: "puzzlepiece")
                             .foregroundColor(.themeAccent)
                             .font(.title3)
-                        Text("Plugins")
+                        Text("Available Plugins")
                             .font(.headline)
                         Spacer()
                         Button {
@@ -299,6 +299,7 @@ struct PluginsView: View {
         .onAppear {
             loadMarketplaces()
         }
+        .onChange(of: configManager.externalChangeToken) { loadMarketplaces() }
     }
 
     // MARK: - Data Loading
@@ -461,7 +462,7 @@ struct PluginsView: View {
             id: id,
             name: name,
             description: json["description"] as? String ?? "",
-            version: json["version"] as? String ?? "0.0.0",
+            version: json["version"] as? String ?? "",
             author: authorName,
             authorEmail: authorEmail,
             category: json["category"] as? String ?? "",
@@ -488,13 +489,15 @@ private struct PluginItemRow: View {
                 Text(plugin.name)
                     .font(.body)
                     .lineLimit(1)
-                Text(plugin.version)
-                    .font(.caption2.monospaced())
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Color.themeAccent.opacity(0.8))
-                    .cornerRadius(3)
+                if !plugin.version.isEmpty {
+                    Text(plugin.version)
+                        .font(.caption2.monospaced())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.themeAccent.opacity(0.8))
+                        .cornerRadius(3)
+                }
                 if !plugin.category.isEmpty {
                     Text(plugin.category)
                         .font(.caption2)
@@ -530,13 +533,15 @@ private struct PluginDetailView: View {
                     .font(.headline)
                     .lineLimit(1)
 
-                Text(plugin.version)
-                    .font(.caption.monospaced())
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.themeAccent)
-                    .cornerRadius(4)
+                if !plugin.version.isEmpty {
+                    Text(plugin.version)
+                        .font(.caption.monospaced())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.themeAccent)
+                        .cornerRadius(4)
+                }
 
                 if !plugin.category.isEmpty {
                     Text(plugin.category)

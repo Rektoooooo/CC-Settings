@@ -409,8 +409,8 @@ struct HUDView: View {
             Text("Preview")
         } footer: {
             Text(config.lineLayout == "expanded"
-                ? "Drag to reorder elements. Toggle visibility in Display and Activity sections."
-                : "Live preview of how the HUD will appear in Claude Code.")
+                ? "Sample preview with placeholder values — drag to reorder elements. Toggle visibility in Display and Activity sections."
+                : "Sample preview with placeholder values; actual model/context/usage come from your live Claude Code session.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

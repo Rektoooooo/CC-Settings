@@ -125,7 +125,7 @@ struct ProjectSettingsView: View {
 
             OverridableSettingRow(
                 title: "Effort Level",
-                globalSummary: configManager.settings.effortLevel ?? "normal",
+                globalSummary: configManager.settings.effortLevel ?? "Not set",
                 isOverridden: isOverridden("effortLevel"),
                 onToggleOverride: { enabled in
                     if enabled {
@@ -154,7 +154,7 @@ struct ProjectSettingsView: View {
 
             OverridableSettingRow(
                 title: "Output Style",
-                globalSummary: configManager.settings.outputStyle ?? "default",
+                globalSummary: configManager.settings.outputStyle ?? "Not set",
                 isOverridden: isOverridden("outputStyle"),
                 onToggleOverride: { enabled in
                     if enabled {
@@ -228,7 +228,7 @@ struct ProjectSettingsView: View {
 
             OverridableSettingRow(
                 title: "Default Shell",
-                globalSummary: configManager.settings.defaultShell ?? "bash",
+                globalSummary: configManager.settings.defaultShell ?? "Not set (bash)",
                 isOverridden: isOverridden("defaultShell"),
                 onToggleOverride: { enabled in
                     if enabled {
@@ -254,7 +254,7 @@ struct ProjectSettingsView: View {
 
             OverridableSettingRow(
                 title: "Plans Directory",
-                globalSummary: configManager.settings.plansDirectory ?? "default",
+                globalSummary: configManager.settings.plansDirectory ?? "Not set",
                 isOverridden: isOverridden("plansDirectory"),
                 onToggleOverride: { enabled in
                     if enabled {
@@ -306,7 +306,7 @@ struct ProjectSettingsView: View {
 
             OverridableSettingRow(
                 title: "Memory Directory",
-                globalSummary: configManager.settings.autoMemoryDirectory ?? "default",
+                globalSummary: configManager.settings.autoMemoryDirectory ?? "Not set",
                 isOverridden: isOverridden("autoMemoryDirectory"),
                 onToggleOverride: { enabled in
                     if enabled {

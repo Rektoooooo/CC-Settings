@@ -199,6 +199,7 @@ struct SkillsView: View {
         .onAppear {
             loadSkills()
         }
+        .onChange(of: configManager.externalChangeToken) { loadSkills() }
     }
 
     // MARK: - Header

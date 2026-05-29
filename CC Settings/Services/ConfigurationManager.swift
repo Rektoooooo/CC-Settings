@@ -23,6 +23,23 @@ class ConfigurationManager: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var lastError: Error?
 
+    /// Bumped by FileWatcher whenever an external change is detected on disk.
+    /// Views that hold their own @State (MCP, sessions, stats, git, themes,
+    /// profiles, storage badges, …) observe this to re-run their loaders so the
+    /// UI reflects current files instead of a stale onAppear snapshot.
+    @Published var externalChangeToken: Int = 0
+
+    /// Files FileWatcher snapshots (mtime+size) to decide whether a reload is warranted.
+    var changeWatchFiles: [URL] {
+        [settingsURL, localSettingsURL, claudeMDURL, mcpConfigURL,
+         claudeDir.appendingPathComponent("stats-cache.json")]
+    }
+    /// Directories FileWatcher signatures (entry names + mtimes) for the same purpose.
+    var changeWatchDirs: [URL] {
+        ["projects", "commands", "skills", "agents", "rules", "themes", "profiles", "plugins"]
+            .map { claudeDir.appendingPathComponent($0) }
+    }
+
     /// Timestamp of the last save performed by the app. FileWatcher checks this to avoid
     /// reloading settings that the app itself just wrote (which would overwrite in-progress edits).
     private(set) var lastSaveTime: Date = .distantPast
@@ -760,8 +777,13 @@ class ConfigurationManager: ObservableObject {
                 }
             }
 
-            // Load project settings
-            let projectSettingsURL = dir.appendingPathComponent("settings.json")
+            // Load project settings from the project's real .claude/settings.json
+            // (matches loadProjectSettings). Reading dir/settings.json — i.e.
+            // ~/.claude/projects/<id>/settings.json — always missed the file, so
+            // Project.settings was always nil and the hasSettings filter was dead.
+            let projectSettingsURL = URL(fileURLWithPath: originalPath)
+                .appendingPathComponent(".claude")
+                .appendingPathComponent("settings.json")
             var projectSettings: ClaudeSettings?
             if let data = try? Data(contentsOf: projectSettingsURL) {
                 projectSettings = try? decoder.decode(ClaudeSettings.self, from: validateAndFix(jsonData: data))

@@ -29,6 +29,8 @@ struct ProfilesSectionView: View {
                 .buttonStyle(.borderless)
             }
         }
+        .onAppear { profileManager.loadProfiles() }
+        .onChange(of: configManager.externalChangeToken) { profileManager.loadProfiles() }
         .sheet(isPresented: $showSaveSheet) {
             SaveProfileSheet { name, description in
                 do {

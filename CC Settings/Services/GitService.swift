@@ -106,7 +106,14 @@ class GitService: ObservableObject {
         }
 
         let branchResult = git(path, dir, ["branch", "--show-current"])
-        let branch = (branchResult.exit == 0 && !branchResult.output.isEmpty) ? branchResult.output : "main"
+        let branch: String
+        if branchResult.exit == 0 && !branchResult.output.isEmpty {
+            branch = branchResult.output
+        } else {
+            // Empty = detached HEAD. Show the real short SHA, not a fabricated "main".
+            let sha = git(path, dir, ["rev-parse", "--short", "HEAD"])
+            branch = (sha.exit == 0 && !sha.output.isEmpty) ? "detached @ \(sha.output)" : "HEAD"
+        }
 
         let files = fetchChangedFiles(path, dir)
         let (lastMsg, lastDate) = fetchLastCommit(path, dir)
@@ -344,21 +351,24 @@ class GitService: ObservableObject {
         let staged = git(gitPath, dir, ["diff", "--cached", "--name-status"])
         if staged.exit == 0 {
             for line in staged.output.components(separatedBy: "\n") where !line.isEmpty {
-                let parts = line.split(separator: "\t", maxSplits: 1)
-                guard parts.count >= 2 else { continue }
-                let status = GitFileStatus(rawValue: String(parts[0].prefix(1))) ?? .modified
-                files.append(GitFileChange(path: String(parts[1]), status: status, staged: true))
+                // Rename/copy lines are "R100\told\tnew" — take the LAST field as the
+                // current path; a maxSplits:1 split mangles it into "old\tnew".
+                let fields = line.components(separatedBy: "\t")
+                guard fields.count >= 2 else { continue }
+                let status = GitFileStatus(rawValue: String(fields[0].prefix(1))) ?? .modified
+                let path = fields.count >= 3 ? fields[fields.count - 1] : fields[1]
+                files.append(GitFileChange(path: path, status: status, staged: true))
             }
         }
 
         let unstaged = git(gitPath, dir, ["diff", "--name-status"])
         if unstaged.exit == 0 {
             for line in unstaged.output.components(separatedBy: "\n") where !line.isEmpty {
-                let parts = line.split(separator: "\t", maxSplits: 1)
-                guard parts.count >= 2 else { continue }
-                let path = String(parts[1])
+                let fields = line.components(separatedBy: "\t")
+                guard fields.count >= 2 else { continue }
+                let path = fields.count >= 3 ? fields[fields.count - 1] : fields[1]
                 if !files.contains(where: { $0.path == path }) {
-                    let status = GitFileStatus(rawValue: String(parts[0].prefix(1))) ?? .modified
+                    let status = GitFileStatus(rawValue: String(fields[0].prefix(1))) ?? .modified
                     files.append(GitFileChange(path: path, status: status, staged: false))
                 }
             }
