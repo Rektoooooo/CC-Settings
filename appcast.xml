@@ -3,6 +3,29 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.4.0</title>
+            <sparkle:version>21</sparkle:version>
+            <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li>Effort menu gains an <strong>Ultracode</strong> option, plus a <strong>Dynamic Workflows</strong> toggle (writes <code>disableWorkflows</code>)</li>
+                    <li>HTTP/SSE MCP tool discovery now authenticates with the stored OAuth token, so auto-approval lists populate for servers like GitHub and NetSuite (previously HTTP 401)</li>
+                    <li>Project-<em>local</em> MCP servers stored inline in <code>~/.claude.json</code> are now shown and editable, saved back to the correct file</li>
+                    <li>Many sections now live-reload on external file changes (MCP, sessions, stats, git, themes, profiles, storage badges, commands/skills/plugins)</li>
+                    <li>Truthful data fixes: the Model picker no longer shows a fake &ldquo;Sonnet&rdquo; when none is set; session threads no longer drop your messages; saving sandbox/hooks/MCP/permissions no longer drops config keys (including per-server <code>oauth</code>)</li>
+                    <li>Plugins badge counts installed plugins (not the catalog); Stats headline relabeled &ldquo;I/O Tokens&rdquo;; git detached-HEAD and renamed-file handling fixed; backups folder lists its files</li>
+                </ul>
+            ]]></description>
+            <pubDate>Fri, 29 May 2026 09:16:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.4.0/CC-Settings-1.4.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="+T3mei7wbMZJMDtgz+Gu6o6wawHMgGUgyb+ewDqEySpNd3mmwEkUIm/+d6emYAwCYJn7d3uoo6yX5Jx1VeBOBQ=="
+                length="7119248"
+            />
+        </item>
+        <item>
             <title>Version 1.3.0</title>
             <sparkle:version>20</sparkle:version>
             <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
