@@ -3,6 +3,7 @@ import SwiftUI
 struct MCPServerDetailView: View {
     let server: MCPServerConfig
     var scope: ConfigScope = .global
+    var storage: MCPStorage = .userGlobal
     var onEdit: (() -> Void)?
     var onDelete: (() -> Void)?
     var onMove: (() -> Void)?
@@ -152,7 +153,12 @@ struct MCPServerDetailView: View {
                     .foregroundColor(.secondary)
                 HStack(spacing: 4) {
                     ScopeBadge(scope: scope)
-                    Text(scope.mcpPathDescription)
+                    Text(storage.label)
+                        .font(.caption2.weight(.medium))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Color.secondary.opacity(0.15), in: Capsule())
+                    Text(storage.pathDescription)
                         .font(.caption.monospaced())
                         .foregroundColor(.secondary)
                         .textSelection(.enabled)

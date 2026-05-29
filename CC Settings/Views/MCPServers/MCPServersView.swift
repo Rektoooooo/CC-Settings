@@ -80,6 +80,7 @@ struct MCPServersView: View {
                 MCPServerDetailView(
                     server: currentServer.config,
                     scope: currentServer.scope,
+                    storage: currentServer.storage,
                     onEdit: {
                         editingServer = currentServer
                         editorTargetScope = currentServer.scope
@@ -113,7 +114,7 @@ struct MCPServersView: View {
                 targetScope: editorTargetScope,
                 availableScopes: allAvailableScopes
             ) { savedServer, scope in
-                saveServer(savedServer, replacing: editingServer?.config.id, scope: scope, originalScope: editingServer?.scope)
+                saveServer(savedServer, replacing: editingServer?.config.id, targetScope: scope, original: editingServer)
             }
         }
         .alert("Delete Server", isPresented: $showDeleteAlert) {
@@ -134,7 +135,7 @@ struct MCPServersView: View {
                     server: server,
                     availableScopes: allAvailableScopes.filter { $0 != server.scope }
                 ) { targetScope in
-                    configManager.moveMCPServer(server.config, from: server.scope, to: targetScope)
+                    configManager.moveMCPServer(server.config, from: server.storage, to: storage(for: targetScope))
                     loadServers()
                 }
             }
@@ -259,14 +260,14 @@ struct MCPServersView: View {
                             Menu("Move to...") {
                                 ForEach(allAvailableScopes.filter { $0 != server.scope }) { scope in
                                     Button(scope.displayName) {
-                                        configManager.moveMCPServer(server.config, from: server.scope, to: scope)
+                                        configManager.moveMCPServer(server.config, from: server.storage, to: storage(for: scope))
                                         loadServers()
                                     }
                                 }
                             }
 
                             Button("Show in Finder") {
-                                let path = configFilePath(for: server.scope)
+                                let path = configFilePath(for: server.storage)
                                 NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: URL(fileURLWithPath: path).deletingLastPathComponent().path)
                             }
                             Divider()
@@ -317,11 +318,11 @@ struct MCPServersView: View {
         Set(servers.filter { $0.scope == scope }.map(\.config.id))
     }
 
-    private func configFilePath(for scope: ConfigScope) -> String {
-        switch scope {
-        case .global:
+    private func configFilePath(for storage: MCPStorage) -> String {
+        switch storage {
+        case .userGlobal, .projectLocal:
             return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json").path
-        case .project(_, let path):
+        case .projectShared(let path):
             return URL(fileURLWithPath: path).appendingPathComponent(".mcp.json").path
         }
     }
@@ -339,55 +340,45 @@ struct MCPServersView: View {
         }
     }
 
-    private func saveServer(_ server: MCPServerConfig, replacing oldName: String?, scope: ConfigScope, originalScope: ConfigScope?) {
-        // If scope changed, move the server
-        if let origScope = originalScope, origScope != scope {
-            // Delete from original scope
-            switch origScope {
-            case .global:
-                var dict = configManager.loadMCPServers()
-                dict.removeValue(forKey: oldName ?? server.id)
-                configManager.saveMCPServers(dict)
-            case .project(_, let path):
-                var dict = configManager.loadProjectMCPServers(projectPath: path)
-                dict.removeValue(forKey: oldName ?? server.id)
-                configManager.saveProjectMCPServers(dict, projectPath: path)
-            }
+    private func saveServer(_ server: MCPServerConfig, replacing oldName: String?, targetScope: ConfigScope, original: ScopedMCPServer?) {
+        // Editing a local server in place keeps it local; otherwise the chosen scope
+        // maps to its storage (global -> user ~/.claude.json, project -> shared .mcp.json).
+        let targetStorage: MCPStorage
+        if let original, case .projectLocal = original.storage, original.scope == targetScope {
+            targetStorage = original.storage
+        } else {
+            targetStorage = storage(for: targetScope)
         }
 
-        // Save to target scope
-        switch scope {
-        case .global:
-            var dict = configManager.loadMCPServers()
-            if let oldName = oldName, oldName != server.id {
-                dict.removeValue(forKey: oldName)
-            }
-            dict[server.id] = server
-            configManager.saveMCPServers(dict)
-        case .project(_, let path):
-            var dict = configManager.loadProjectMCPServers(projectPath: path)
-            if let oldName = oldName, oldName != server.id {
-                dict.removeValue(forKey: oldName)
-            }
-            dict[server.id] = server
-            configManager.saveProjectMCPServers(dict, projectPath: path)
+        // If storage changed, remove from the original location first.
+        if let original, original.storage != targetStorage {
+            var src = configManager.loadMCPServers(for: original.storage)
+            src.removeValue(forKey: oldName ?? server.id)
+            configManager.saveMCPServers(src, for: original.storage)
         }
+
+        var dict = configManager.loadMCPServers(for: targetStorage)
+        if let oldName, oldName != server.id { dict.removeValue(forKey: oldName) }
+        dict[server.id] = server
+        configManager.saveMCPServers(dict, for: targetStorage)
 
         loadServers()
-        selectedServer = servers.first(where: { $0.config.id == server.id && $0.scope == scope })
+        selectedServer = servers.first(where: { $0.config.id == server.id && $0.storage == targetStorage })
+    }
+
+    /// Maps a chosen scope to its MCP storage. Local is reachable only by editing an
+    /// already-local server in place — not yet offered as a move/create target.
+    private func storage(for scope: ConfigScope) -> MCPStorage {
+        switch scope {
+        case .global: return .userGlobal
+        case .project(_, let path): return .projectShared(path: path)
+        }
     }
 
     private func deleteServer(_ server: ScopedMCPServer) {
-        switch server.scope {
-        case .global:
-            var dict = configManager.loadMCPServers()
-            dict.removeValue(forKey: server.config.id)
-            configManager.saveMCPServers(dict)
-        case .project(_, let path):
-            var dict = configManager.loadProjectMCPServers(projectPath: path)
-            dict.removeValue(forKey: server.config.id)
-            configManager.saveProjectMCPServers(dict, projectPath: path)
-        }
+        var dict = configManager.loadMCPServers(for: server.storage)
+        dict.removeValue(forKey: server.config.id)
+        configManager.saveMCPServers(dict, for: server.storage)
 
         if selectedServer?.id == server.id {
             selectedServer = nil
@@ -536,7 +527,7 @@ struct MoveServerSheet: View {
                     .foregroundColor(.secondary)
                 HStack(spacing: 6) {
                     ScopeBadge(scope: server.scope)
-                    Text(server.scope.mcpPathDescription)
+                    Text(server.storage.pathDescription)
                         .font(.caption.monospaced())
                         .foregroundColor(.secondary)
                 }
