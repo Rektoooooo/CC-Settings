@@ -123,7 +123,7 @@ struct HUDContentView: View {
 
             // Model ID info
             HStack(spacing: 8) {
-                Label(configManager.settings.model, systemImage: "tag")
+                Label(displayName(for: configManager.settings.model), systemImage: "tag")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)

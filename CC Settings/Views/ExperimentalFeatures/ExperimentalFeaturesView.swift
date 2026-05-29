@@ -579,20 +579,21 @@ struct ExperimentalFeaturesView: View {
 
     private func saveSandbox() {
         guard !isSyncing else { return }
-        var sb: [String: Any] = [:]
-        if sandboxEnabled { sb["enabled"] = true }
-        if sandboxFailIfUnavailable { sb["failIfUnavailable"] = true }
-        if !autoAllowBashIfSandboxed { sb["autoAllowBashIfSandboxed"] = false }
-        if enableWeakerNetworkIsolation { sb["enableWeakerNetworkIsolation"] = true }
-
-        var fs: [String: Any] = [:]
-        if let v = parseCSV(sandboxAllowWrite) { fs["allowWrite"] = v }
-        if let v = parseCSV(sandboxDenyWrite) { fs["denyWrite"] = v }
-        if let v = parseCSV(sandboxDenyRead) { fs["denyRead"] = v }
-        if let v = parseCSV(sandboxAllowRead) { fs["allowRead"] = v }
-        if !fs.isEmpty { sb["filesystem"] = fs }
-
-        configManager.saveField("sandbox", value: sb.isEmpty ? nil : sb)
+        // Write each sub-key via a dotted keyPath. setNestedValue MERGES dotted
+        // paths into the existing object, so sibling keys this UI doesn't manage
+        // (excludedCommands, network, ignoreViolations, allowUnsandboxedCommands,
+        // enableWeakerNestedSandbox, plus any future unknown keys) are preserved
+        // instead of being wiped by a whole-object replace.
+        configManager.saveFields([
+            (keyPath: "sandbox.enabled", value: sandboxEnabled ? true : nil),
+            (keyPath: "sandbox.failIfUnavailable", value: sandboxFailIfUnavailable ? true : nil),
+            (keyPath: "sandbox.autoAllowBashIfSandboxed", value: autoAllowBashIfSandboxed ? nil : false),
+            (keyPath: "sandbox.enableWeakerNetworkIsolation", value: enableWeakerNetworkIsolation ? true : nil),
+            (keyPath: "sandbox.filesystem.allowWrite", value: parseCSV(sandboxAllowWrite)),
+            (keyPath: "sandbox.filesystem.denyWrite", value: parseCSV(sandboxDenyWrite)),
+            (keyPath: "sandbox.filesystem.denyRead", value: parseCSV(sandboxDenyRead)),
+            (keyPath: "sandbox.filesystem.allowRead", value: parseCSV(sandboxAllowRead))
+        ])
     }
 
     private func saveLegacySandbox() {

@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// Discovers the tools/actions an MCP server exposes by speaking the MCP
 /// `tools/list` JSON-RPC handshake. stdio servers are launched through a login
@@ -228,10 +229,19 @@ final class MCPDiscoveryService: ObservableObject {
             return .failure(.init(message: "No URL configured"))
         }
 
+        // OAuth-based HTTP/SSE servers (github, netsuite-ai, …) keep their bearer
+        // token in the Claude Code keychain item, not in the server's `headers`.
+        // Merge it in so discovery is authenticated; without it the server 401s.
+        var headers = server.headers ?? [:]
+        let hasAuthHeader = headers.keys.contains { $0.caseInsensitiveCompare("Authorization") == .orderedSame }
+        if !hasAuthHeader, let token = oauthAccessToken(for: server) {
+            headers["Authorization"] = "Bearer \(token)"
+        }
+
         var sessionID: String?
 
         // initialize
-        let initResult = await postJSONRPC(url: url, headers: server.headers, body: initializeRequest(id: 1), sessionID: nil)
+        let initResult = await postJSONRPC(url: url, headers: headers, body: initializeRequest(id: 1), sessionID: nil)
         switch initResult {
         case .failure(let error):
             return .failure(error)
@@ -240,7 +250,7 @@ final class MCPDiscoveryService: ObservableObject {
         }
 
         // tools/list
-        let listResult = await postJSONRPC(url: url, headers: server.headers, body: toolsListRequest(id: 2), sessionID: sessionID)
+        let listResult = await postJSONRPC(url: url, headers: headers, body: toolsListRequest(id: 2), sessionID: sessionID)
         switch listResult {
         case .failure(let error):
             return .failure(error)
@@ -276,6 +286,9 @@ final class MCPDiscoveryService: ObservableObject {
             let contentType = http?.value(forHTTPHeaderField: "Content-Type") ?? ""
 
             if let code = http?.statusCode, code >= 400 {
+                if code == 401 {
+                    return .failure(.init(message: "HTTP 401 — authentication required (log in with /mcp in Claude Code)"))
+                }
                 return .failure(.init(message: "HTTP \(code)"))
             }
 
@@ -292,6 +305,38 @@ final class MCPDiscoveryService: ObservableObject {
         } catch {
             return .failure(.init(message: error.localizedDescription))
         }
+    }
+
+    /// The OAuth access token Claude Code stored for this HTTP/SSE server.
+    ///
+    /// Tokens live in the macOS keychain generic-password item
+    /// `Claude Code-credentials`, under `mcpOAuth["<name>|<hash>"].accessToken`,
+    /// keyed by server name + URL. Reading another app's item may prompt the user
+    /// for keychain access the first time. Returns nil when no (non-empty) token
+    /// is stored — e.g. a server the user hasn't logged into yet.
+    private static func oauthAccessToken(for server: MCPServerConfig) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "Claude Code-credentials",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let mcpOAuth = json["mcpOAuth"] as? [String: Any] else {
+            return nil
+        }
+
+        for (_, value) in mcpOAuth {
+            guard let entry = value as? [String: Any],
+                  let token = entry["accessToken"] as? String, !token.isEmpty else { continue }
+            let nameMatches = (entry["serverName"] as? String) == server.id
+            let urlMatches = (entry["serverUrl"] as? String) == server.url
+            if nameMatches || urlMatches { return token }
+        }
+        return nil
     }
 
     /// Pull the last JSON-RPC object out of an SSE response body (`data:` lines).

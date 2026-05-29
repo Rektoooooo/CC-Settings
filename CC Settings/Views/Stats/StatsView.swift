@@ -36,7 +36,7 @@ struct StatsView: View {
             StatsSummaryBox(icon: "bubble.left.and.bubble.right", iconColor: .themeAccent, value: "\(stats.totalSessions)", title: "Sessions")
             StatsSummaryBox(icon: "folder", iconColor: .orange, value: "\(stats.totalProjects)", title: "Projects")
             StatsSummaryBox(icon: "text.bubble", iconColor: .green, value: formatCount(stats.totalMessages), title: "Messages")
-            StatsSummaryBox(icon: "number", iconColor: .purple, value: formatTokens(stats.totalInputTokens + stats.totalOutputTokens), title: "Tokens Used")
+            StatsSummaryBox(icon: "number", iconColor: .purple, value: formatTokens(stats.totalInputTokens + stats.totalOutputTokens), title: "I/O Tokens")
             StatsSummaryBox(icon: "internaldrive", iconColor: .red, value: formattedSize(stats.totalStorageBytes), title: "Storage")
             Spacer()
         }

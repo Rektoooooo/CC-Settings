@@ -218,6 +218,10 @@ struct HookGroupModel: Identifiable, Equatable {
     var argsList: [String] = [""]
     /// Per-hook continueOnBlock (PostToolUse). Parallel to `commands`.
     var continueOnBlockList: [Bool] = [false]
+    /// The original definitions, parallel to `commands`, so fields this editor does
+    /// NOT expose (type, prompt, agent, url, ifCondition, timeout) are preserved on
+    /// save instead of being dropped. Empty entries (new rows) become command hooks.
+    var originalDefinitions: [HookDefinition] = []
 
     init() {}
 
@@ -227,10 +231,12 @@ struct HookGroupModel: Identifiable, Equatable {
         self.commands = group.hooks.map { $0.command ?? "" }
         self.argsList = group.hooks.map { ($0.args ?? []).joined(separator: ", ") }
         self.continueOnBlockList = group.hooks.map { $0.continueOnBlock ?? false }
+        self.originalDefinitions = group.hooks
         if self.commands.isEmpty {
             self.commands = [""]
             self.argsList = [""]
             self.continueOnBlockList = [false]
+            self.originalDefinitions = []
         }
     }
 
@@ -238,12 +244,14 @@ struct HookGroupModel: Identifiable, Equatable {
         commands.append("")
         argsList.append("")
         continueOnBlockList.append(false)
+        originalDefinitions.append(HookDefinition())
     }
 
     mutating func removeCommand(at index: Int) {
         commands.remove(at: index)
         argsList.remove(at: index)
         continueOnBlockList.remove(at: index)
+        if originalDefinitions.indices.contains(index) { originalDefinitions.remove(at: index) }
     }
 
     func toHookGroup() -> HookGroup {
@@ -262,7 +270,6 @@ struct HookGroupModel: Identifiable, Equatable {
 
         let hooks: [HookDefinition] = commands.indices.compactMap { i in
             let cmd = commands[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !cmd.isEmpty else { return nil }
             let parsedArgs: [String]? = {
                 let raw = argsList.indices.contains(i) ? argsList[i] : ""
                 let parts = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -272,7 +279,23 @@ struct HookGroupModel: Identifiable, Equatable {
                 guard continueOnBlockList.indices.contains(i), continueOnBlockList[i] else { return nil }
                 return true
             }()
-            return HookDefinition(command: cmd, args: parsedArgs, continueOnBlock: cob)
+
+            let original = originalDefinitions.indices.contains(i) ? originalDefinitions[i] : nil
+
+            // Non-command hooks (prompt/agent/url) aren't editable here — preserve them
+            // verbatim so their fields are never dropped.
+            if let original, original.type != "command" {
+                return original
+            }
+            // Command hook: a cleared command means the user removed it.
+            guard !cmd.isEmpty else { return nil }
+            // Overlay the edited fields onto the original, keeping timeout/if/etc.
+            var def = original ?? HookDefinition()
+            def.type = "command"
+            def.command = cmd
+            def.args = parsedArgs
+            def.continueOnBlock = cob
+            return def
         }
 
         return HookGroup(matcher: matcher, hooks: hooks)
@@ -460,9 +483,10 @@ struct HooksView: View {
                     scope: hook.scope,
                     initialTool: hook.group.matcher?.tool ?? "",
                     initialPattern: hook.group.matcher?.pattern ?? "",
-                    initialCommands: hook.group.hooks.compactMap(\.command),
+                    initialCommands: hook.group.hooks.map { $0.command ?? "" },
                     initialArgsList: hook.group.hooks.map { ($0.args ?? []).joined(separator: ", ") },
                     initialContinueOnBlockList: hook.group.hooks.map { $0.continueOnBlock ?? false },
+                    initialDefinitions: hook.group.hooks,
                     onSave: { model in
                         replaceGroup(at: hook.indexInScope, with: model.toHookGroup(), for: hook.hookType, scope: hook.scope)
                     }
@@ -854,6 +878,9 @@ struct HookEditorSheet: View {
     var initialCommands: [String] = []
     var initialArgsList: [String] = []
     var initialContinueOnBlockList: [Bool] = []
+    /// Full original definitions (parallel to initialCommands) so non-exposed fields
+    /// survive an edit. Empty for the add flow.
+    var initialDefinitions: [HookDefinition] = []
     let onSave: (HookGroupModel) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -862,6 +889,7 @@ struct HookEditorSheet: View {
     @State private var commands: [String] = [""]
     @State private var argsList: [String] = [""]
     @State private var continueOnBlockList: [Bool] = [false]
+    @State private var originalDefinitions: [HookDefinition] = []
 
     private var isValid: Bool {
         commands.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -948,6 +976,7 @@ struct HookEditorSheet: View {
                                             commands.remove(at: i)
                                             if argsList.indices.contains(i) { argsList.remove(at: i) }
                                             if continueOnBlockList.indices.contains(i) { continueOnBlockList.remove(at: i) }
+                                            if originalDefinitions.indices.contains(i) { originalDefinitions.remove(at: i) }
                                         } label: {
                                             Image(systemName: "minus.circle.fill")
                                                 .foregroundColor(.red)
@@ -979,6 +1008,7 @@ struct HookEditorSheet: View {
                             commands.append("")
                             argsList.append("")
                             continueOnBlockList.append(false)
+                            originalDefinitions.append(HookDefinition())
                         } label: {
                             Label("Add Command", systemImage: "plus.circle")
                         }
@@ -1007,6 +1037,7 @@ struct HookEditorSheet: View {
                     model.commands = commands
                     model.argsList = argsList
                     model.continueOnBlockList = continueOnBlockList
+                    model.originalDefinitions = originalDefinitions
                     onSave(model)
                     dismiss()
                 }
@@ -1028,6 +1059,9 @@ struct HookEditorSheet: View {
             }
             continueOnBlockList = (0..<commands.count).map { i in
                 initialContinueOnBlockList.indices.contains(i) ? initialContinueOnBlockList[i] : false
+            }
+            originalDefinitions = (0..<commands.count).map { i in
+                initialDefinitions.indices.contains(i) ? initialDefinitions[i] : HookDefinition()
             }
         }
     }

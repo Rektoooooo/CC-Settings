@@ -23,6 +23,7 @@ struct GeneralSettingsView: View {
     // Language & Output
     @State private var language: String = s.language ?? ""
     @State private var effortLevel: String = s.effortLevel ?? ""
+    @State private var dynamicWorkflowsEnabled: Bool = !(s.disableWorkflows ?? false)
     @State private var outputStyle: String = s.outputStyle ?? ""
     @State private var verbose: Bool = s.verbose ?? false
     @State private var skillOverrides: String = s.skillOverrides ?? ""
@@ -312,25 +313,6 @@ struct GeneralSettingsView: View {
     @ViewBuilder
     private var appearanceSection: some View {
         Section("Appearance") {
-            if let active = configManager.settings.theme,
-               !AppTheme.allCases.compactMap(\.cliTheme).contains(active),
-               !ThemePresets.builtIns.contains(where: { $0.id == active }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "paintbrush.fill")
-                        .foregroundColor(.accentColor)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Custom theme \"\(active)\" is active")
-                            .font(.subheadline.weight(.medium))
-                        Text("Changing the Theme picker below will overwrite the CLI's custom theme. Manage themes in the Themes section.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(10)
-                .glassBanner(tint: .accentColor)
-            }
-
             Picker("Theme", selection: $themeManager.selectedThemeName) {
                 ForEach(AppTheme.allCases) { theme in
                     HStack(spacing: 6) {
@@ -344,6 +326,9 @@ struct GeneralSettingsView: View {
                     .tag(theme.rawValue)
                 }
             }
+            Text("Controls this app's window appearance only. The CLI color theme (in settings.json) is managed in the Themes section.")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             Toggle("Reduce Motion", isOn: $prefersReducedMotion)
             Text("Reduce or disable UI animations for accessibility.")
@@ -368,11 +353,14 @@ struct GeneralSettingsView: View {
                 Text("High").tag("high")
                 Text("Xhigh").tag("xhigh")
                 Text("Max").tag("max")
+                Text("Ultracode").tag("ultracode")
             }
             .pickerStyle(.segmented)
-            Text("Controls adaptive reasoning effort on Opus models.")
+            Text("Controls adaptive reasoning effort on Opus models. Ultracode uses xhigh effort and lets Claude auto-orchestrate dynamic workflows.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            dynamicWorkflowsRow
 
             TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
                 .textFieldStyle(.roundedBorder)
@@ -396,6 +384,24 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private var dynamicWorkflowsRow: some View {
+        // Save via the binding rather than another `.onChange` to keep that chain
+        // under SwiftUI's type-check limit. Inverted: write `disableWorkflows: true`
+        // only when off; clear the key when on.
+        Toggle("Dynamic Workflows", isOn: Binding(
+            get: { dynamicWorkflowsEnabled },
+            set: { newValue in
+                dynamicWorkflowsEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableWorkflows", value: newValue ? nil : true)
+            }
+        ))
+        Text("Let Claude orchestrate multi-agent workflows. Turning this off disables bundled workflow commands and removes Ultracode from the effort options.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     @ViewBuilder
@@ -663,7 +669,8 @@ struct GeneralSettingsView: View {
         Color.clear
             .onChange(of: selectedModel) {
                 guard isLoaded else { return }
-                configManager.saveField("model", value: selectedModel)
+                // Empty == "no override"; clear the key rather than persisting a fake default.
+                configManager.saveField("model", value: selectedModel.isEmpty ? nil : selectedModel)
             }
             .onChange(of: fastMode) {
                 guard isLoaded else { return }
@@ -673,10 +680,9 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("fastModePerSessionOptIn", value: fastModePerSessionOptIn ? true : nil)
             }
-            .onChange(of: themeManager.selectedThemeName) {
-                guard isLoaded else { return }
-                configManager.saveField("theme", value: themeManager.currentTheme.cliTheme)
-            }
+            // NOTE: the app-appearance picker no longer writes settings.json "theme".
+            // That mapping was lossy (ocean/forest/claude all collapsed to "dark") and
+            // overwrote the CLI theme. CLI theme is managed in the Themes section.
             .onChange(of: prefersReducedMotion) {
                 guard isLoaded else { return }
                 configManager.saveField("prefersReducedMotion", value: prefersReducedMotion ? true : nil)
@@ -837,6 +843,7 @@ struct GeneralSettingsView: View {
         // Language & Output
         language = s.language ?? ""
         effortLevel = s.effortLevel ?? ""
+        dynamicWorkflowsEnabled = !(s.disableWorkflows ?? false)
         outputStyle = s.outputStyle ?? ""
         verbose = s.verbose ?? false
         skillOverrides = s.skillOverrides ?? ""

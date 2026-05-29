@@ -463,11 +463,28 @@ class ConfigurationManager: ObservableObject {
                 }
             }
 
-            // Encode the servers
+            // Merge per-server instead of replacing the whole mcpServers object, so
+            // per-server keys this model doesn't map (e.g. "oauth" tokens written by
+            // Claude Code) survive a save. Encoding MCPServerConfig only emits the
+            // modeled keys; we overlay those onto each server's existing dict.
+            var existingServers = existingJSON["mcpServers"] as? [String: Any] ?? [:]
             let serversData = try encoder.encode(servers)
-            if let serversJSON = try JSONSerialization.jsonObject(with: serversData) as? [String: Any] {
-                existingJSON["mcpServers"] = serversJSON
+            let encodedServers = (try JSONSerialization.jsonObject(with: serversData) as? [String: Any]) ?? [:]
+            let modeledKeys = ["type", "command", "args", "env", "url", "headers", "alwaysLoad"]
+
+            // Drop servers the user removed.
+            for name in existingServers.keys where servers[name] == nil {
+                existingServers.removeValue(forKey: name)
             }
+            // Overlay modeled fields, preserving every other key on the existing server.
+            for (name, encoded) in encodedServers {
+                guard let encodedDict = encoded as? [String: Any] else { continue }
+                var merged = existingServers[name] as? [String: Any] ?? [:]
+                for k in modeledKeys { merged.removeValue(forKey: k) }
+                for (k, v) in encodedDict { merged[k] = v }
+                existingServers[name] = merged
+            }
+            existingJSON["mcpServers"] = existingServers
 
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             try outputData.write(to: mcpConfigURL, options: .atomic)
@@ -936,15 +953,18 @@ class ConfigurationManager: ObservableObject {
     func loadFilesFromFolder(_ name: String) -> [ClaudeFile] {
         let fm = FileManager.default
         let folderURL = claudeDir.appendingPathComponent(name)
+        // Don't skip hidden files — folders like backups/ contain only dotfiles
+        // (`.claude.json.backup.*`) that would otherwise render as an empty list.
         guard let contents = try? fm.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else {
             return []
         }
 
         return contents.compactMap { url -> ClaudeFile? in
+            guard url.lastPathComponent != ".DS_Store" else { return nil }
             let attrs = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey])
             let isDir = attrs?.isDirectory ?? false
 

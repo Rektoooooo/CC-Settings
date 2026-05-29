@@ -77,6 +77,7 @@ func family(for modelId: String) -> ModelFamily? {
 }
 
 func displayName(for modelId: String) -> String {
+    if modelId.isEmpty { return "Default (not set)" }
     if let version = findModel(byModelId: modelId) {
         return version.displayName
     }

@@ -696,11 +696,13 @@ struct SidebarView: View {
                 let name = url.lastPathComponent
                 guard !excludedNames.contains(name) else { continue }
 
+                // Don't skip hidden files — some folders (e.g. backups) hold only
+                // dotfiles like `.claude.json.backup.*`, which would otherwise count 0.
                 let itemCount = (try? fm.contentsOfDirectory(
                     at: url,
                     includingPropertiesForKeys: nil,
-                    options: [.skipsHiddenFiles]
-                ))?.count ?? 0
+                    options: []
+                ))?.filter { $0.lastPathComponent != ".DS_Store" }.count ?? 0
                 subfolders.append(SubfolderEntry(id: name, name: name, itemCount: itemCount))
             }
 
@@ -759,28 +761,19 @@ struct SidebarView: View {
         return count
     }
 
-    /// Count installed plugins by parsing known_marketplaces.json (matches PluginsView logic).
+    /// Count plugins the user has actually INSTALLED (from installed_plugins.json),
+    /// not the whole downloadable marketplace catalog. The old logic summed every
+    /// plugin in every known marketplace's catalog (e.g. 124) and labelled it
+    /// "Plugins", implying the user had installed them all.
     private nonisolated static func countInstalledPlugins(claudeDir: URL) -> Int {
-        let knownURL = claudeDir.appendingPathComponent("plugins/known_marketplaces.json")
-        guard let data = try? Data(contentsOf: knownURL),
+        let installedURL = claudeDir.appendingPathComponent("plugins/installed_plugins.json")
+        guard let data = try? Data(contentsOf: installedURL),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return 0
         }
-
-        var count = 0
-        for (_, value) in json {
-            guard let entry = value as? [String: Any],
-                  let installLocation = entry["installLocation"] as? String else { continue }
-            let installURL = URL(fileURLWithPath: installLocation)
-            let marketplaceJSON = installURL.appendingPathComponent(".claude-plugin/marketplace.json")
-
-            if let mData = try? Data(contentsOf: marketplaceJSON),
-               let mJSON = try? JSONSerialization.jsonObject(with: mData) as? [String: Any],
-               let plugins = mJSON["plugins"] as? [[String: Any]] {
-                count += plugins.count
-            }
-        }
-        return count
+        if let dict = json["plugins"] as? [String: Any] { return dict.count }
+        if let arr = json["plugins"] as? [Any] { return arr.count }
+        return 0
     }
 
     /// Count project-level items across all known projects.

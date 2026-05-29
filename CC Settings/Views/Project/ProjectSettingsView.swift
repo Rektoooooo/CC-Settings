@@ -10,7 +10,7 @@ struct ProjectSettingsView: View {
     @State private var isLoaded = false
 
     // Model
-    @State private var model: String = "sonnet"
+    @State private var model: String = ""
     @State private var effortLevel: String = ""
     @State private var outputStyle: String = ""
 

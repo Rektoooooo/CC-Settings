@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Message Role
 
 enum MessageRole: String {
-    case user = "human"
+    case user = "user"
     case assistant = "assistant"
     case toolResult = "tool_result"
 }

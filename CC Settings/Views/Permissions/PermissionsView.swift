@@ -515,16 +515,18 @@ struct PermissionsView: View {
             }
         }
 
-        var permsDict: [String: Any] = [:]
-        if !allow.isEmpty { permsDict["allow"] = allow.sorted() }
-        if !deny.isEmpty { permsDict["deny"] = deny.sorted() }
-        if !ask.isEmpty { permsDict["ask"] = ask.sorted() }
-        if defaultMode != .defaultMode { permsDict["defaultMode"] = defaultMode.rawValue }
-        if !additionalDirectories.isEmpty { permsDict["additionalDirectories"] = additionalDirectories }
-        if disableBypassPermissions { permsDict["disableBypassPermissionsMode"] = "disable" }
-        if skipDangerousModePrompt { permsDict["skipDangerousModePermissionPrompt"] = true }
-
-        configManager.saveField("permissions", value: permsDict.isEmpty ? nil : permsDict)
+        // Write each sub-key via a dotted keyPath so setNestedValue MERGES into the
+        // existing permissions object, preserving any sub-keys this UI doesn't model
+        // instead of replacing the whole object.
+        configManager.saveFields([
+            (keyPath: "permissions.allow", value: allow.isEmpty ? nil : allow.sorted()),
+            (keyPath: "permissions.deny", value: deny.isEmpty ? nil : deny.sorted()),
+            (keyPath: "permissions.ask", value: ask.isEmpty ? nil : ask.sorted()),
+            (keyPath: "permissions.defaultMode", value: defaultMode != .defaultMode ? defaultMode.rawValue : nil),
+            (keyPath: "permissions.additionalDirectories", value: additionalDirectories.isEmpty ? nil : additionalDirectories),
+            (keyPath: "permissions.disableBypassPermissionsMode", value: disableBypassPermissions ? "disable" : nil),
+            (keyPath: "permissions.skipDangerousModePermissionPrompt", value: skipDangerousModePrompt ? true : nil)
+        ])
     }
 
     // MARK: - Auto Mode helpers

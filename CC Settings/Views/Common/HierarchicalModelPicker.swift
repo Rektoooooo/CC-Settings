@@ -2,49 +2,44 @@ import SwiftUI
 
 struct HierarchicalModelPicker: View {
     @Binding var selectedModelId: String
-    @State private var selectedFamily: ModelFamily
+    /// nil == no model override (empty selectedModelId). When nil, no family
+    /// segment is highlighted, so an unset model never masquerades as a real pick.
+    @State private var selectedFamily: ModelFamily?
     @State private var isCustomMode: Bool
     @State private var customModelId: String
+
+    /// Sentinel selection tag for the "no override" state.
+    private let unsetTag = ""
 
     init(selectedModelId: Binding<String>) {
         _selectedModelId = selectedModelId
         let modelId = selectedModelId.wrappedValue
-        let initialFamily = family(for: modelId) ?? .sonnet
-        _selectedFamily = State(initialValue: initialFamily)
         let knownModel = findModel(byModelId: modelId) != nil
         let isCustom = !knownModel && !modelId.isEmpty && modelId != "__custom__"
         _isCustomMode = State(initialValue: isCustom)
         _customModelId = State(initialValue: isCustom ? modelId : "")
+        // Empty model => no family highlighted; otherwise derive from the id.
+        _selectedFamily = State(initialValue: modelId.isEmpty ? nil : family(for: modelId))
     }
 
-    /// Versions to show in the dropdown — derived from selectedModelId when it
-    /// doesn't match selectedFamily, preventing the "invalid selection" warning
-    /// that occurs when @State is stale after a SwiftUI view identity reuse.
     private var pickerVersions: [ModelVersion] {
-        let familyVersions = versions(for: selectedFamily)
-        if familyVersions.contains(where: { $0.modelId == selectedModelId })
-            || selectedModelId == "__custom__" {
-            return familyVersions
-        }
-        if let derivedFamily = family(for: selectedModelId) {
-            return versions(for: derivedFamily)
-        }
-        return familyVersions
+        guard let fam = selectedFamily else { return [] }
+        return versions(for: fam)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Row 1: Family
+            // Row 1: Family (optional selection — nothing highlighted when unset)
             Picker("Family", selection: $selectedFamily) {
                 ForEach(ModelFamily.allCases) { fam in
                     Label(fam.rawValue, systemImage: fam.icon)
-                        .tag(fam)
+                        .tag(Optional(fam))
                 }
             }
             .pickerStyle(.segmented)
             .onChange(of: selectedFamily) { _, newFamily in
-                if !isCustomMode {
-                    let newVersions = versions(for: newFamily)
+                if !isCustomMode, let fam = newFamily {
+                    let newVersions = versions(for: fam)
                     // Only auto-switch if the current selection isn't already in this family
                     if !newVersions.contains(where: { $0.modelId == selectedModelId }),
                        let latest = newVersions.first(where: { $0.isLatest }) {
@@ -67,13 +62,12 @@ struct HierarchicalModelPicker: View {
                         }
                     Button("Cancel") {
                         isCustomMode = false
-                        if let latest = versions(for: selectedFamily).first(where: { $0.isLatest }) {
-                            selectedModelId = latest.modelId
-                        }
+                        selectedModelId = unsetTag
                     }
                 }
             } else {
                 Picker("Version", selection: $selectedModelId) {
+                    Text("Default — Claude Code decides").tag(unsetTag)
                     ForEach(pickerVersions) { version in
                         Text(version.displayName).tag(version.modelId)
                     }
@@ -89,7 +83,7 @@ struct HierarchicalModelPicker: View {
             }
 
             // Row 3: Description
-            Text(isCustomMode ? "Enter a custom model identifier" : selectedFamily.description)
+            Text(descriptionText)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -101,13 +95,26 @@ struct HierarchicalModelPicker: View {
         }
     }
 
+    private var descriptionText: String {
+        if isCustomMode { return "Enter a custom model identifier" }
+        guard let fam = selectedFamily else {
+            return "No model set — Claude Code uses its own default."
+        }
+        return fam.description
+    }
+
     private func syncFromModelId() {
+        if selectedModelId.isEmpty {
+            selectedFamily = nil
+            isCustomMode = false
+            return
+        }
         if let fam = family(for: selectedModelId) {
             if selectedFamily != fam {
                 selectedFamily = fam
             }
             isCustomMode = false
-        } else if !selectedModelId.isEmpty && selectedModelId != "__custom__" {
+        } else if selectedModelId != "__custom__" {
             isCustomMode = true
             customModelId = selectedModelId
         }

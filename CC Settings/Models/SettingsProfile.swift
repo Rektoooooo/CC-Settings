@@ -21,7 +21,7 @@ struct SettingsProfile: Codable, Identifiable, Equatable {
     /// Human-readable summary of key settings for display in profile rows.
     var settingsSummary: String {
         var parts: [String] = []
-        parts.append("Model: \(settings.model)")
+        parts.append("Model: \(displayName(for: settings.model))")
         if let theme = settings.theme, !theme.isEmpty {
             parts.append("Theme: \(theme)")
         }

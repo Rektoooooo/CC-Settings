@@ -4,7 +4,10 @@ struct ClaudeSettings: Equatable {
     var apiKeyHelper: String?
     var env: [String: String] = [:]
     var permissions: PermissionsConfig = PermissionsConfig()
-    var model: String = "sonnet"
+    /// Empty string == no `model` key in settings.json (Claude Code uses its own
+    /// default). Do NOT default this to a concrete model — that fabricates a
+    /// selection the user never made.
+    var model: String = ""
     var hooks: HooksConfig?
     var skipWebFetchPreflight: Bool?
     var alwaysThinkingEnabled: Bool?
@@ -17,6 +20,9 @@ struct ClaudeSettings: Equatable {
     var theme: String?
     var language: String?
     var effortLevel: String?
+    /// Inverted master switch for dynamic workflows / ultracode. `true` disables the
+    /// feature (and removes `ultracode` from the effort menu). Default unset == enabled.
+    var disableWorkflows: Bool?
     var outputStyle: String?
     var verbose: Bool?
     var prefersReducedMotion: Bool?
@@ -110,7 +116,7 @@ extension ClaudeSettings: Codable {
         apiKeyHelper = try c.decodeIfPresent(String.self, forKey: .apiKeyHelper)
         env = (try? c.decodeIfPresent([String: String].self, forKey: .env)) ?? [:]
         permissions = (try? c.decodeIfPresent(PermissionsConfig.self, forKey: .permissions)) ?? PermissionsConfig()
-        model = (try? c.decodeIfPresent(String.self, forKey: .model)) ?? "sonnet"
+        model = (try? c.decodeIfPresent(String.self, forKey: .model)) ?? ""
         hooks = try? c.decodeIfPresent(HooksConfig.self, forKey: .hooks)
         skipWebFetchPreflight = try c.decodeIfPresent(Bool.self, forKey: .skipWebFetchPreflight)
         alwaysThinkingEnabled = try c.decodeIfPresent(Bool.self, forKey: .alwaysThinkingEnabled)
@@ -121,6 +127,7 @@ extension ClaudeSettings: Codable {
         theme = try c.decodeIfPresent(String.self, forKey: .theme)
         language = try c.decodeIfPresent(String.self, forKey: .language)
         effortLevel = try c.decodeIfPresent(String.self, forKey: .effortLevel)
+        disableWorkflows = try c.decodeIfPresent(Bool.self, forKey: .disableWorkflows)
         outputStyle = try c.decodeIfPresent(String.self, forKey: .outputStyle)
         verbose = try c.decodeIfPresent(Bool.self, forKey: .verbose)
         prefersReducedMotion = try c.decodeIfPresent(Bool.self, forKey: .prefersReducedMotion)
