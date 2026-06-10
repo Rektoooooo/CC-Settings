@@ -14,6 +14,7 @@ struct EnvironmentView: View {
     // Model Overrides
     @State private var anthropicModel: String = env["ANTHROPIC_MODEL"] ?? ""
     @State private var subagentModel: String = env["CLAUDE_CODE_SUBAGENT_MODEL"] ?? ""
+    @State private var defaultFableModel: String = env["ANTHROPIC_DEFAULT_FABLE_MODEL"] ?? ""
     @State private var defaultOpusModel: String = env["ANTHROPIC_DEFAULT_OPUS_MODEL"] ?? ""
     @State private var defaultSonnetModel: String = env["ANTHROPIC_DEFAULT_SONNET_MODEL"] ?? ""
     @State private var defaultHaikuModel: String = env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] ?? ""
@@ -58,6 +59,9 @@ struct EnvironmentView: View {
     @State private var pluginPreferHttps: Bool = env["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"] == "1"
     @State private var workspaceId: String = env["ANTHROPIC_WORKSPACE_ID"] ?? ""
 
+    // Added 2026-06 — Claude Code 2.1.155 → 2.1.170
+    @State private var disableBundledSkills: Bool = env["CLAUDE_CODE_DISABLE_BUNDLED_SKILLS"] == "1"
+
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
 
@@ -90,7 +94,7 @@ struct EnvironmentView: View {
 
             // MARK: - Model Overrides
             Section {
-                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-opus-4-8)"))
+                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-fable-5)"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Override the model used by Claude Code. This takes priority over the model setting.")
@@ -106,6 +110,14 @@ struct EnvironmentView: View {
 
                 GroupBox("Pin Model Aliases") {
                     VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("fable =")
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 80, alignment: .trailing)
+                            TextField("e.g. claude-fable-5", text: $defaultFableModel)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(.body, design: .monospaced))
+                        }
                         HStack {
                             Text("opus =")
                                 .font(.system(.body, design: .monospaced))
@@ -133,7 +145,7 @@ struct EnvironmentView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                Text("Pin the \"opus\", \"sonnet\", \"haiku\" aliases to specific model versions.")
+                Text("Pin the \"fable\", \"opus\", \"sonnet\", \"haiku\" aliases to specific model versions. The fable pin is also required for Fable 5 safeguard fallback on Bedrock, Vertex, and Foundry.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -284,6 +296,17 @@ struct EnvironmentView: View {
                 Text("Display")
             }
 
+            // MARK: - Skills
+            Section {
+                Toggle("Disable Bundled Skills", isOn: $disableBundledSkills)
+                    .onChange(of: disableBundledSkills) { _, _ in save() }
+                Text("Hides Claude Code's bundled skills (/code-review, /loop, /debug, …) from the model. Same effect as the disableBundledSkills setting in General.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Skills")
+            }
+
             // MARK: - Plugins
             Section {
                 Toggle("Prefer HTTPS for Plugin Clones", isOn: $pluginPreferHttps)
@@ -413,7 +436,7 @@ struct EnvironmentView: View {
     private static let managedKeys: Set<String> = [
         "ANTHROPIC_API_KEY", "API_BASE_URL",
         "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS", "MAX_THINKING_TOKENS", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
         "DISABLE_PROMPT_CACHING", "DISABLE_PROMPT_CACHING_HAIKU", "DISABLE_PROMPT_CACHING_SONNET", "DISABLE_PROMPT_CACHING_OPUS",
         "MCP_TIMEOUT", "MCP_TOOL_TIMEOUT",
@@ -426,6 +449,7 @@ struct EnvironmentView: View {
         "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", "CLAUDE_CODE_EFFORT_LEVEL",
         "CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS",
         "ANTHROPIC_WORKSPACE_ID",
+        "CLAUDE_CODE_DISABLE_BUNDLED_SKILLS",
     ]
 
     // MARK: - Data Sync
@@ -440,6 +464,7 @@ struct EnvironmentView: View {
         // Model
         anthropicModel = env["ANTHROPIC_MODEL"] ?? ""
         subagentModel = env["CLAUDE_CODE_SUBAGENT_MODEL"] ?? ""
+        defaultFableModel = env["ANTHROPIC_DEFAULT_FABLE_MODEL"] ?? ""
         defaultOpusModel = env["ANTHROPIC_DEFAULT_OPUS_MODEL"] ?? ""
         defaultSonnetModel = env["ANTHROPIC_DEFAULT_SONNET_MODEL"] ?? ""
         defaultHaikuModel = env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] ?? ""
@@ -484,6 +509,9 @@ struct EnvironmentView: View {
         pluginPreferHttps = env["CLAUDE_CODE_PLUGIN_PREFER_HTTPS"] == "1"
         workspaceId = env["ANTHROPIC_WORKSPACE_ID"] ?? ""
 
+        // Claude Code 2.1.155 → 2.1.170
+        disableBundledSkills = env["CLAUDE_CODE_DISABLE_BUNDLED_SKILLS"] == "1"
+
         // Custom: everything not in managed keys
         customVars = env
             .filter { !Self.managedKeys.contains($0.key) }
@@ -511,6 +539,7 @@ struct EnvironmentView: View {
         // Model
         setString("ANTHROPIC_MODEL", anthropicModel)
         setString("CLAUDE_CODE_SUBAGENT_MODEL", subagentModel)
+        setString("ANTHROPIC_DEFAULT_FABLE_MODEL", defaultFableModel)
         setString("ANTHROPIC_DEFAULT_OPUS_MODEL", defaultOpusModel)
         setString("ANTHROPIC_DEFAULT_SONNET_MODEL", defaultSonnetModel)
         setString("ANTHROPIC_DEFAULT_HAIKU_MODEL", defaultHaikuModel)
@@ -554,6 +583,9 @@ struct EnvironmentView: View {
         setFlag("CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL", enableFeedbackSurveyForOtel)
         setFlag("CLAUDE_CODE_PLUGIN_PREFER_HTTPS", pluginPreferHttps)
         setString("ANTHROPIC_WORKSPACE_ID", workspaceId)
+
+        // Claude Code 2.1.155 → 2.1.170
+        setFlag("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS", disableBundledSkills)
 
         // Custom vars
         for v in customVars {

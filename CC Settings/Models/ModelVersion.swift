@@ -1,6 +1,7 @@
 import Foundation
 
 enum ModelFamily: String, CaseIterable, Identifiable {
+    case fable = "Fable"
     case opus = "Opus"
     case sonnet = "Sonnet"
     case haiku = "Haiku"
@@ -9,6 +10,7 @@ enum ModelFamily: String, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
+        case .fable: return "book.closed"
         case .opus: return "brain.head.profile"
         case .sonnet: return "sparkles"
         case .haiku: return "hare"
@@ -17,6 +19,7 @@ enum ModelFamily: String, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
+        case .fable: return "Mythos-class model — Anthropic's most capable, built for long autonomous sessions"
         case .opus: return "Most capable model for complex tasks requiring deep reasoning"
         case .sonnet: return "Balanced performance and speed for everyday coding tasks"
         case .haiku: return "Fastest model for quick responses and simple tasks"
@@ -34,6 +37,11 @@ struct ModelVersion: Identifiable, Equatable, Hashable {
 }
 
 let allModelVersions: [ModelVersion] = [
+    // Fable
+    ModelVersion(id: "claude-fable-5[1m]", family: .fable, version: "5 (1M)", modelId: "claude-fable-5[1m]", displayName: "Fable 5 (1M context)", isLatest: false),
+    ModelVersion(id: "claude-fable-5", family: .fable, version: "5", modelId: "claude-fable-5", displayName: "Fable 5", isLatest: false),
+    ModelVersion(id: "fable", family: .fable, version: "", modelId: "fable", displayName: "Fable (latest)", isLatest: true),
+
     // Opus
     ModelVersion(id: "claude-opus-4-8[1m]", family: .opus, version: "4.8 (1M)", modelId: "claude-opus-4-8[1m]", displayName: "Opus 4.8 (1M context)", isLatest: false),
     ModelVersion(id: "claude-opus-4-8", family: .opus, version: "4.8", modelId: "claude-opus-4-8", displayName: "Opus 4.8", isLatest: false),
@@ -70,6 +78,7 @@ func family(for modelId: String) -> ModelFamily? {
         return version.family
     }
     let lower = modelId.lowercased()
+    if lower.contains("fable") { return .fable }
     if lower.contains("opus") { return .opus }
     if lower.contains("sonnet") { return .sonnet }
     if lower.contains("haiku") { return .haiku }

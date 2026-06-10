@@ -16,6 +16,7 @@ struct GeneralSettingsView: View {
     @State private var selectedModel: String = s.model
     @State private var fastMode: Bool = s.fastMode ?? false
     @State private var fastModePerSessionOptIn: Bool = s.fastModePerSessionOptIn ?? false
+    @State private var fallbackModels: String = (s.fallbackModel ?? []).joined(separator: ", ")
 
     // Appearance
     @State private var prefersReducedMotion: Bool = s.prefersReducedMotion ?? false
@@ -24,9 +25,11 @@ struct GeneralSettingsView: View {
     @State private var language: String = s.language ?? ""
     @State private var effortLevel: String = s.effortLevel ?? ""
     @State private var dynamicWorkflowsEnabled: Bool = !(s.disableWorkflows ?? false)
+    @State private var ultracodeKeywordEnabled: Bool = s.workflowKeywordTriggerEnabled ?? true
     @State private var outputStyle: String = s.outputStyle ?? ""
     @State private var verbose: Bool = s.verbose ?? false
     @State private var skillOverrides: String = s.skillOverrides ?? ""
+    @State private var bundledSkillsEnabled: Bool = !(s.disableBundledSkills ?? false)
 
     // Behavior
     @State private var showTurnDuration: Bool = s.showTurnDuration ?? true
@@ -296,6 +299,13 @@ struct GeneralSettingsView: View {
         Section("Model") {
             HierarchicalModelPicker(selectedModelId: $selectedModel)
 
+            TextField("Fallback Models", text: $fallbackModels, prompt: Text("e.g. opus, sonnet"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("Comma-separated chain tried in order when the primary model is overloaded or unavailable (max 3). Accepts aliases or full model IDs.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
             Toggle("Fast Mode", isOn: $fastMode)
             Text("Enable fast mode for quicker responses.")
                 .font(.caption)
@@ -362,6 +372,8 @@ struct GeneralSettingsView: View {
 
             dynamicWorkflowsRow
 
+            ultracodeKeywordRow
+
             TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
                 .textFieldStyle(.roundedBorder)
             Text("Controls response verbosity (e.g. Explanatory, Concise).")
@@ -383,6 +395,8 @@ struct GeneralSettingsView: View {
             Text("Controls how skills appear to the model and to /. \"Name Only\" hides descriptions, \"User-Invocable Only\" hides skills from the model (still visible via /), \"Off\" hides them everywhere.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            bundledSkillsRow
         }
     }
 
@@ -400,6 +414,38 @@ struct GeneralSettingsView: View {
             }
         ))
         Text("Let Claude orchestrate multi-agent workflows. Turning this off disables bundled workflow commands and removes Ultracode from the effort options.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var ultracodeKeywordRow: some View {
+        // Default true: clear the key when on, write `false` only when off.
+        Toggle("Ultracode Keyword Trigger", isOn: Binding(
+            get: { ultracodeKeywordEnabled },
+            set: { newValue in
+                ultracodeKeywordEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("workflowKeywordTriggerEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Typing \"ultracode\" in a prompt starts a dynamic workflow. Turn off to keep workflows available only via explicit /workflows invocation.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var bundledSkillsRow: some View {
+        // Inverted: write `disableBundledSkills: true` only when off; clear the key when on.
+        Toggle("Bundled Skills", isOn: Binding(
+            get: { bundledSkillsEnabled },
+            set: { newValue in
+                bundledSkillsEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableBundledSkills", value: newValue ? nil : true)
+            }
+        ))
+        Text("Show Claude Code's bundled skills (/code-review, /loop, /debug, …) to the model. Turn off to hide them from sessions.")
             .font(.caption)
             .foregroundColor(.secondary)
     }
@@ -824,6 +870,20 @@ struct GeneralSettingsView: View {
                 let trimmed = apiKeyHelper.trimmingCharacters(in: .whitespacesAndNewlines)
                 configManager.saveField("apiKeyHelper", value: trimmed.isEmpty ? nil : trimmed)
             }
+        Color.clear
+            .onChange(of: fallbackModels) {
+                guard isLoaded else { return }
+                saveFallbackModels()
+            }
+    }
+
+    private func saveFallbackModels() {
+        let parts: [String] = fallbackModels.components(separatedBy: ",")
+        let list: [String] = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        // Claude Code ignores entries past the third — don't write them
+        configManager.saveField("fallbackModel", value: list.isEmpty ? nil : Array(list.prefix(3)))
     }
 
     // MARK: - Data Sync
@@ -836,6 +896,7 @@ struct GeneralSettingsView: View {
         selectedModel = s.model
         fastMode = s.fastMode ?? false
         fastModePerSessionOptIn = s.fastModePerSessionOptIn ?? false
+        fallbackModels = (s.fallbackModel ?? []).joined(separator: ", ")
 
         // Appearance
         prefersReducedMotion = s.prefersReducedMotion ?? false
@@ -844,9 +905,11 @@ struct GeneralSettingsView: View {
         language = s.language ?? ""
         effortLevel = s.effortLevel ?? ""
         dynamicWorkflowsEnabled = !(s.disableWorkflows ?? false)
+        ultracodeKeywordEnabled = s.workflowKeywordTriggerEnabled ?? true
         outputStyle = s.outputStyle ?? ""
         verbose = s.verbose ?? false
         skillOverrides = s.skillOverrides ?? ""
+        bundledSkillsEnabled = !(s.disableBundledSkills ?? false)
 
         // Behavior
         showTurnDuration = s.showTurnDuration ?? true

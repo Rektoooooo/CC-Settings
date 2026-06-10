@@ -23,10 +23,16 @@ struct ClaudeSettings: Equatable {
     /// Inverted master switch for dynamic workflows / ultracode. `true` disables the
     /// feature (and removes `ultracode` from the effort menu). Default unset == enabled.
     var disableWorkflows: Bool?
+    /// Whether typing "ultracode" in a prompt triggers a dynamic workflow.
+    /// Default unset == enabled; write `false` to require explicit /workflows.
+    var workflowKeywordTriggerEnabled: Bool?
     var outputStyle: String?
     var verbose: Bool?
     var prefersReducedMotion: Bool?
     var skillOverrides: String?
+    /// Inverted: `true` hides Claude Code's bundled skills (/code-review, /loop, …)
+    /// from the model. Default unset == bundled skills visible.
+    var disableBundledSkills: Bool?
 
     // Behavior
     var showTurnDuration: Bool?
@@ -42,6 +48,10 @@ struct ClaudeSettings: Equatable {
     var fastMode: Bool?
     var fastModePerSessionOptIn: Bool?
     var availableModels: [String]?
+    /// Fallback chain tried in order when the primary model is overloaded or errors.
+    /// Claude Code caps the chain at 3 models and also accepts a bare string,
+    /// which we normalize to a one-element array on decode.
+    var fallbackModel: [String]?
 
     // Memory
     var autoMemoryEnabled: Bool?
@@ -128,10 +138,12 @@ extension ClaudeSettings: Codable {
         language = try c.decodeIfPresent(String.self, forKey: .language)
         effortLevel = try c.decodeIfPresent(String.self, forKey: .effortLevel)
         disableWorkflows = try c.decodeIfPresent(Bool.self, forKey: .disableWorkflows)
+        workflowKeywordTriggerEnabled = try c.decodeIfPresent(Bool.self, forKey: .workflowKeywordTriggerEnabled)
         outputStyle = try c.decodeIfPresent(String.self, forKey: .outputStyle)
         verbose = try c.decodeIfPresent(Bool.self, forKey: .verbose)
         prefersReducedMotion = try c.decodeIfPresent(Bool.self, forKey: .prefersReducedMotion)
         skillOverrides = try c.decodeIfPresent(String.self, forKey: .skillOverrides)
+        disableBundledSkills = try c.decodeIfPresent(Bool.self, forKey: .disableBundledSkills)
         showTurnDuration = try c.decodeIfPresent(Bool.self, forKey: .showTurnDuration)
         respectGitignore = try c.decodeIfPresent(Bool.self, forKey: .respectGitignore)
         autoCompact = try c.decodeIfPresent(AutoCompactConfig.self, forKey: .autoCompact)
@@ -143,6 +155,12 @@ extension ClaudeSettings: Codable {
         fastMode = try c.decodeIfPresent(Bool.self, forKey: .fastMode)
         fastModePerSessionOptIn = try c.decodeIfPresent(Bool.self, forKey: .fastModePerSessionOptIn)
         availableModels = try c.decodeIfPresent([String].self, forKey: .availableModels)
+        // Accept both the array form and the legacy single-string form
+        if let chain = ((try? c.decodeIfPresent([String].self, forKey: .fallbackModel)) ?? nil) {
+            fallbackModel = chain
+        } else if let single = ((try? c.decodeIfPresent(String.self, forKey: .fallbackModel)) ?? nil) {
+            fallbackModel = [single]
+        }
         autoMemoryEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoMemoryEnabled)
         autoMemoryDirectory = try c.decodeIfPresent(String.self, forKey: .autoMemoryDirectory)
         voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)
