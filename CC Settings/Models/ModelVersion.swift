@@ -34,6 +34,9 @@ struct ModelVersion: Identifiable, Equatable, Hashable {
     let modelId: String
     let displayName: String
     let isLatest: Bool
+    /// Legacy models stay in the catalog so existing configs still resolve to a
+    /// readable display name, but they're hidden from the picker.
+    var isLegacy: Bool = false
 }
 
 let allModelVersions: [ModelVersion] = [
@@ -45,28 +48,29 @@ let allModelVersions: [ModelVersion] = [
     // Opus
     ModelVersion(id: "claude-opus-4-8[1m]", family: .opus, version: "4.8 (1M)", modelId: "claude-opus-4-8[1m]", displayName: "Opus 4.8 (1M context)", isLatest: false),
     ModelVersion(id: "claude-opus-4-8", family: .opus, version: "4.8", modelId: "claude-opus-4-8", displayName: "Opus 4.8", isLatest: false),
-    ModelVersion(id: "claude-opus-4-7[1m]", family: .opus, version: "4.7 (1M)", modelId: "claude-opus-4-7[1m]", displayName: "Opus 4.7 (1M context)", isLatest: false),
-    ModelVersion(id: "claude-opus-4-7", family: .opus, version: "4.7", modelId: "claude-opus-4-7", displayName: "Opus 4.7", isLatest: false),
-    ModelVersion(id: "claude-opus-4-6[1m]", family: .opus, version: "4.6 (1M)", modelId: "claude-opus-4-6[1m]", displayName: "Opus 4.6 (1M context)", isLatest: false),
-    ModelVersion(id: "claude-opus-4-6", family: .opus, version: "4.6", modelId: "claude-opus-4-6", displayName: "Opus 4.6", isLatest: false),
+    ModelVersion(id: "claude-opus-4-7[1m]", family: .opus, version: "4.7 (1M)", modelId: "claude-opus-4-7[1m]", displayName: "Opus 4.7 (1M context)", isLatest: false, isLegacy: true),
+    ModelVersion(id: "claude-opus-4-7", family: .opus, version: "4.7", modelId: "claude-opus-4-7", displayName: "Opus 4.7", isLatest: false, isLegacy: true),
+    ModelVersion(id: "claude-opus-4-6[1m]", family: .opus, version: "4.6 (1M)", modelId: "claude-opus-4-6[1m]", displayName: "Opus 4.6 (1M context)", isLatest: false, isLegacy: true),
+    ModelVersion(id: "claude-opus-4-6", family: .opus, version: "4.6", modelId: "claude-opus-4-6", displayName: "Opus 4.6", isLatest: false, isLegacy: true),
     ModelVersion(id: "opus", family: .opus, version: "", modelId: "opus", displayName: "Opus (latest)", isLatest: true),
 
     // Sonnet
     ModelVersion(id: "claude-sonnet-4-6[1m]", family: .sonnet, version: "4.6 (1M)", modelId: "claude-sonnet-4-6[1m]", displayName: "Sonnet 4.6 (1M context)", isLatest: false),
     ModelVersion(id: "claude-sonnet-4-6", family: .sonnet, version: "4.6", modelId: "claude-sonnet-4-6", displayName: "Sonnet 4.6", isLatest: false),
-    ModelVersion(id: "claude-sonnet-4-5-20250929", family: .sonnet, version: "4.5", modelId: "claude-sonnet-4-5-20250929", displayName: "Sonnet 4.5", isLatest: false),
+    ModelVersion(id: "claude-sonnet-4-5-20250929", family: .sonnet, version: "4.5", modelId: "claude-sonnet-4-5-20250929", displayName: "Sonnet 4.5", isLatest: false, isLegacy: true),
     ModelVersion(id: "sonnet", family: .sonnet, version: "", modelId: "sonnet", displayName: "Sonnet (latest)", isLatest: true),
 
     // Haiku
     ModelVersion(id: "claude-haiku-4-5-20251001", family: .haiku, version: "4.5", modelId: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5", isLatest: false),
-    ModelVersion(id: "claude-3-5-haiku-20241022", family: .haiku, version: "3.5", modelId: "claude-3-5-haiku-20241022", displayName: "Haiku 3.5", isLatest: false),
+    ModelVersion(id: "claude-3-5-haiku-20241022", family: .haiku, version: "3.5", modelId: "claude-3-5-haiku-20241022", displayName: "Haiku 3.5", isLatest: false, isLegacy: true),
     ModelVersion(id: "haiku", family: .haiku, version: "", modelId: "haiku", displayName: "Haiku (latest)", isLatest: true),
 ]
 
 let defaultModelId = "sonnet"
 
+/// Current (non-legacy) versions shown in pickers.
 func versions(for family: ModelFamily) -> [ModelVersion] {
-    allModelVersions.filter { $0.family == family }
+    allModelVersions.filter { $0.family == family && !$0.isLegacy }
 }
 
 func findModel(byModelId modelId: String) -> ModelVersion? {
