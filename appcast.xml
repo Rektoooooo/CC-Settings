@@ -3,6 +3,29 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.5.0</title>
+            <sparkle:version>22</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <ul>
+                    <li><strong>Claude Fable 5</strong> joins the model picker as a fourth family (Fable 5, Fable 5 with 1M context, and the <code>fable</code> alias), in both the app and the menu bar switcher</li>
+                    <li>Model picker now shows only current variants &mdash; legacy versions (Opus 4.7/4.6, Sonnet 4.5, Haiku 3.5) are hidden but still resolve to readable names in existing configs</li>
+                    <li>New <strong>Fallback Models</strong> field &mdash; configure up to three models tried in order when the primary is overloaded (<code>fallbackModel</code>, Claude Code 2.1.166)</li>
+                    <li>New <strong>Bundled Skills</strong> toggle (<code>disableBundledSkills</code>) and matching <code>CLAUDE_CODE_DISABLE_BUNDLED_SKILLS</code> environment flag (Claude Code 2.1.169)</li>
+                    <li>New <strong>Ultracode Keyword Trigger</strong> toggle (<code>workflowKeywordTriggerEnabled</code>) next to Dynamic Workflows (Claude Code 2.1.157)</li>
+                    <li>Environment: <code>fable</code> alias pin (<code>ANTHROPIC_DEFAULT_FABLE_MODEL</code>); HUD previews and placeholders refreshed to Fable 5</li>
+                </ul>
+            ]]></description>
+            <pubDate>Wed, 10 Jun 2026 08:32:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.5.0/CC-Settings-1.5.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="JoiClFgrgihw1LwwASkfQCMyCfhzmocu3V6a1+veCw73i4UDEyIFjYqtQ+Zjy+rg+wxI2A2QBNaF0uvQaQBSDA=="
+                length="7134801"
+            />
+        </item>
+        <item>
             <title>Version 1.4.0</title>
             <sparkle:version>21</sparkle:version>
             <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>

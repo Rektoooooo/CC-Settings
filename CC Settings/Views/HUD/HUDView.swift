@@ -269,7 +269,7 @@ struct HUDView: View {
 
     private var mockupProjectLine: some View {
         HStack(spacing: 0) {
-            Text("[Opus 4.8 | Max]").foregroundColor(.cyan)
+            Text("[Fable 5 | Max]").foregroundColor(.cyan)
             Text(" \u{2502} ").foregroundColor(.secondary)
             Text("my-project").foregroundColor(.yellow)
             Text(" git:(").foregroundColor(.purple)
@@ -537,9 +537,9 @@ struct HUDView: View {
                 let modelColor = swiftUIColor(for: config.colors.model)
                 let name: String
                 switch config.display.modelFormat {
-                case "short": name = "Opus 4.8"
-                case "compact": name = "Opus 4.8"
-                default: name = "Opus 4.8 (1M context)"
+                case "short": name = "Fable 5"
+                case "compact": name = "Fable 5"
+                default: name = "Fable 5 (1M context)"
                 }
                 let display = config.display.modelOverride.isEmpty ? "\(name) | Max" : config.display.modelOverride
                 parts.append(ProjectPart(view: AnyView(Text("[\(display)]").font(pf).foregroundColor(modelColor))))
@@ -766,7 +766,7 @@ struct HUDView: View {
     private var displaySection: some View {
         Section {
             toggleRow("Show Model Name", isOn: $config.display.showModel,
-                      preview: "[Opus 4.8 | Max]", color: .cyan,
+                      preview: "[Fable 5 | Max]", color: .cyan,
                       colorBinding: $config.colors.model) { saveConfig() }
 
             if config.display.showModel {
@@ -1347,7 +1347,7 @@ struct HUDView: View {
             let sep = config.showSeparators ? " | " : "  "
 
             if config.display.showModel {
-                parts.append("[Opus 4.8 | Max]")
+                parts.append("[Fable 5 | Max]")
             }
 
             if config.display.showContextBar {
@@ -1440,9 +1440,9 @@ struct HUDView: View {
             if config.display.showModel {
                 let modelName: String
                 switch config.display.modelFormat {
-                case "short": modelName = "Opus 4.8"
-                case "compact": modelName = "Opus 4.8"
-                default: modelName = "Opus 4.8 (1M context)"
+                case "short": modelName = "Fable 5"
+                case "compact": modelName = "Fable 5"
+                default: modelName = "Fable 5 (1M context)"
                 }
                 if !config.display.modelOverride.isEmpty {
                     parts.append("[\(config.display.modelOverride)]")
