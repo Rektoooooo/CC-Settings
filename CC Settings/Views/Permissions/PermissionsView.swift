@@ -169,6 +169,7 @@ struct PermissionsView: View {
     @State private var autoModeHardDenyDefaults: Bool = false
     @State private var autoModeEnvironmentText: String = ""
     @State private var autoModeEnvironmentDefaults: Bool = false
+    @State private var autoModeClassifyAllShell: Bool = false
 
     var body: some View {
         Form {
@@ -245,6 +246,12 @@ struct PermissionsView: View {
                     includeDefaults: $autoModeEnvironmentDefaults,
                     placeholder: "Environment-scoped rules, one per line"
                 )
+
+                Toggle("Classify All Shell Commands", isOn: $autoModeClassifyAllShell)
+                    .onChange(of: autoModeClassifyAllShell) { _, _ in saveAutoMode() }
+                Text("Suspend every Bash and PowerShell allow rule while auto mode is active, so all shell commands go through the classifier. Safer, at the cost of more classifier round-trips.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Auto Mode Rules")
             } footer: {
@@ -487,6 +494,7 @@ struct PermissionsView: View {
         (autoModeSoftDenyText, autoModeSoftDenyDefaults) = splitDefaultsSentinel(am?.softDeny)
         (autoModeHardDenyText, autoModeHardDenyDefaults) = splitDefaultsSentinel(am?.hardDeny)
         (autoModeEnvironmentText, autoModeEnvironmentDefaults) = splitDefaultsSentinel(am?.environment)
+        autoModeClassifyAllShell = am?.classifyAllShell ?? false
     }
 
     private func savePermissions() {
@@ -570,6 +578,11 @@ struct PermissionsView: View {
         }
         if let v = joinDefaultsSentinel(text: autoModeEnvironmentText, includeDefaults: autoModeEnvironmentDefaults) {
             dict["environment"] = v
+        }
+        // Off by default — only persist the opt-in, so an untouched toggle leaves
+        // `autoMode` absent entirely rather than writing `{"classifyAllShell": false}`.
+        if autoModeClassifyAllShell {
+            dict["classifyAllShell"] = true
         }
         configManager.saveField("autoMode", value: dict.isEmpty ? nil : dict)
     }

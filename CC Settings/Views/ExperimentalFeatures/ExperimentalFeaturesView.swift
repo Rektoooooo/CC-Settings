@@ -44,6 +44,12 @@ struct ExperimentalFeaturesView: View {
     @State private var sandboxDenyWrite: String = (s.sandbox?.filesystem?.denyWrite ?? []).joined(separator: ", ")
     @State private var sandboxDenyRead: String = (s.sandbox?.filesystem?.denyRead ?? []).joined(separator: ", ")
     @State private var sandboxAllowRead: String = (s.sandbox?.filesystem?.allowRead ?? []).joined(separator: ", ")
+    @State private var sandboxFilesystemDisabled: Bool = s.sandbox?.filesystem?.disabled ?? false
+    @State private var sandboxAllowAppleEvents: Bool = s.sandbox?.allowAppleEvents ?? false
+    @State private var sandboxStrictAllowlist: Bool = s.sandbox?.network?.strictAllowlist ?? false
+    @State private var sandboxDeniedDomains: String = (s.sandbox?.network?.deniedDomains ?? []).joined(separator: ", ")
+    @State private var sandboxCredentialFiles: String = (s.sandbox?.credentials?.files ?? []).joined(separator: ", ")
+    @State private var sandboxCredentialEnvVars: String = (s.sandbox?.credentials?.envVars ?? []).joined(separator: ", ")
 
     // Worktree
     @State private var worktreeSparsePaths: String = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
@@ -254,6 +260,50 @@ struct ExperimentalFeaturesView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
+                Toggle("Allow Apple Events", isOn: $sandboxAllowAppleEvents)
+                    .onChange(of: sandboxAllowAppleEvents) { _, _ in saveSandbox() }
+                Text("macOS only. Let sandboxed commands send Apple Events — needed for open, osascript and browser-based auth flows. Also opens a data-exfiltration path via trustd.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Strict Domain Allowlist", isOn: $sandboxStrictAllowlist)
+                    .onChange(of: sandboxStrictAllowlist) { _, _ in saveSandbox() }
+                Text("Deny hosts outside Allowed Domains outright instead of prompting.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Denied Domains", text: $sandboxDeniedDomains, prompt: Text("evil.com, *.tracker.net"), axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .lineLimit(1...3)
+                    .onSubmit { saveSandbox() }
+                Text("Comma-separated domains always blocked, even when Allowed Domains would match them.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                GroupBox("Credentials") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Files", text: $sandboxCredentialFiles, prompt: Text("~/.netrc, ~/.config/gh/hosts.yml"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
+                        Text("Comma-separated credential files exposed inside the sandbox.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("Environment Variables", text: $sandboxCredentialEnvVars, prompt: Text("GITHUB_TOKEN, NPM_TOKEN"), axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+                            .lineLimit(1...3)
+                            .onSubmit { saveSandbox() }
+                        Text("Comma-separated environment variables exposed inside the sandbox.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 GroupBox("Filesystem Rules") {
                     VStack(alignment: .leading, spacing: 8) {
                         TextField("Allow Write", text: $sandboxAllowWrite, prompt: Text("/tmp, /var/folders"), axis: .vertical)
@@ -289,6 +339,12 @@ struct ExperimentalFeaturesView: View {
                             .lineLimit(1...3)
                             .onSubmit { saveSandbox() }
                         Text("Comma-separated paths allowed for reading.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Toggle("Disable Filesystem Isolation", isOn: $sandboxFilesystemDisabled)
+                            .onChange(of: sandboxFilesystemDisabled) { _, _ in saveSandbox() }
+                        Text("macOS and Linux/WSL only. Skip filesystem isolation entirely while keeping network and seccomp isolation. The rules above stop applying. Ignored on native Windows.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -537,6 +593,12 @@ struct ExperimentalFeaturesView: View {
         sandboxDenyWrite = (s.sandbox?.filesystem?.denyWrite ?? []).joined(separator: ", ")
         sandboxDenyRead = (s.sandbox?.filesystem?.denyRead ?? []).joined(separator: ", ")
         sandboxAllowRead = (s.sandbox?.filesystem?.allowRead ?? []).joined(separator: ", ")
+        sandboxFilesystemDisabled = s.sandbox?.filesystem?.disabled ?? false
+        sandboxAllowAppleEvents = s.sandbox?.allowAppleEvents ?? false
+        sandboxStrictAllowlist = s.sandbox?.network?.strictAllowlist ?? false
+        sandboxDeniedDomains = (s.sandbox?.network?.deniedDomains ?? []).joined(separator: ", ")
+        sandboxCredentialFiles = (s.sandbox?.credentials?.files ?? []).joined(separator: ", ")
+        sandboxCredentialEnvVars = (s.sandbox?.credentials?.envVars ?? []).joined(separator: ", ")
 
         // Worktree
         worktreeSparsePaths = (s.worktree?.sparsePaths ?? []).joined(separator: ", ")
@@ -592,7 +654,13 @@ struct ExperimentalFeaturesView: View {
             (keyPath: "sandbox.filesystem.allowWrite", value: parseCSV(sandboxAllowWrite)),
             (keyPath: "sandbox.filesystem.denyWrite", value: parseCSV(sandboxDenyWrite)),
             (keyPath: "sandbox.filesystem.denyRead", value: parseCSV(sandboxDenyRead)),
-            (keyPath: "sandbox.filesystem.allowRead", value: parseCSV(sandboxAllowRead))
+            (keyPath: "sandbox.filesystem.allowRead", value: parseCSV(sandboxAllowRead)),
+            (keyPath: "sandbox.filesystem.disabled", value: sandboxFilesystemDisabled ? true : nil),
+            (keyPath: "sandbox.allowAppleEvents", value: sandboxAllowAppleEvents ? true : nil),
+            (keyPath: "sandbox.network.strictAllowlist", value: sandboxStrictAllowlist ? true : nil),
+            (keyPath: "sandbox.network.deniedDomains", value: parseCSV(sandboxDeniedDomains)),
+            (keyPath: "sandbox.credentials.files", value: parseCSV(sandboxCredentialFiles)),
+            (keyPath: "sandbox.credentials.envVars", value: parseCSV(sandboxCredentialEnvVars))
         ])
     }
 

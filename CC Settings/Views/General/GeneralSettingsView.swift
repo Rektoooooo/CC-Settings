@@ -17,6 +17,8 @@ struct GeneralSettingsView: View {
     @State private var fastMode: Bool = s.fastMode ?? false
     @State private var fastModePerSessionOptIn: Bool = s.fastModePerSessionOptIn ?? false
     @State private var fallbackModels: String = (s.fallbackModel ?? []).joined(separator: ", ")
+    @State private var advisorModel: String = s.advisorModel ?? ""
+    @State private var enforceAvailableModels: Bool = s.enforceAvailableModels ?? false
 
     // Appearance
     @State private var prefersReducedMotion: Bool = s.prefersReducedMotion ?? false
@@ -30,6 +32,7 @@ struct GeneralSettingsView: View {
     @State private var verbose: Bool = s.verbose ?? false
     @State private var skillOverrides: String = s.skillOverrides ?? ""
     @State private var bundledSkillsEnabled: Bool = !(s.disableBundledSkills ?? false)
+    @State private var workflowSizeGuideline: String = s.workflowSizeGuideline ?? ""
 
     // Behavior
     @State private var showTurnDuration: Bool = s.showTurnDuration ?? true
@@ -42,6 +45,25 @@ struct GeneralSettingsView: View {
     @State private var autoCompactEnabled: Bool = s.autoCompact != nil
     @State private var autoCompactInstructions: String = s.autoCompact?.customInstructions ?? ""
     @State private var plansDirectory: String = s.plansDirectory ?? ""
+    @State private var autoCompactWindow: String = s.autoCompactWindow.map(String.init) ?? ""
+    @State private var precomputeCompactionEnabled: Bool = s.precomputeCompactionEnabled ?? false
+    @State private var todoFeatureEnabled: Bool = s.todoFeatureEnabled ?? true
+    @State private var askUserQuestionTimeout: String = s.askUserQuestionTimeout ?? ""
+    @State private var awaySummaryEnabled: Bool = s.awaySummaryEnabled ?? true
+    @State private var promptSuggestionEnabled: Bool = s.promptSuggestionEnabled ?? true
+    @State private var emojiCompletionEnabled: Bool = s.emojiCompletionEnabled ?? true
+    @State private var fileCheckpointingEnabled: Bool = s.fileCheckpointingEnabled ?? true
+    @State private var fileSuggestionCommand: String = s.fileSuggestion?.command ?? ""
+
+    // Terminal & Accessibility
+    @State private var axScreenReader: Bool = s.axScreenReader ?? false
+    @State private var autoScrollEnabled: Bool = s.autoScrollEnabled ?? true
+    @State private var wheelScrollAcceleration: Bool = s.wheelScrollAccelerationEnabled ?? true
+    @State private var terminalProgressBarEnabled: Bool = s.terminalProgressBarEnabled ?? false
+    @State private var showMessageTimestamps: Bool = s.showMessageTimestamps ?? false
+    @State private var syntaxHighlightingEnabled: Bool = !(s.syntaxHighlightingDisabled ?? false)
+    @State private var hideVimModeIndicator: Bool = s.hideVimModeIndicator ?? false
+    @State private var vimEscapeSequences: String = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
 
     // Memory
     @State private var autoMemoryEnabled: Bool = s.autoMemoryEnabled ?? false
@@ -66,12 +88,30 @@ struct GeneralSettingsView: View {
     @State private var commitAttribution: String = s.attribution?.commit ?? ""
     @State private var prAttribution: String = s.attribution?.pr ?? ""
     @State private var prUrlTemplate: String = s.prUrlTemplate ?? ""
+    @State private var attributionSessionUrl: Bool = s.attribution?.sessionUrl ?? true
 
     // Teams
     @State private var teammateMode: String = s.teammateMode ?? "auto"
 
+    // Agent View & Remote Control
+    @State private var agentViewEnabled: Bool = !(s.disableAgentView ?? false)
+    @State private var subagentStatusLineCommand: String = s.subagentStatusLine?.command ?? ""
+    @State private var remoteControlEnabled: Bool = !(s.disableRemoteControl ?? false)
+    @State private var remoteControlAtStartup: Bool = s.remoteControlAtStartup ?? false
+    @State private var agentPushNotifEnabled: Bool = s.agentPushNotifEnabled ?? false
+
     @State private var allowAllClaudeAiMcps: Bool = s.allowAllClaudeAiMcps ?? false
     @State private var pluginSuggestionMarketplaces: String = (s.pluginSuggestionMarketplaces ?? []).joined(separator: ", ")
+    @State private var artifactEnabled: Bool = (s.enableArtifact ?? true) && !(s.disableArtifact ?? false)
+    @State private var claudeAiConnectorsEnabled: Bool = !(s.disableClaudeAiConnectors ?? false)
+    @State private var channelsEnabled: Bool = s.channelsEnabled ?? false
+    @State private var allowedMcpServers: String = (s.allowedMcpServers ?? []).joined(separator: ", ")
+    @State private var strictKnownMarketplaces: String = (s.strictKnownMarketplaces ?? []).joined(separator: ", ")
+    @State private var blockedMarketplaces: String = (s.blockedMarketplaces ?? []).joined(separator: ", ")
+    @State private var sideloadFlagsEnabled: Bool = !(s.disableSideloadFlags ?? false)
+    @State private var skillShellExecutionEnabled: Bool = !(s.disableSkillShellExecution ?? false)
+    @State private var deepLinkRegistrationEnabled: Bool = s.disableDeepLinkRegistration != "disable"
+    @State private var feedbackSurveyRate: String = s.feedbackSurveyRate.map { String($0) } ?? ""
 
     // API Key Helper
     @State private var apiKeyHelper: String = s.apiKeyHelper ?? ""
@@ -96,6 +136,7 @@ struct GeneralSettingsView: View {
                 appearanceSection.id("appearance")
                 languageSection.id("language")
                 behaviorSection.id("behavior")
+                terminalSection.id("terminal")
                 memorySection.id("memory")
                 gitSection.id("git")
                 updatesSection.id("updates")
@@ -103,6 +144,7 @@ struct GeneralSettingsView: View {
                 dataRetentionSection.id("data-retention")
                 attributionSection.id("attribution")
                 teamsSection.id("teams")
+                agentViewSection.id("agent-view")
                 enterpriseSection.id("enterprise")
                 apiKeyHelperSection.id("api-key-helper")
                 aboutSection
@@ -317,6 +359,18 @@ struct GeneralSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+
+            TextField("Advisor Model", text: $advisorModel, prompt: Text("e.g. sonnet"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("Model backing the server-side advisor tool. Accepts an alias or a full model ID.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Enforce Available Models", isOn: $enforceAvailableModels)
+            Text("Also constrain the Default model to the Available Models allowlist — if the tier default isn't allowed, Default falls back to the first allowed entry. No effect unless an allowlist is set.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -373,6 +427,20 @@ struct GeneralSettingsView: View {
             dynamicWorkflowsRow
 
             ultracodeKeywordRow
+
+            if dynamicWorkflowsEnabled {
+                Picker("Dynamic Workflow Size", selection: $workflowSizeGuideline) {
+                    Text("Default").tag("")
+                    Text("Small").tag("small")
+                    Text("Medium").tag("medium")
+                    Text("Large").tag("large")
+                    Text("Unrestricted").tag("unrestricted")
+                }
+                .pickerStyle(.segmented)
+                Text("Advisory ceiling on how many agents Claude's workflows use — Small aims for under 5, Medium (the default) under 15, Large under 50.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
             TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
                 .textFieldStyle(.roundedBorder)
@@ -504,6 +572,18 @@ struct GeneralSettingsView: View {
                     Text("Custom instructions for auto-compact summaries.")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    TextField("Window Size", text: $autoCompactWindow, prompt: Text("e.g. 200000"))
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                    Text("Token window that triggers compaction. Claude Code clamps this to 100,000–1,000,000; leave empty for the default.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Toggle("Precompute Compaction", isOn: $precomputeCompactionEnabled)
+                    Text("Build the compaction summary in the background before it's needed.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -518,7 +598,203 @@ struct GeneralSettingsView: View {
             Text("Directory where plan files are stored.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Picker("Question Timeout", selection: $askUserQuestionTimeout) {
+                Text("Default").tag("")
+                Text("60s").tag("60s")
+                Text("5m").tag("5m")
+                Text("10m").tag("10m")
+                Text("Never").tag("never")
+            }
+            .pickerStyle(.segmented)
+            Text("How long an unanswered question from Claude waits before it continues with whatever answers it has.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            fileCheckpointingRow
+
+            todoPanelRow
+
+            awaySummaryRow
+
+            promptSuggestionRow
+
+            emojiCompletionRow
+
+            HStack {
+                TextField("File Suggestion Script", text: $fileSuggestionCommand, prompt: Text("/path/to/suggest.sh"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Button("Choose...") {
+                    chooseFileSuggestionScript()
+                }
+            }
+            Text("Custom script backing @ file autocomplete. Leave empty to use the built-in file search.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+    }
+
+    // Default-on toggles: clear the key when enabled, write `false`/`true` only to
+    // deviate from Claude Code's default. Saved through the binding to keep the
+    // `.onChange` chains under SwiftUI's type-check limit.
+    @ViewBuilder
+    private var fileCheckpointingRow: some View {
+        Toggle("File Checkpointing", isOn: Binding(
+            get: { fileCheckpointingEnabled },
+            set: { newValue in
+                fileCheckpointingEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("fileCheckpointingEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Snapshot files before edits so /rewind can restore them.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var todoPanelRow: some View {
+        Toggle("Todo Panel", isOn: Binding(
+            get: { todoFeatureEnabled },
+            set: { newValue in
+                todoFeatureEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("todoFeatureEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Show the todo / task tracking panel during sessions.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var awaySummaryRow: some View {
+        Toggle("Away Recap", isOn: Binding(
+            get: { awaySummaryEnabled },
+            set: { newValue in
+                awaySummaryEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("awaySummaryEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Show a one-line session recap when you come back after five minutes or more away.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var promptSuggestionRow: some View {
+        Toggle("Prompt Suggestions", isOn: Binding(
+            get: { promptSuggestionEnabled },
+            set: { newValue in
+                promptSuggestionEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("promptSuggestionEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Offer suggested prompts in the input box.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var emojiCompletionRow: some View {
+        Toggle("Emoji Completion", isOn: Binding(
+            get: { emojiCompletionEnabled },
+            set: { newValue in
+                emojiCompletionEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("emojiCompletionEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Suggest emoji for :shortcode: typed in the prompt and replace it inline.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var terminalSection: some View {
+        Section("Terminal & Accessibility") {
+            Toggle("Screen Reader Mode", isOn: $axScreenReader)
+            Text("Render flat, screen-reader friendly output with no decorative borders or animations. Overridden by CLAUDE_AX_SCREEN_READER and --ax-screen-reader.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Message Timestamps", isOn: $showMessageTimestamps)
+            Text("Stamp each message with its arrival time.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Terminal Progress Bar", isOn: $terminalProgressBarEnabled)
+            Text("Emit OSC 9;4 progress sequences during long operations, so the terminal can show a progress indicator.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            syntaxHighlightingRow
+
+            autoScrollRow
+
+            wheelScrollRow
+
+            Toggle("Hide Vim Mode Indicator", isOn: $hideVimModeIndicator)
+            Text("Hide the built-in -- INSERT -- / -- VISUAL -- line. Use this when your status line renders vim.mode itself.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Vim Escape Sequences", text: $vimEscapeSequences, prompt: Text("jj, kk"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("Comma-separated two-character INSERT-mode sequences that return to NORMAL mode. Requires Editor Mode set to vim; <Esc> is the only target Claude Code supports.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var syntaxHighlightingRow: some View {
+        // Inverted: write `syntaxHighlightingDisabled: true` only when off.
+        Toggle("Syntax Highlighting", isOn: Binding(
+            get: { syntaxHighlightingEnabled },
+            set: { newValue in
+                syntaxHighlightingEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("syntaxHighlightingDisabled", value: newValue ? nil : true)
+            }
+        ))
+        Text("Colourise code in diffs.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var autoScrollRow: some View {
+        Toggle("Auto-Scroll", isOn: Binding(
+            get: { autoScrollEnabled },
+            set: { newValue in
+                autoScrollEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("autoScrollEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Follow new output to the bottom. Fullscreen rendering only.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var wheelScrollRow: some View {
+        Toggle("Wheel Scroll Acceleration", isOn: Binding(
+            get: { wheelScrollAcceleration },
+            set: { newValue in
+                wheelScrollAcceleration = newValue
+                guard isLoaded else { return }
+                configManager.saveField("wheelScrollAccelerationEnabled", value: newValue ? nil : false)
+            }
+        ))
+        Text("Ramp mouse-wheel scroll speed during fast scrolls. Fullscreen rendering only.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     @ViewBuilder
@@ -635,6 +911,11 @@ struct GeneralSettingsView: View {
             Text("Custom code-review URL for the footer PR badge. Leave empty to use github.com.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Toggle("Session Link", isOn: $attributionSessionUrl)
+            Text("Append the claude.ai session link to commits and PRs created from web or Remote Control sessions. Off omits the Claude-Session trailer and the PR-body link.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -645,11 +926,76 @@ struct GeneralSettingsView: View {
                 Text("Auto").tag("auto")
                 Text("In-Process").tag("in-process")
                 Text("Tmux").tag("tmux")
+                Text("iTerm2").tag("iterm2")
             }
             Text("How teammate agents are displayed in the terminal.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private var agentViewSection: some View {
+        Section("Agent View & Remote Control") {
+            agentViewRow
+
+            HStack {
+                TextField("Subagent Status Line", text: $subagentStatusLineCommand, prompt: Text("/path/to/subagent-status.sh"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Button("Choose...") {
+                    chooseSubagentStatusLine()
+                }
+            }
+            Text("Script rendering each row in the agent panel. Receives that row's context as JSON on stdin.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            remoteControlRow
+
+            if remoteControlEnabled {
+                Toggle("Start at Session Start", isOn: $remoteControlAtStartup)
+                Text("Bring up the Remote Control bridge automatically for every session.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Push Notifications", isOn: $agentPushNotifEnabled)
+                Text("Let Claude send proactive mobile notifications while Remote Control is connected.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var agentViewRow: some View {
+        // Inverted: write `disableAgentView: true` only when off.
+        Toggle("Agent View", isOn: Binding(
+            get: { agentViewEnabled },
+            set: { newValue in
+                agentViewEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableAgentView", value: newValue ? nil : true)
+            }
+        ))
+        Text("Enable background agents — claude agents, --bg, /background and the on-demand daemon.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var remoteControlRow: some View {
+        Toggle("Remote Control", isOn: Binding(
+            get: { remoteControlEnabled },
+            set: { newValue in
+                remoteControlEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableRemoteControl", value: newValue ? nil : true)
+            }
+        ))
+        Text("Drive this machine's sessions from claude.ai/code or the mobile app.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     @ViewBuilder
@@ -660,6 +1006,8 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
+            claudeAiConnectorsRow
+
             TextField("Plugin Suggestion Marketplaces", text: $pluginSuggestionMarketplaces, prompt: Text("org-marketplace, team-tools"), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
@@ -667,7 +1015,132 @@ struct GeneralSettingsView: View {
             Text("Comma-separated allowlist of plugin marketplaces suggested to users. Typically a managed/org-admin setting.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            TextField("Strict Known Marketplaces", text: $strictKnownMarketplaces, prompt: Text("https://github.com/acme/plugins"), axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(1...3)
+            Text("Comma-separated exhaustive allowlist. Set in managed settings, ONLY these exact sources may be added as marketplaces — checked before download, so blocked sources never touch disk.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Blocked Marketplaces", text: $blockedMarketplaces, prompt: Text("https://github.com/untrusted/plugins"), axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(1...3)
+            Text("Comma-separated blocklist of marketplace sources, also checked before download.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Allowed MCP Servers", text: $allowedMcpServers, prompt: Text("github, sentry"), axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(1...3)
+            Text("Comma-separated allowlist of usable MCP servers across all scopes. Leave empty to allow every server; the denylist wins on conflict.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Channel Notifications", isOn: $channelsEnabled)
+            Text("Org opt-in letting MCP servers with the claude/channel capability push inbound messages.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            artifactRow
+
+            skillShellExecutionRow
+
+            sideloadFlagsRow
+
+            deepLinkRow
+
+            TextField("Feedback Survey Rate", text: $feedbackSurveyRate, prompt: Text("0.05"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("Probability from 0 to 1 that the session quality survey appears when eligible. Leave empty for the default.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private var claudeAiConnectorsRow: some View {
+        Toggle("Claude.ai Cloud Connectors", isOn: Binding(
+            get: { claudeAiConnectorsEnabled },
+            set: { newValue in
+                claudeAiConnectorsEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableClaudeAiConnectors", value: newValue ? nil : true)
+            }
+        ))
+        Text("Auto-fetch and connect claude.ai MCP cloud connectors.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var artifactRow: some View {
+        // Two keys back one switch: `disableArtifact` is the hard kill switch and wins,
+        // `enableArtifact` is the per-user opt-in. Turning this off writes the kill
+        // switch; turning it on clears both and falls back to the default (enabled).
+        Toggle("Artifact Tool", isOn: Binding(
+            get: { artifactEnabled },
+            set: { newValue in
+                artifactEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveFields([
+                    (keyPath: "disableArtifact", value: newValue ? nil : true),
+                    (keyPath: "enableArtifact", value: nil)
+                ])
+            }
+        ))
+        Text("Let Claude publish session output with the Artifact tool.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var skillShellExecutionRow: some View {
+        Toggle("Skill Shell Execution", isOn: Binding(
+            get: { skillShellExecutionEnabled },
+            set: { newValue in
+                skillShellExecutionEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableSkillShellExecution", value: newValue ? nil : true)
+            }
+        ))
+        Text("Run inline shell commands embedded in skills and custom slash commands. Turn off to replace them with a placeholder instead.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var sideloadFlagsRow: some View {
+        Toggle("Allow Sideload Flags", isOn: Binding(
+            get: { sideloadFlagsEnabled },
+            set: { newValue in
+                sideloadFlagsEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableSideloadFlags", value: newValue ? nil : true)
+            }
+        ))
+        Text("Accept --plugin-dir, --plugin-url, --agents and non-SDK --mcp-config at startup. Turning this off closes the CLI-flag bypass of Strict Known Marketplaces.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var deepLinkRow: some View {
+        Toggle("Deep Link Registration", isOn: Binding(
+            get: { deepLinkRegistrationEnabled },
+            set: { newValue in
+                deepLinkRegistrationEnabled = newValue
+                guard isLoaded else { return }
+                configManager.saveField("disableDeepLinkRegistration", value: newValue ? nil : "disable")
+            }
+        ))
+        Text("Register the claude-cli:// protocol handler with macOS.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     @ViewBuilder
@@ -875,6 +1348,151 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 saveFallbackModels()
             }
+            .onChange(of: advisorModel) {
+                guard isLoaded else { return }
+                saveOptionalString("advisorModel", advisorModel)
+            }
+            .onChange(of: enforceAvailableModels) {
+                guard isLoaded else { return }
+                saveFlag("enforceAvailableModels", enforceAvailableModels)
+            }
+            .onChange(of: workflowSizeGuideline) {
+                guard isLoaded else { return }
+                saveOptionalString("workflowSizeGuideline", workflowSizeGuideline)
+            }
+        Color.clear
+            .onChange(of: askUserQuestionTimeout) {
+                guard isLoaded else { return }
+                saveOptionalString("askUserQuestionTimeout", askUserQuestionTimeout)
+            }
+            .onChange(of: autoCompactWindow) {
+                guard isLoaded else { return }
+                // Claude Code clamps to 100_000…1_000_000 — don't write a value it will reject
+                let parsed: Int? = Int(autoCompactWindow.trimmingCharacters(in: .whitespaces))
+                let valid: Int? = parsed.flatMap { (100_000...1_000_000).contains($0) ? $0 : nil }
+                configManager.saveField("autoCompactWindow", value: valid)
+            }
+            .onChange(of: precomputeCompactionEnabled) {
+                guard isLoaded else { return }
+                saveFlag("precomputeCompactionEnabled", precomputeCompactionEnabled)
+            }
+            .onChange(of: fileSuggestionCommand) {
+                guard isLoaded else { return }
+                saveCommandScript("fileSuggestion", command: fileSuggestionCommand)
+            }
+            .onChange(of: axScreenReader) {
+                guard isLoaded else { return }
+                saveFlag("axScreenReader", axScreenReader)
+            }
+            .onChange(of: showMessageTimestamps) {
+                guard isLoaded else { return }
+                saveFlag("showMessageTimestamps", showMessageTimestamps)
+            }
+        Color.clear
+            .onChange(of: terminalProgressBarEnabled) {
+                guard isLoaded else { return }
+                saveFlag("terminalProgressBarEnabled", terminalProgressBarEnabled)
+            }
+            .onChange(of: hideVimModeIndicator) {
+                guard isLoaded else { return }
+                saveFlag("hideVimModeIndicator", hideVimModeIndicator)
+            }
+            .onChange(of: vimEscapeSequences) {
+                guard isLoaded else { return }
+                saveVimEscapeSequences()
+            }
+            .onChange(of: attributionSessionUrl) {
+                guard isLoaded else { return }
+                saveAttribution()
+            }
+            .onChange(of: subagentStatusLineCommand) {
+                guard isLoaded else { return }
+                saveCommandScript("subagentStatusLine", command: subagentStatusLineCommand)
+            }
+            .onChange(of: remoteControlAtStartup) {
+                guard isLoaded else { return }
+                saveFlag("remoteControlAtStartup", remoteControlAtStartup)
+            }
+        Color.clear
+            .onChange(of: agentPushNotifEnabled) {
+                guard isLoaded else { return }
+                saveFlag("agentPushNotifEnabled", agentPushNotifEnabled)
+            }
+            .onChange(of: channelsEnabled) {
+                guard isLoaded else { return }
+                saveFlag("channelsEnabled", channelsEnabled)
+            }
+            .onChange(of: allowedMcpServers) {
+                guard isLoaded else { return }
+                configManager.saveField("allowedMcpServers", value: commaList(allowedMcpServers))
+            }
+            .onChange(of: strictKnownMarketplaces) {
+                guard isLoaded else { return }
+                configManager.saveField("strictKnownMarketplaces", value: commaList(strictKnownMarketplaces))
+            }
+            .onChange(of: blockedMarketplaces) {
+                guard isLoaded else { return }
+                configManager.saveField("blockedMarketplaces", value: commaList(blockedMarketplaces))
+            }
+            .onChange(of: feedbackSurveyRate) {
+                guard isLoaded else { return }
+                // Out-of-range values are rejected by Claude Code — clear instead of writing
+                let parsed: Double? = Double(feedbackSurveyRate.trimmingCharacters(in: .whitespaces))
+                let valid: Double? = parsed.flatMap { (0.0...1.0).contains($0) ? $0 : nil }
+                configManager.saveField("feedbackSurveyRate", value: valid)
+            }
+    }
+
+    /// Trims and writes a string field, removing the key when the result is empty.
+    /// Explicitly typed so the `Any?` parameter doesn't push the enclosing
+    /// `.onChange` chain past SwiftUI's type-check budget.
+    private func saveOptionalString(_ key: String, _ raw: String) {
+        let trimmed: String = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value: String? = trimmed.isEmpty ? nil : trimmed
+        configManager.saveField(key, value: value)
+    }
+
+    /// Writes `true` for an off-by-default flag, and removes the key when false.
+    private func saveFlag(_ key: String, _ isOn: Bool) {
+        let value: Bool? = isOn ? true : nil
+        configManager.saveField(key, value: value)
+    }
+
+    /// Splits a comma-separated field into a trimmed list, or `nil` when empty so the
+    /// key is removed rather than written as `[]` (which means "deny everything" for
+    /// the MCP and marketplace allowlists).
+    private func commaList(_ raw: String) -> [String]? {
+        let parts: [String] = raw.components(separatedBy: ",")
+        let list: [String] = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return list.isEmpty ? nil : list
+    }
+
+    /// `{ "type": "command", "command": "…" }`, or removed entirely when blank.
+    private func saveCommandScript(_ key: String, command: String) {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            configManager.saveField(key, value: nil)
+        } else {
+            configManager.saveField(key, value: ["type": "command", "command": trimmed])
+        }
+    }
+
+    /// Claude Code only supports `<Esc>` as a remap target and requires each key to be
+    /// exactly two printable characters, so the UI collects just the sequences.
+    private func saveVimEscapeSequences() {
+        let parts: [String] = vimEscapeSequences.components(separatedBy: ",")
+        let sequences: [String] = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count == 2 }
+        if sequences.isEmpty {
+            configManager.saveField("vimInsertModeRemaps", value: nil)
+        } else {
+            var map: [String: String] = [:]
+            for sequence in sequences { map[sequence] = "<Esc>" }
+            configManager.saveField("vimInsertModeRemaps", value: map)
+        }
     }
 
     private func saveFallbackModels() {
@@ -897,6 +1515,8 @@ struct GeneralSettingsView: View {
         fastMode = s.fastMode ?? false
         fastModePerSessionOptIn = s.fastModePerSessionOptIn ?? false
         fallbackModels = (s.fallbackModel ?? []).joined(separator: ", ")
+        advisorModel = s.advisorModel ?? ""
+        enforceAvailableModels = s.enforceAvailableModels ?? false
 
         // Appearance
         prefersReducedMotion = s.prefersReducedMotion ?? false
@@ -910,6 +1530,7 @@ struct GeneralSettingsView: View {
         verbose = s.verbose ?? false
         skillOverrides = s.skillOverrides ?? ""
         bundledSkillsEnabled = !(s.disableBundledSkills ?? false)
+        workflowSizeGuideline = s.workflowSizeGuideline ?? ""
 
         // Behavior
         showTurnDuration = s.showTurnDuration ?? true
@@ -922,6 +1543,25 @@ struct GeneralSettingsView: View {
         autoCompactEnabled = s.autoCompact != nil
         autoCompactInstructions = s.autoCompact?.customInstructions ?? ""
         plansDirectory = s.plansDirectory ?? ""
+        autoCompactWindow = s.autoCompactWindow.map(String.init) ?? ""
+        precomputeCompactionEnabled = s.precomputeCompactionEnabled ?? false
+        todoFeatureEnabled = s.todoFeatureEnabled ?? true
+        askUserQuestionTimeout = s.askUserQuestionTimeout ?? ""
+        awaySummaryEnabled = s.awaySummaryEnabled ?? true
+        promptSuggestionEnabled = s.promptSuggestionEnabled ?? true
+        emojiCompletionEnabled = s.emojiCompletionEnabled ?? true
+        fileCheckpointingEnabled = s.fileCheckpointingEnabled ?? true
+        fileSuggestionCommand = s.fileSuggestion?.command ?? ""
+
+        // Terminal & Accessibility
+        axScreenReader = s.axScreenReader ?? false
+        autoScrollEnabled = s.autoScrollEnabled ?? true
+        wheelScrollAcceleration = s.wheelScrollAccelerationEnabled ?? true
+        terminalProgressBarEnabled = s.terminalProgressBarEnabled ?? false
+        showMessageTimestamps = s.showMessageTimestamps ?? false
+        syntaxHighlightingEnabled = !(s.syntaxHighlightingDisabled ?? false)
+        hideVimModeIndicator = s.hideVimModeIndicator ?? false
+        vimEscapeSequences = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
 
         // Memory
         autoMemoryEnabled = s.autoMemoryEnabled ?? false
@@ -950,13 +1590,31 @@ struct GeneralSettingsView: View {
         commitAttribution = s.attribution?.commit ?? ""
         prAttribution = s.attribution?.pr ?? ""
         prUrlTemplate = s.prUrlTemplate ?? ""
+        attributionSessionUrl = s.attribution?.sessionUrl ?? true
 
         // Teams
         teammateMode = s.teammateMode ?? "auto"
 
+        // Agent View & Remote Control
+        agentViewEnabled = !(s.disableAgentView ?? false)
+        subagentStatusLineCommand = s.subagentStatusLine?.command ?? ""
+        remoteControlEnabled = !(s.disableRemoteControl ?? false)
+        remoteControlAtStartup = s.remoteControlAtStartup ?? false
+        agentPushNotifEnabled = s.agentPushNotifEnabled ?? false
+
         // Enterprise
         allowAllClaudeAiMcps = s.allowAllClaudeAiMcps ?? false
         pluginSuggestionMarketplaces = (s.pluginSuggestionMarketplaces ?? []).joined(separator: ", ")
+        artifactEnabled = (s.enableArtifact ?? true) && !(s.disableArtifact ?? false)
+        claudeAiConnectorsEnabled = !(s.disableClaudeAiConnectors ?? false)
+        channelsEnabled = s.channelsEnabled ?? false
+        allowedMcpServers = (s.allowedMcpServers ?? []).joined(separator: ", ")
+        strictKnownMarketplaces = (s.strictKnownMarketplaces ?? []).joined(separator: ", ")
+        blockedMarketplaces = (s.blockedMarketplaces ?? []).joined(separator: ", ")
+        sideloadFlagsEnabled = !(s.disableSideloadFlags ?? false)
+        skillShellExecutionEnabled = !(s.disableSkillShellExecution ?? false)
+        deepLinkRegistrationEnabled = s.disableDeepLinkRegistration != "disable"
+        feedbackSurveyRate = s.feedbackSurveyRate.map { String($0) } ?? ""
 
         // API Key Helper
         apiKeyHelper = s.apiKeyHelper ?? ""
@@ -1063,12 +1721,16 @@ struct GeneralSettingsView: View {
     private func saveAttribution() {
         let commit = commitAttribution.isEmpty ? nil : commitAttribution
         let pr = prAttribution.isEmpty ? nil : prAttribution
-        if commit == nil && pr == nil {
+        // `sessionUrl` defaults to true, so only persist the opt-out. All three fields
+        // are rewritten together because this writes the whole `attribution` object.
+        let sessionUrl: Bool? = attributionSessionUrl ? nil : false
+        if commit == nil && pr == nil && sessionUrl == nil {
             configManager.saveField("attribution", value: nil)
         } else {
             var dict: [String: Any] = [:]
             if let c = commit { dict["commit"] = c }
             if let p = pr { dict["pr"] = p }
+            if let s = sessionUrl { dict["sessionUrl"] = s }
             configManager.saveField("attribution", value: dict)
         }
     }
@@ -1122,6 +1784,30 @@ struct GeneralSettingsView: View {
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url {
             plansDirectory = url.path
+        }
+    }
+
+    private func chooseFileSuggestionScript() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose File Suggestion Script"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.shellScript, .executable]
+        if panel.runModal() == .OK, let url = panel.url {
+            fileSuggestionCommand = url.path
+        }
+    }
+
+    private func chooseSubagentStatusLine() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Subagent Status Line Script"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.shellScript, .executable]
+        if panel.runModal() == .OK, let url = panel.url {
+            subagentStatusLineCommand = url.path
         }
     }
 }

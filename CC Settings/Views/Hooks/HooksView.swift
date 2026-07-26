@@ -28,7 +28,14 @@ enum HookType: String, CaseIterable, Identifiable {
     case sessionStart = "SessionStart"
     case sessionEnd = "SessionEnd"
     case userPromptSubmit = "UserPromptSubmit"
+    case userPromptExpansion = "UserPromptExpansion"
     case permissionDenied = "PermissionDenied"
+    case postToolBatch = "PostToolBatch"
+    case stopFailure = "StopFailure"
+    case taskCreated = "TaskCreated"
+    case cwdChanged = "CwdChanged"
+    case fileChanged = "FileChanged"
+    case directoryAdded = "DirectoryAdded"
 
     var id: String { rawValue }
 
@@ -59,7 +66,14 @@ enum HookType: String, CaseIterable, Identifiable {
         case .sessionStart: return "Session Start"
         case .sessionEnd: return "Session End"
         case .userPromptSubmit: return "User Prompt Submit"
+        case .userPromptExpansion: return "User Prompt Expansion"
         case .permissionDenied: return "Permission Denied"
+        case .postToolBatch: return "Post Tool Batch"
+        case .stopFailure: return "Stop Failure"
+        case .taskCreated: return "Task Created"
+        case .cwdChanged: return "Cwd Changed"
+        case .fileChanged: return "File Changed"
+        case .directoryAdded: return "Directory Added"
         }
     }
 
@@ -90,7 +104,14 @@ enum HookType: String, CaseIterable, Identifiable {
         case .sessionStart: return "power.circle.fill"
         case .sessionEnd: return "power.circle"
         case .userPromptSubmit: return "person.crop.square.fill"
+        case .userPromptExpansion: return "arrow.up.left.and.arrow.down.right.square.fill"
         case .permissionDenied: return "xmark.shield.fill"
+        case .postToolBatch: return "square.stack.3d.up.fill"
+        case .stopFailure: return "exclamationmark.octagon.fill"
+        case .taskCreated: return "plus.circle.fill"
+        case .cwdChanged: return "folder.badge.gearshape"
+        case .fileChanged: return "doc.badge.gearshape"
+        case .directoryAdded: return "folder.badge.plus"
         }
     }
 
@@ -121,7 +142,14 @@ enum HookType: String, CaseIterable, Identifiable {
         case .sessionStart: return .green
         case .sessionEnd: return .red
         case .userPromptSubmit: return .blue
+        case .userPromptExpansion: return .cyan
         case .permissionDenied: return .red
+        case .postToolBatch: return .purple
+        case .stopFailure: return .red
+        case .taskCreated: return .mint
+        case .cwdChanged: return .orange
+        case .fileChanged: return .teal
+        case .directoryAdded: return .green
         }
     }
 
@@ -152,7 +180,14 @@ enum HookType: String, CaseIterable, Identifiable {
         case .sessionStart: return "Runs when a session starts"
         case .sessionEnd: return "Runs when a session ends"
         case .userPromptSubmit: return "Runs when a user submits a prompt"
+        case .userPromptExpansion: return "Runs while a submitted prompt is being expanded"
         case .permissionDenied: return "Runs when a permission is denied"
+        case .postToolBatch: return "Runs after a batch of tool calls completes"
+        case .stopFailure: return "Runs when a turn ends in failure"
+        case .taskCreated: return "Runs when a task is created"
+        case .cwdChanged: return "Runs when the working directory changes"
+        case .fileChanged: return "Runs when a watched file changes on disk"
+        case .directoryAdded: return "Runs after /add-dir or an SDK repo-root registration"
         }
     }
 
@@ -183,7 +218,14 @@ enum HookType: String, CaseIterable, Identifiable {
         case .sessionStart: return "echo \"Session started at $(date)\""
         case .sessionEnd: return "echo \"Session ended at $(date)\""
         case .userPromptSubmit: return "echo \"User submitted prompt\""
+        case .userPromptExpansion: return "echo \"Expanding prompt\""
         case .permissionDenied: return "echo \"Permission denied for $TOOL_NAME\""
+        case .postToolBatch: return "npm run lint -- --fix"
+        case .stopFailure: return "echo \"Turn failed\" >> errors.log"
+        case .taskCreated: return "echo \"Task created\""
+        case .cwdChanged: return "echo \"Now in $(pwd)\""
+        case .fileChanged: return "echo \"File changed\""
+        case .directoryAdded: return "echo \"Directory added\""
         }
     }
 }
@@ -677,11 +719,16 @@ struct HooksView: View {
             case .worktreeCreate: groups = hooks?.WorktreeCreate ?? []
             case .worktreeRemove: groups = hooks?.WorktreeRemove ?? []
             case .sessionStart: groups = hooks?.SessionStart ?? []
-            case .userPromptSubmit: groups = hooks?.UserPromptSubmit ?? []
-            case .permissionDenied: groups = hooks?.PermissionDenied ?? []
             case .sessionEnd: groups = hooks?.SessionEnd ?? []
             case .userPromptSubmit: groups = hooks?.UserPromptSubmit ?? []
+            case .userPromptExpansion: groups = hooks?.UserPromptExpansion ?? []
             case .permissionDenied: groups = hooks?.PermissionDenied ?? []
+            case .postToolBatch: groups = hooks?.PostToolBatch ?? []
+            case .stopFailure: groups = hooks?.StopFailure ?? []
+            case .taskCreated: groups = hooks?.TaskCreated ?? []
+            case .cwdChanged: groups = hooks?.CwdChanged ?? []
+            case .fileChanged: groups = hooks?.FileChanged ?? []
+            case .directoryAdded: groups = hooks?.DirectoryAdded ?? []
             }
             for (index, group) in groups.enumerated() {
                 result.append(ScopedHookGroup(hookType: hookType, group: group, scope: scope, indexInScope: index))
@@ -727,7 +774,14 @@ struct HooksView: View {
         case .sessionStart: return hooks?.SessionStart ?? []
         case .sessionEnd: return hooks?.SessionEnd ?? []
         case .userPromptSubmit: return hooks?.UserPromptSubmit ?? []
+        case .userPromptExpansion: return hooks?.UserPromptExpansion ?? []
         case .permissionDenied: return hooks?.PermissionDenied ?? []
+        case .postToolBatch: return hooks?.PostToolBatch ?? []
+        case .stopFailure: return hooks?.StopFailure ?? []
+        case .taskCreated: return hooks?.TaskCreated ?? []
+        case .cwdChanged: return hooks?.CwdChanged ?? []
+        case .fileChanged: return hooks?.FileChanged ?? []
+        case .directoryAdded: return hooks?.DirectoryAdded ?? []
         }
     }
 
@@ -792,7 +846,14 @@ struct HooksView: View {
         case .sessionStart: configManager.settings.hooks?.SessionStart = value
         case .sessionEnd: configManager.settings.hooks?.SessionEnd = value
         case .userPromptSubmit: configManager.settings.hooks?.UserPromptSubmit = value
+        case .userPromptExpansion: configManager.settings.hooks?.UserPromptExpansion = value
         case .permissionDenied: configManager.settings.hooks?.PermissionDenied = value
+        case .postToolBatch: configManager.settings.hooks?.PostToolBatch = value
+        case .stopFailure: configManager.settings.hooks?.StopFailure = value
+        case .taskCreated: configManager.settings.hooks?.TaskCreated = value
+        case .cwdChanged: configManager.settings.hooks?.CwdChanged = value
+        case .fileChanged: configManager.settings.hooks?.FileChanged = value
+        case .directoryAdded: configManager.settings.hooks?.DirectoryAdded = value
         }
         if let hooks = configManager.settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -808,7 +869,11 @@ struct HooksView: View {
            hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
            hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
            hooks.SessionEnd == nil &&
-           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil {
+           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil &&
+           hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
+           hooks.StopFailure == nil && hooks.TaskCreated == nil &&
+           hooks.CwdChanged == nil && hooks.FileChanged == nil &&
+           hooks.DirectoryAdded == nil {
             configManager.settings.hooks = nil
         }
         configManager.saveEncodedField("hooks", value: configManager.settings.hooks)
@@ -846,7 +911,14 @@ struct HooksView: View {
         case .sessionStart: settings.hooks?.SessionStart = value
         case .sessionEnd: settings.hooks?.SessionEnd = value
         case .userPromptSubmit: settings.hooks?.UserPromptSubmit = value
+        case .userPromptExpansion: settings.hooks?.UserPromptExpansion = value
         case .permissionDenied: settings.hooks?.PermissionDenied = value
+        case .postToolBatch: settings.hooks?.PostToolBatch = value
+        case .stopFailure: settings.hooks?.StopFailure = value
+        case .taskCreated: settings.hooks?.TaskCreated = value
+        case .cwdChanged: settings.hooks?.CwdChanged = value
+        case .fileChanged: settings.hooks?.FileChanged = value
+        case .directoryAdded: settings.hooks?.DirectoryAdded = value
         }
         if let hooks = settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -862,7 +934,11 @@ struct HooksView: View {
            hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
            hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
            hooks.SessionEnd == nil &&
-           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil {
+           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil &&
+           hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
+           hooks.StopFailure == nil && hooks.TaskCreated == nil &&
+           hooks.CwdChanged == nil && hooks.FileChanged == nil &&
+           hooks.DirectoryAdded == nil {
             settings.hooks = nil
         }
         configManager.saveProjectSettings(settings, projectPath: projectPath)

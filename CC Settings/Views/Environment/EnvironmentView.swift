@@ -62,6 +62,22 @@ struct EnvironmentView: View {
     // Added 2026-06 — Claude Code 2.1.155 → 2.1.170
     @State private var disableBundledSkills: Bool = env["CLAUDE_CODE_DISABLE_BUNDLED_SKILLS"] == "1"
 
+    // Added 2026-07 — Claude Code 2.1.171 → 2.1.220
+    @State private var axScreenReaderEnv: Bool = env["CLAUDE_AX_SCREEN_READER"] == "1"
+    @State private var disableMouseClicks: Bool = env["CLAUDE_CODE_DISABLE_MOUSE_CLICKS"] == "1"
+    @State private var processWrapper: String = env["CLAUDE_CODE_PROCESS_WRAPPER"] ?? ""
+    @State private var clientPresenceFile: String = env["CLAUDE_CLIENT_PRESENCE_FILE"] ?? ""
+    @State private var retryWatchdog: Bool = env["CLAUDE_CODE_RETRY_WATCHDOG"] == "1"
+    @State private var otelContentMaxLength: String = env["CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH"] ?? ""
+    @State private var disableAgentViewEnv: Bool = env["CLAUDE_CODE_DISABLE_AGENT_VIEW"] == "1"
+    @State private var disableArtifactEnv: Bool = env["CLAUDE_CODE_DISABLE_ARTIFACT"] == "1"
+    @State private var disableFileCheckpointing: Bool = env["CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING"] == "1"
+    @State private var disableFeedbackSurvey: Bool = env["CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY"] == "1"
+    @State private var disableAutoMemory: Bool = env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+    @State private var skipPromptHistory: Bool = env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] == "1"
+    @State private var usePowerShellTool: Bool = env["CLAUDE_CODE_USE_POWERSHELL_TOOL"] == "1"
+    @State private var disableDoctorCommand: Bool = env["DISABLE_DOCTOR_COMMAND"] == "1"
+
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
 
@@ -363,6 +379,111 @@ struct EnvironmentView: View {
                 Text("Subagents & Gateway Discovery")
             }
 
+            // MARK: - Accessibility & Input
+            Section {
+                Toggle("Screen Reader Mode", isOn: $axScreenReaderEnv)
+                    .onChange(of: axScreenReaderEnv) { _, _ in save() }
+                Text("Flat, screen-reader friendly rendering. Takes precedence over the axScreenReader setting (CLAUDE_AX_SCREEN_READER).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable Mouse Clicks", isOn: $disableMouseClicks)
+                    .onChange(of: disableMouseClicks) { _, _ in save() }
+                Text("Turn off mouse-click handling in menus and the prompt, leaving terminal text selection to the terminal.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Skip Prompt History", isOn: $skipPromptHistory)
+                    .onChange(of: skipPromptHistory) { _, _ in save() }
+                Text("Stop writing session transcripts to disk.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Accessibility & Input")
+            }
+
+            // MARK: - Feature Kill Switches
+            Section {
+                Toggle("Disable Agent View", isOn: $disableAgentViewEnv)
+                    .onChange(of: disableAgentViewEnv) { _, _ in save() }
+                Text("Turn off background agents — claude agents, --bg, /background and the daemon.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable Artifact Tool", isOn: $disableArtifactEnv)
+                    .onChange(of: disableArtifactEnv) { _, _ in save() }
+                Text("Prevent Claude publishing session output with the Artifact tool.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable File Checkpointing", isOn: $disableFileCheckpointing)
+                    .onChange(of: disableFileCheckpointing) { _, _ in save() }
+                Text("Skip the pre-edit file snapshots that back /rewind.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable Auto Memory", isOn: $disableAutoMemory)
+                    .onChange(of: disableAutoMemory) { _, _ in save() }
+                Text("Stop Claude reading and writing automatic memories.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable Feedback Survey", isOn: $disableFeedbackSurvey)
+                    .onChange(of: disableFeedbackSurvey) { _, _ in save() }
+                Text("Suppress the occasional session quality survey.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Disable /doctor", isOn: $disableDoctorCommand)
+                    .onChange(of: disableDoctorCommand) { _, _ in save() }
+                Text("Hide the /doctor command from the model.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Feature Kill Switches")
+            }
+
+            // MARK: - Advanced
+            Section {
+                TextField("Process Wrapper", text: $processWrapper, prompt: Text("/usr/local/bin/corp-launcher"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: processWrapper) { _, _ in save() }
+                Text("Corporate launcher that Claude Code re-executes itself through. Takes precedence over the processWrapper setting.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Client Presence File", text: $clientPresenceFile, prompt: Text("/path/to/presence"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: clientPresenceFile) { _, _ in save() }
+                Text("File whose existence signals that an IDE or host client is attached.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("OTel Content Max Length", text: $otelContentMaxLength, prompt: Text("e.g. 8192"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: otelContentMaxLength) { _, _ in save() }
+                Text("Character cap on prompt and response content in OpenTelemetry events.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Retry Watchdog", isOn: $retryWatchdog)
+                    .onChange(of: retryWatchdog) { _, _ in save() }
+                Text("Raise the default retry count so transient API and rate-limit errors are retried more persistently.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("PowerShell Tool", isOn: $usePowerShellTool)
+                    .onChange(of: usePowerShellTool) { _, _ in save() }
+                Text("Enable the PowerShell tool on non-Windows hosts.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } header: {
+                Text("Advanced")
+            }
+
             // MARK: - Bedrock
             Section {
                 Picker("Service Tier", selection: $bedrockServiceTier) {
@@ -450,6 +571,14 @@ struct EnvironmentView: View {
         "CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS",
         "ANTHROPIC_WORKSPACE_ID",
         "CLAUDE_CODE_DISABLE_BUNDLED_SKILLS",
+        "CLAUDE_AX_SCREEN_READER", "CLAUDE_CODE_DISABLE_MOUSE_CLICKS",
+        "CLAUDE_CODE_SKIP_PROMPT_HISTORY",
+        "CLAUDE_CODE_DISABLE_AGENT_VIEW", "CLAUDE_CODE_DISABLE_ARTIFACT",
+        "CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING", "CLAUDE_CODE_DISABLE_AUTO_MEMORY",
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY", "DISABLE_DOCTOR_COMMAND",
+        "CLAUDE_CODE_PROCESS_WRAPPER", "CLAUDE_CLIENT_PRESENCE_FILE",
+        "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH", "CLAUDE_CODE_RETRY_WATCHDOG",
+        "CLAUDE_CODE_USE_POWERSHELL_TOOL",
     ]
 
     // MARK: - Data Sync
@@ -511,6 +640,22 @@ struct EnvironmentView: View {
 
         // Claude Code 2.1.155 → 2.1.170
         disableBundledSkills = env["CLAUDE_CODE_DISABLE_BUNDLED_SKILLS"] == "1"
+
+        // Claude Code 2.1.171 → 2.1.220
+        axScreenReaderEnv = env["CLAUDE_AX_SCREEN_READER"] == "1"
+        disableMouseClicks = env["CLAUDE_CODE_DISABLE_MOUSE_CLICKS"] == "1"
+        processWrapper = env["CLAUDE_CODE_PROCESS_WRAPPER"] ?? ""
+        clientPresenceFile = env["CLAUDE_CLIENT_PRESENCE_FILE"] ?? ""
+        retryWatchdog = env["CLAUDE_CODE_RETRY_WATCHDOG"] == "1"
+        otelContentMaxLength = env["CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH"] ?? ""
+        disableAgentViewEnv = env["CLAUDE_CODE_DISABLE_AGENT_VIEW"] == "1"
+        disableArtifactEnv = env["CLAUDE_CODE_DISABLE_ARTIFACT"] == "1"
+        disableFileCheckpointing = env["CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING"] == "1"
+        disableFeedbackSurvey = env["CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY"] == "1"
+        disableAutoMemory = env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] == "1"
+        skipPromptHistory = env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] == "1"
+        usePowerShellTool = env["CLAUDE_CODE_USE_POWERSHELL_TOOL"] == "1"
+        disableDoctorCommand = env["DISABLE_DOCTOR_COMMAND"] == "1"
 
         // Custom: everything not in managed keys
         customVars = env
@@ -586,6 +731,22 @@ struct EnvironmentView: View {
 
         // Claude Code 2.1.155 → 2.1.170
         setFlag("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS", disableBundledSkills)
+
+        // Claude Code 2.1.171 → 2.1.220
+        setFlag("CLAUDE_AX_SCREEN_READER", axScreenReaderEnv)
+        setFlag("CLAUDE_CODE_DISABLE_MOUSE_CLICKS", disableMouseClicks)
+        setString("CLAUDE_CODE_PROCESS_WRAPPER", processWrapper)
+        setString("CLAUDE_CLIENT_PRESENCE_FILE", clientPresenceFile)
+        setFlag("CLAUDE_CODE_RETRY_WATCHDOG", retryWatchdog)
+        setString("CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH", otelContentMaxLength)
+        setFlag("CLAUDE_CODE_DISABLE_AGENT_VIEW", disableAgentViewEnv)
+        setFlag("CLAUDE_CODE_DISABLE_ARTIFACT", disableArtifactEnv)
+        setFlag("CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING", disableFileCheckpointing)
+        setFlag("CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY", disableFeedbackSurvey)
+        setFlag("CLAUDE_CODE_DISABLE_AUTO_MEMORY", disableAutoMemory)
+        setFlag("CLAUDE_CODE_SKIP_PROMPT_HISTORY", skipPromptHistory)
+        setFlag("CLAUDE_CODE_USE_POWERSHELL_TOOL", usePowerShellTool)
+        setFlag("DISABLE_DOCTOR_COMMAND", disableDoctorCommand)
 
         // Custom vars
         for v in customVars {

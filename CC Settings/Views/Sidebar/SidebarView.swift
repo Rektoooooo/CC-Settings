@@ -203,17 +203,20 @@ struct SearchableSection: Identifiable, Hashable {
 
 let generalSections: [SearchableSection] = [
     SearchableSection(id: "profiles", label: "Profiles", keywords: ["profiles", "profile", "save settings", "load settings"], parent: .general),
-    SearchableSection(id: "model", label: "Model", keywords: ["model", "opus", "sonnet", "haiku", "fast mode", "per-session"], parent: .general),
+    SearchableSection(id: "model", label: "Model", keywords: ["model", "opus", "sonnet", "haiku", "fable", "fast mode", "per-session", "advisor", "available models"], parent: .general),
     SearchableSection(id: "appearance", label: "Appearance", keywords: ["theme", "appearance", "reduce motion"], parent: .general),
-    SearchableSection(id: "language", label: "Language & Output", keywords: ["language", "effort", "output", "verbose"], parent: .general),
-    SearchableSection(id: "behavior", label: "Behavior", keywords: ["turn duration", "gitignore", "shell", "bash", "zsh", "git instructions", "voice", "auto-compact", "compact", "plans"], parent: .general),
+    SearchableSection(id: "language", label: "Language & Output", keywords: ["language", "effort", "output", "verbose", "workflow size", "ultracode"], parent: .general),
+    SearchableSection(id: "behavior", label: "Behavior", keywords: ["turn duration", "gitignore", "shell", "bash", "zsh", "git instructions", "voice", "auto-compact", "compact", "plans", "rewind", "checkpoint", "todo", "emoji", "question timeout"], parent: .general),
+    SearchableSection(id: "terminal", label: "Terminal & Accessibility", keywords: ["terminal", "accessibility", "screen reader", "vim", "scroll", "timestamps", "syntax highlighting", "progress bar"], parent: .general),
     SearchableSection(id: "memory", label: "Memory", keywords: ["memory", "auto memory"], parent: .general),
     SearchableSection(id: "git", label: "Git", keywords: ["git", "branch", "git app"], parent: .general),
     SearchableSection(id: "updates", label: "Updates", keywords: ["updates", "auto updates"], parent: .general),
     SearchableSection(id: "notifications", label: "Notifications", keywords: ["notifications"], parent: .general),
     SearchableSection(id: "data-retention", label: "Data Retention", keywords: ["cleanup", "retention", "data retention"], parent: .general),
-    SearchableSection(id: "attribution", label: "Attribution", keywords: ["attribution", "commit", "pull request"], parent: .general),
-    SearchableSection(id: "teams", label: "Teams", keywords: ["teams", "teammate"], parent: .general),
+    SearchableSection(id: "attribution", label: "Attribution", keywords: ["attribution", "commit", "pull request", "session link"], parent: .general),
+    SearchableSection(id: "teams", label: "Teams", keywords: ["teams", "teammate", "tmux", "iterm2"], parent: .general),
+    SearchableSection(id: "agent-view", label: "Agent View & Remote Control", keywords: ["agent view", "background agents", "remote control", "push notifications", "subagent status line"], parent: .general),
+    SearchableSection(id: "enterprise", label: "Enterprise", keywords: ["enterprise", "managed", "marketplace", "mcp allowlist", "artifact", "channels", "sideload", "deep link"], parent: .general),
     SearchableSection(id: "api-key-helper", label: "API Key Helper", keywords: ["api key", "api key helper"], parent: .general),
 ]
 

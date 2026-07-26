@@ -41,13 +41,19 @@ struct ModelVersion: Identifiable, Equatable, Hashable {
 
 let allModelVersions: [ModelVersion] = [
     // Fable
-    ModelVersion(id: "claude-fable-5[1m]", family: .fable, version: "5 (1M)", modelId: "claude-fable-5[1m]", displayName: "Fable 5 (1M context)", isLatest: false),
+    // NOTE: there is no `claude-fable-5[1m]`. Fable 5 is natively 1M-context but its
+    // catalog entry has no `supports_1m_suffix`, so Claude Code treats the `[1m]`
+    // suffix as a no-op. v1.5.0 offered it by mistake; kept here (hidden) only so
+    // configs written by that build still resolve to a readable name.
+    ModelVersion(id: "claude-fable-5[1m]", family: .fable, version: "5 (1M)", modelId: "claude-fable-5[1m]", displayName: "Fable 5", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-fable-5", family: .fable, version: "5", modelId: "claude-fable-5", displayName: "Fable 5", isLatest: false),
     ModelVersion(id: "fable", family: .fable, version: "", modelId: "fable", displayName: "Fable (latest)", isLatest: true),
 
     // Opus
-    ModelVersion(id: "claude-opus-4-8[1m]", family: .opus, version: "4.8 (1M)", modelId: "claude-opus-4-8[1m]", displayName: "Opus 4.8 (1M context)", isLatest: false),
-    ModelVersion(id: "claude-opus-4-8", family: .opus, version: "4.8", modelId: "claude-opus-4-8", displayName: "Opus 4.8", isLatest: false),
+    ModelVersion(id: "claude-opus-5[1m]", family: .opus, version: "5 (1M)", modelId: "claude-opus-5[1m]", displayName: "Opus 5 (1M context)", isLatest: false),
+    ModelVersion(id: "claude-opus-5", family: .opus, version: "5", modelId: "claude-opus-5", displayName: "Opus 5", isLatest: false),
+    ModelVersion(id: "claude-opus-4-8[1m]", family: .opus, version: "4.8 (1M)", modelId: "claude-opus-4-8[1m]", displayName: "Opus 4.8 (1M context)", isLatest: false, isLegacy: true),
+    ModelVersion(id: "claude-opus-4-8", family: .opus, version: "4.8", modelId: "claude-opus-4-8", displayName: "Opus 4.8", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-opus-4-7[1m]", family: .opus, version: "4.7 (1M)", modelId: "claude-opus-4-7[1m]", displayName: "Opus 4.7 (1M context)", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-opus-4-7", family: .opus, version: "4.7", modelId: "claude-opus-4-7", displayName: "Opus 4.7", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-opus-4-6[1m]", family: .opus, version: "4.6 (1M)", modelId: "claude-opus-4-6[1m]", displayName: "Opus 4.6 (1M context)", isLatest: false, isLegacy: true),
@@ -55,8 +61,10 @@ let allModelVersions: [ModelVersion] = [
     ModelVersion(id: "opus", family: .opus, version: "", modelId: "opus", displayName: "Opus (latest)", isLatest: true),
 
     // Sonnet
-    ModelVersion(id: "claude-sonnet-4-6[1m]", family: .sonnet, version: "4.6 (1M)", modelId: "claude-sonnet-4-6[1m]", displayName: "Sonnet 4.6 (1M context)", isLatest: false),
-    ModelVersion(id: "claude-sonnet-4-6", family: .sonnet, version: "4.6", modelId: "claude-sonnet-4-6", displayName: "Sonnet 4.6", isLatest: false),
+    // Sonnet 5 is natively 1M-context and, like Fable, exposes no `[1m]` suffix variant.
+    ModelVersion(id: "claude-sonnet-5", family: .sonnet, version: "5", modelId: "claude-sonnet-5", displayName: "Sonnet 5", isLatest: false),
+    ModelVersion(id: "claude-sonnet-4-6[1m]", family: .sonnet, version: "4.6 (1M)", modelId: "claude-sonnet-4-6[1m]", displayName: "Sonnet 4.6 (1M context)", isLatest: false, isLegacy: true),
+    ModelVersion(id: "claude-sonnet-4-6", family: .sonnet, version: "4.6", modelId: "claude-sonnet-4-6", displayName: "Sonnet 4.6", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-sonnet-4-5-20250929", family: .sonnet, version: "4.5", modelId: "claude-sonnet-4-5-20250929", displayName: "Sonnet 4.5", isLatest: false, isLegacy: true),
     ModelVersion(id: "sonnet", family: .sonnet, version: "", modelId: "sonnet", displayName: "Sonnet (latest)", isLatest: true),
 

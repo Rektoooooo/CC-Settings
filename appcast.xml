@@ -3,6 +3,33 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.5.1</title>
+            <sparkle:version>23</sparkle:version>
+            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <p>Catch-up with Claude Code 2.1.171&ndash;2.1.220.</p>
+                <ul>
+                    <li><strong>Claude Opus 5</strong> and <strong>Opus 5 (1M context)</strong> &mdash; Opus 5 is now Claude Code's default Opus model &mdash; plus <strong>Claude Sonnet 5</strong></li>
+                    <li><strong>Dynamic Workflow Size</strong> picker (<code>workflowSizeGuideline</code>)</li>
+                    <li>New <strong>Terminal &amp; Accessibility</strong> section &mdash; screen reader mode, message timestamps, terminal progress bar, syntax highlighting, scrolling, and vim insert-mode escape sequences</li>
+                    <li>New <strong>Agent View &amp; Remote Control</strong> section &mdash; background agents, per-subagent status line, Remote Control and push notifications</li>
+                    <li>Behavior: question timeout, file checkpointing (<code>/rewind</code>), todo panel, away recap, prompt suggestions, emoji completion, custom <code>@</code> file-suggestion script, auto-compact window</li>
+                    <li>Enterprise: MCP server allowlist, marketplace allow/blocklists, channels, Artifact tool, sideload flags, skill shell execution, deep-link registration</li>
+                    <li>Sandbox: credential exposure, Apple Events, strict domain allowlist, denied domains, and filesystem-isolation bypass</li>
+                    <li>Seven new hook events, including <code>DirectoryAdded</code>; <code>iterm2</code> teammate mode; 14 new environment variables</li>
+                    <li><strong>Fixed:</strong> <code>claude-fable-5[1m]</code> was not a real model ID &mdash; Fable 5 has no <code>[1m]</code> suffix variant. Removed from the picker; existing configs still display as &ldquo;Fable 5&rdquo;.</li>
+                </ul>
+            ]]></description>
+            <pubDate>Sun, 26 Jul 2026 10:30:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.5.1/CC-Settings-1.5.1.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="2u+Rgb2C79IbnMVfnhnmbwpMQ4l58TozQepkPm0sIzoANgYZnGPuy7tu0CuB6/HsMwIsvseFkEiM75u1rnmHAw=="
+                length="7267357"
+            />
+        </item>
+        <item>
             <title>Version 1.5.0</title>
             <sparkle:version>22</sparkle:version>
             <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
