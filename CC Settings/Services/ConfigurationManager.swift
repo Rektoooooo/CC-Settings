@@ -313,6 +313,34 @@ class ConfigurationManager: ObservableObject {
         "spinnerTipsEnabled", "spinnerVerbsMode", "spinnerVerbs",
         "customTips", "excludeDefaultTips", "spinnerTipsOverride",
         "statusLine", "statusLineCommand",
+        // Workflows / skills
+        "disableWorkflows", "workflowKeywordTriggerEnabled", "disableBundledSkills",
+        "workflowSizeGuideline",
+        // Behavior
+        "autoCompactWindow", "precomputeCompactionEnabled", "todoFeatureEnabled",
+        "askUserQuestionTimeout", "awaySummaryEnabled", "promptSuggestionEnabled",
+        "emojiCompletionEnabled", "fileCheckpointingEnabled", "feedbackSurveyRate",
+        "fileSuggestion", "autoContinueAtUsageLimit",
+        "bashOutputMaxChars", "taskOutputMaxChars",
+        // Time & locale
+        "timeFormat", "timeZone",
+        // Terminal & accessibility
+        "axScreenReader", "autoScrollEnabled", "wheelScrollAccelerationEnabled",
+        "terminalProgressBarEnabled", "showMessageTimestamps", "syntaxHighlightingDisabled",
+        "hideVimModeIndicator", "vimInsertModeRemaps", "spellcheck",
+        // Model
+        "enforceAvailableModels", "advisorModel", "fallbackModel", "promptCacheTtl",
+        // Agent view / remote control
+        "disableAgentView", "subagentStatusLine", "disableRemoteControl",
+        "remoteControlAtStartup", "agentPushNotifEnabled",
+        "crossSessionInbound", "dialogExpiry",
+        // Artifact
+        "enableArtifact", "disableArtifact",
+        // Enterprise / managed
+        "pluginSuggestionMarketplaces", "allowAllClaudeAiMcps", "disableClaudeAiConnectors",
+        "channelsEnabled", "allowedMcpServers", "strictKnownMarketplaces",
+        "blockedMarketplaces", "disableSideloadFlags", "disableSkillShellExecution",
+        "disableDeepLinkRegistration",
     ]
 
     /// Keys that LocalSettings models — used to distinguish "intentionally nil" from "unknown".

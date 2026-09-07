@@ -19,6 +19,7 @@ struct GeneralSettingsView: View {
     @State private var fallbackModels: String = (s.fallbackModel ?? []).joined(separator: ", ")
     @State private var advisorModel: String = s.advisorModel ?? ""
     @State private var enforceAvailableModels: Bool = s.enforceAvailableModels ?? false
+    @State private var promptCacheTtl: String = s.promptCacheTtl ?? ""
 
     // Appearance
     @State private var prefersReducedMotion: Bool = s.prefersReducedMotion ?? false
@@ -54,6 +55,9 @@ struct GeneralSettingsView: View {
     @State private var emojiCompletionEnabled: Bool = s.emojiCompletionEnabled ?? true
     @State private var fileCheckpointingEnabled: Bool = s.fileCheckpointingEnabled ?? true
     @State private var fileSuggestionCommand: String = s.fileSuggestion?.command ?? ""
+    @State private var autoContinueAtUsageLimit: Bool = s.autoContinueAtUsageLimit ?? false
+    @State private var bashOutputMaxChars: String = s.bashOutputMaxChars.map(String.init) ?? ""
+    @State private var taskOutputMaxChars: String = s.taskOutputMaxChars.map(String.init) ?? ""
 
     // Terminal & Accessibility
     @State private var axScreenReader: Bool = s.axScreenReader ?? false
@@ -64,6 +68,13 @@ struct GeneralSettingsView: View {
     @State private var syntaxHighlightingEnabled: Bool = !(s.syntaxHighlightingDisabled ?? false)
     @State private var hideVimModeIndicator: Bool = s.hideVimModeIndicator ?? false
     @State private var vimEscapeSequences: String = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
+    @State private var spellcheckEnabled: Bool = s.spellcheck?.enabled ?? false
+    @State private var spellcheckChecker: String = s.spellcheck?.checker ?? ""
+    @State private var spellcheckLanguage: String = s.spellcheck?.language ?? ""
+
+    // Time & Locale
+    @State private var timeFormat: String = s.timeFormat ?? ""
+    @State private var timeZoneName: String = s.timeZone ?? ""
 
     // Memory
     @State private var autoMemoryEnabled: Bool = s.autoMemoryEnabled ?? false
@@ -99,6 +110,8 @@ struct GeneralSettingsView: View {
     @State private var remoteControlEnabled: Bool = !(s.disableRemoteControl ?? false)
     @State private var remoteControlAtStartup: Bool = s.remoteControlAtStartup ?? false
     @State private var agentPushNotifEnabled: Bool = s.agentPushNotifEnabled ?? false
+    @State private var crossSessionInbound: String = s.crossSessionInbound ?? ""
+    @State private var dialogExpiry: String = s.dialogExpiry ?? ""
 
     @State private var allowAllClaudeAiMcps: Bool = s.allowAllClaudeAiMcps ?? false
     @State private var pluginSuggestionMarketplaces: String = (s.pluginSuggestionMarketplaces ?? []).joined(separator: ", ")
@@ -371,6 +384,15 @@ struct GeneralSettingsView: View {
             Text("Also constrain the Default model to the Available Models allowlist — if the tier default isn't allowed, Default falls back to the first allowed entry. No effect unless an allowlist is set.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Picker("Prompt Cache TTL", selection: $promptCacheTtl) {
+                Text("Automatic").tag("")
+                Text("5 minutes").tag("5m")
+                Text("1 hour").tag("1h")
+            }
+            Text("Cache lifetime for the main conversation. Automatic means 1 hour on a Claude subscription within its usage limits, 5 minutes on an API key, Bedrock, Vertex or Foundry.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -632,6 +654,41 @@ struct GeneralSettingsView: View {
             Text("Custom script backing @ file autocomplete. Leave empty to use the built-in file search.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Toggle("Continue Automatically at Usage Limit", isOn: $autoContinueAtUsageLimit)
+            Text("Wait out a claude.ai usage limit and resume the task automatically. When off, the limit dialog offers the wait as a choice instead.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack {
+                Text("Bash Output Limit")
+                Spacer()
+                TextField("30000", text: $bashOutputMaxChars)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 100)
+                Text("chars")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Text("Characters of a successful shell command's output Claude receives inline. Default 30000; clamped to 4000–128000. Longer output is saved to a file Claude can read.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack {
+                Text("Task Output Limit")
+                Spacer()
+                TextField("32000", text: $taskOutputMaxChars)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(width: 100)
+                Text("chars")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Text("Characters of a background task's output handed to Claude inline. Default 32000; clamped to 4000–128000.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -748,6 +805,44 @@ struct GeneralSettingsView: View {
             Text("Comma-separated two-character INSERT-mode sequences that return to NORMAL mode. Requires Editor Mode set to vim; <Esc> is the only target Claude Code supports.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Picker("Time Format", selection: $timeFormat) {
+                Text("Auto (locale)").tag("")
+                Text("12-hour").tag("12-hour")
+                Text("24-hour").tag("24-hour")
+                Text("24-hour UTC").tag("24-hour-utc")
+            }
+            Text("Clock format for the turn-end time and transcript timestamps. A strftime pattern (any value containing %) can be set by editing settings.json directly.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextField("Time Zone", text: $timeZoneName, prompt: Text("System default"))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+            Text("IANA time zone for times shown in the UI, e.g. UTC or Europe/Prague. Leave empty to follow the system time zone; an unknown name falls back to it.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Toggle("Spell Check Prompt Input", isOn: $spellcheckEnabled)
+            Text("Underline misspelled words as you type. Requires aspell, hunspell, or ispell installed on your PATH.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if spellcheckEnabled {
+                Picker("Spell Checker", selection: $spellcheckChecker) {
+                    Text("Auto-detect").tag("")
+                    Text("aspell").tag("aspell")
+                    Text("hunspell").tag("hunspell")
+                    Text("ispell").tag("ispell")
+                }
+
+                TextField("Dictionary", text: $spellcheckLanguage, prompt: Text("e.g. en_US"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Passed to the checker as-is (aspell --lang, hunspell -d). Leave empty for the checker's default.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 
@@ -964,6 +1059,28 @@ struct GeneralSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+
+            Picker("Messages From Your Other Sessions", selection: $crossSessionInbound) {
+                Text("Match permission mode").tag("")
+                Text("Accept").tag("accept")
+                Text("Hold for review").tag("hold")
+                Text("Refuse").tag("refuse")
+            }
+            Text("How inbound SendMessage peer messages are handled. The default delivers a message only when the sending session's permission-mode class matches this one's.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Picker("Dialog Expiry", selection: $dialogExpiry) {
+                Text("Default").tag("")
+                Text("60s").tag("60s")
+                Text("5m").tag("5m")
+                Text("10m").tag("10m")
+                Text("Never").tag("never")
+            }
+            .pickerStyle(.segmented)
+            Text("How long a dialog forwarded to Remote Control or an SDK host stays parked, and how long a held cross-session message awaits approval, before resolving to its safe no-action default.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -1441,6 +1558,54 @@ struct GeneralSettingsView: View {
                 let valid: Double? = parsed.flatMap { (0.0...1.0).contains($0) ? $0 : nil }
                 configManager.saveField("feedbackSurveyRate", value: valid)
             }
+        // Claude Code 2.1.221 → 2.1.263. Kept in its own Color.clear block so the
+        // chain stays under SwiftUI's type-check budget.
+        Color.clear
+            .onChange(of: promptCacheTtl) {
+                guard isLoaded else { return }
+                saveOptionalString("promptCacheTtl", promptCacheTtl)
+            }
+            .onChange(of: autoContinueAtUsageLimit) {
+                guard isLoaded else { return }
+                saveFlag("autoContinueAtUsageLimit", autoContinueAtUsageLimit)
+            }
+            .onChange(of: bashOutputMaxChars) {
+                guard isLoaded else { return }
+                saveClampedInt("bashOutputMaxChars", bashOutputMaxChars, min: 4000, max: 128000)
+            }
+            .onChange(of: taskOutputMaxChars) {
+                guard isLoaded else { return }
+                saveClampedInt("taskOutputMaxChars", taskOutputMaxChars, min: 4000, max: 128000)
+            }
+            .onChange(of: timeFormat) {
+                guard isLoaded else { return }
+                saveOptionalString("timeFormat", timeFormat)
+            }
+            .onChange(of: timeZoneName) {
+                guard isLoaded else { return }
+                saveOptionalString("timeZone", timeZoneName)
+            }
+            .onChange(of: crossSessionInbound) {
+                guard isLoaded else { return }
+                saveOptionalString("crossSessionInbound", crossSessionInbound)
+            }
+            .onChange(of: dialogExpiry) {
+                guard isLoaded else { return }
+                saveOptionalString("dialogExpiry", dialogExpiry)
+            }
+        Color.clear
+            .onChange(of: spellcheckEnabled) {
+                guard isLoaded else { return }
+                saveSpellcheck()
+            }
+            .onChange(of: spellcheckChecker) {
+                guard isLoaded else { return }
+                saveSpellcheck()
+            }
+            .onChange(of: spellcheckLanguage) {
+                guard isLoaded else { return }
+                saveSpellcheck()
+            }
     }
 
     /// Trims and writes a string field, removing the key when the result is empty.
@@ -1495,6 +1660,32 @@ struct GeneralSettingsView: View {
         }
     }
 
+    /// `spellcheck` is a nested object. Written whole so disabling it removes the key
+    /// outright rather than leaving `{"enabled": false}` (or an empty `{}`) behind.
+    private func saveSpellcheck() {
+        guard spellcheckEnabled else {
+            configManager.saveField("spellcheck", value: nil)
+            return
+        }
+        var object: [String: Any] = ["enabled": true]
+        let checker: String = spellcheckChecker.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !checker.isEmpty { object["checker"] = checker }
+        let language: String = spellcheckLanguage.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !language.isEmpty { object["language"] = language }
+        configManager.saveField("spellcheck", value: object)
+    }
+
+    /// Writes a positive integer field, clamped to Claude Code's accepted range.
+    /// A blank or unparseable value removes the key so the CLI default applies.
+    private func saveClampedInt(_ key: String, _ raw: String, min lower: Int, max upper: Int) {
+        let trimmed: String = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = Int(trimmed) else {
+            configManager.saveField(key, value: nil)
+            return
+        }
+        configManager.saveField(key, value: Swift.min(Swift.max(parsed, lower), upper))
+    }
+
     private func saveFallbackModels() {
         let parts: [String] = fallbackModels.components(separatedBy: ",")
         let list: [String] = parts
@@ -1517,6 +1708,7 @@ struct GeneralSettingsView: View {
         fallbackModels = (s.fallbackModel ?? []).joined(separator: ", ")
         advisorModel = s.advisorModel ?? ""
         enforceAvailableModels = s.enforceAvailableModels ?? false
+        promptCacheTtl = s.promptCacheTtl ?? ""
 
         // Appearance
         prefersReducedMotion = s.prefersReducedMotion ?? false
@@ -1552,6 +1744,9 @@ struct GeneralSettingsView: View {
         emojiCompletionEnabled = s.emojiCompletionEnabled ?? true
         fileCheckpointingEnabled = s.fileCheckpointingEnabled ?? true
         fileSuggestionCommand = s.fileSuggestion?.command ?? ""
+        autoContinueAtUsageLimit = s.autoContinueAtUsageLimit ?? false
+        bashOutputMaxChars = s.bashOutputMaxChars.map(String.init) ?? ""
+        taskOutputMaxChars = s.taskOutputMaxChars.map(String.init) ?? ""
 
         // Terminal & Accessibility
         axScreenReader = s.axScreenReader ?? false
@@ -1562,6 +1757,11 @@ struct GeneralSettingsView: View {
         syntaxHighlightingEnabled = !(s.syntaxHighlightingDisabled ?? false)
         hideVimModeIndicator = s.hideVimModeIndicator ?? false
         vimEscapeSequences = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
+        spellcheckEnabled = s.spellcheck?.enabled ?? false
+        spellcheckChecker = s.spellcheck?.checker ?? ""
+        spellcheckLanguage = s.spellcheck?.language ?? ""
+        timeFormat = s.timeFormat ?? ""
+        timeZoneName = s.timeZone ?? ""
 
         // Memory
         autoMemoryEnabled = s.autoMemoryEnabled ?? false
@@ -1601,6 +1801,8 @@ struct GeneralSettingsView: View {
         remoteControlEnabled = !(s.disableRemoteControl ?? false)
         remoteControlAtStartup = s.remoteControlAtStartup ?? false
         agentPushNotifEnabled = s.agentPushNotifEnabled ?? false
+        crossSessionInbound = s.crossSessionInbound ?? ""
+        dialogExpiry = s.dialogExpiry ?? ""
 
         // Enterprise
         allowAllClaudeAiMcps = s.allowAllClaudeAiMcps ?? false

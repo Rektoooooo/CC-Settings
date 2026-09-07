@@ -16,8 +16,8 @@ settings:
     CODE_SIGN_ENTITLEMENTS: "CC Settings/Resources/CC_Settings.entitlements"
     INFOPLIST_FILE: "CC Settings/Resources/Info.plist"
     PRODUCT_BUNDLE_IDENTIFIER: com.ae.ccsettings
-    MARKETING_VERSION: "1.5.1"
-    CURRENT_PROJECT_VERSION: "23"
+    MARKETING_VERSION: "1.6.0"
+    CURRENT_PROJECT_VERSION: "24"
     ENABLE_APP_SANDBOX: "NO"
 
 packages:
@@ -49,14 +49,33 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: "NO"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    # CC SettingsTests no longer depends on this target (it is a hostless logic
+    # bundle), so the scheme has to list it explicitly or it is never run.
+    scheme:
+      testTargets:
+        - CC SettingsTests
+        - CC SettingsUITests
 
+  # Runs as a logic bundle with no test host. Hosting these in the app made the
+  # runner crash on launch ("More than one NSApplication instance was created"),
+  # because XCTest injects into the SwiftUI @main app as it is building its own
+  # NSApplication — so no unit test could execute at all. Everything here is pure
+  # logic over Models/, so the app sources are compiled straight into the bundle
+  # and the tests use the types directly instead of `@testable import CC_Settings`.
   CC SettingsTests:
     type: bundle.unit-test
     platform: macOS
     sources:
       - path: CC SettingsTests
+      - path: CC Settings
+        excludes:
+          - Resources/Info.plist
+          - Resources/CC_Settings.entitlements
     dependencies:
-      - target: CC Settings
+      - package: swift-markdown
+        product: Markdown
+      - package: Sparkle
+        product: Sparkle
 
   CC SettingsUITests:
     type: bundle.ui-testing

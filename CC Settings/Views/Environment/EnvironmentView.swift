@@ -78,6 +78,17 @@ struct EnvironmentView: View {
     @State private var usePowerShellTool: Bool = env["CLAUDE_CODE_USE_POWERSHELL_TOOL"] == "1"
     @State private var disableDoctorCommand: Bool = env["DISABLE_DOCTOR_COMMAND"] == "1"
 
+    // Added 2026-09 — Claude Code 2.1.221 → 2.1.263
+    @State private var anthropicDefaultModel: String = env["ANTHROPIC_DEFAULT_MODEL"] ?? ""
+    @State private var bedrockRegionPrefix: String = env["ANTHROPIC_BEDROCK_REGION_PREFIX"] ?? ""
+    @State private var enableTodoTools: Bool = env["CLAUDE_CODE_ENABLE_TODO_TOOLS"] == "1"
+    @State private var disable1MContext: Bool = env["CLAUDE_CODE_DISABLE_1M_CONTEXT"] == "1"
+    @State private var disableUnknownModelWindowEnforcement: Bool = env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] == "1"
+    @State private var projectDirName: String = env["CLAUDE_CODE_PROJECT_DIR_NAME"] ?? ""
+    @State private var toolMemoryLimit: String = env["CLAUDE_CODE_TOOL_MEMORY_LIMIT"] ?? ""
+    @State private var webFetchCacheTtlMs: String = env["CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS"] ?? ""
+    @State private var workflowPrefixStaggerMs: String = env["CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS"] ?? ""
+
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
 
@@ -171,6 +182,25 @@ struct EnvironmentView: View {
                 Text("Env-var override for effort level. Takes priority over the effortLevel setting in General.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                TextField("Starting Model", text: $anthropicDefaultModel, prompt: Text("e.g. claude-fable-5-1"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Model new sessions start on. Unlike ANTHROPIC_MODEL, a /model pick still overrides this and persists across restarts.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Hold 1M-Context Models to 200K", isOn: $disable1MContext)
+                    .onChange(of: disable1MContext) { _, _ in save() }
+                Text("Caps every natively 1M-context model at 200K via auto-compaction.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Skip Context Window Enforcement for Unknown Models", isOn: $disableUnknownModelWindowEnforcement)
+                    .onChange(of: disableUnknownModelWindowEnforcement) { _, _ in save() }
+                Text("Lets sessions on unrecognized model IDs grow past the assumed context window instead of auto-compacting to fit.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Model Overrides")
             }
@@ -253,6 +283,48 @@ struct EnvironmentView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                HStack {
+                    Text("WebFetch Cache TTL")
+                    Spacer()
+                    TextField("900000", text: $webFetchCacheTtlMs)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 100)
+                    Text("ms")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text("How long WebFetch reuses a cached page within a session. Default 15 minutes.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack {
+                    Text("Workflow Prefix Stagger")
+                    Spacer()
+                    TextField("0 to disable", text: $workflowPrefixStaggerMs)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 100)
+                    Text("ms")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text("Staggers same-prefix sibling agents in a workflow fan-out so later agents read the cached prompt prefix. Set 0 to disable.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack {
+                    Text("Bash Memory Limit")
+                    Spacer()
+                    TextField("e.g. 2G", text: $toolMemoryLimit)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(width: 100)
+                }
+                Text("Linux only: caps memory for Bash tool commands via a cgroup, so a runaway build can't stall the session.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Performance")
             }
@@ -480,6 +552,20 @@ struct EnvironmentView: View {
                 Text("Enable the PowerShell tool on non-Windows hosts.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                Toggle("Todo Tools", isOn: $enableTodoTools)
+                    .onChange(of: enableTodoTools) { _, _ in save() }
+                Text("Restores the TodoWrite / Task tracking tools, which are off by default on Opus 4.8, Sonnet 5, Fable 5 and newer models.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Project Directory Name", text: $projectDirName, prompt: Text("short name"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: projectDirName) { _, _ in save() }
+                Text("For hosts that give each session its own config directory: a short name for the per-project transcript folder.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             } header: {
                 Text("Advanced")
             }
@@ -495,6 +581,13 @@ struct EnvironmentView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: bedrockServiceTier) { _, _ in save() }
                 Text("Sent as the X-Amzn-Bedrock-Service-Tier header. Only used when running on Bedrock.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                TextField("Region Prefix", text: $bedrockRegionPrefix, prompt: Text("e.g. us, eu, apac"))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("Prefer a specific cross-region inference profile instead of the one derived from AWS_REGION.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
@@ -579,6 +672,11 @@ struct EnvironmentView: View {
         "CLAUDE_CODE_PROCESS_WRAPPER", "CLAUDE_CLIENT_PRESENCE_FILE",
         "CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH", "CLAUDE_CODE_RETRY_WATCHDOG",
         "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+        "ANTHROPIC_DEFAULT_MODEL", "ANTHROPIC_BEDROCK_REGION_PREFIX",
+        "CLAUDE_CODE_ENABLE_TODO_TOOLS", "CLAUDE_CODE_DISABLE_1M_CONTEXT",
+        "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
+        "CLAUDE_CODE_PROJECT_DIR_NAME", "CLAUDE_CODE_TOOL_MEMORY_LIMIT",
+        "CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS", "CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS",
     ]
 
     // MARK: - Data Sync
@@ -656,6 +754,17 @@ struct EnvironmentView: View {
         skipPromptHistory = env["CLAUDE_CODE_SKIP_PROMPT_HISTORY"] == "1"
         usePowerShellTool = env["CLAUDE_CODE_USE_POWERSHELL_TOOL"] == "1"
         disableDoctorCommand = env["DISABLE_DOCTOR_COMMAND"] == "1"
+
+        // Claude Code 2.1.221 → 2.1.263
+        anthropicDefaultModel = env["ANTHROPIC_DEFAULT_MODEL"] ?? ""
+        bedrockRegionPrefix = env["ANTHROPIC_BEDROCK_REGION_PREFIX"] ?? ""
+        enableTodoTools = env["CLAUDE_CODE_ENABLE_TODO_TOOLS"] == "1"
+        disable1MContext = env["CLAUDE_CODE_DISABLE_1M_CONTEXT"] == "1"
+        disableUnknownModelWindowEnforcement = env["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"] == "1"
+        projectDirName = env["CLAUDE_CODE_PROJECT_DIR_NAME"] ?? ""
+        toolMemoryLimit = env["CLAUDE_CODE_TOOL_MEMORY_LIMIT"] ?? ""
+        webFetchCacheTtlMs = env["CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS"] ?? ""
+        workflowPrefixStaggerMs = env["CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS"] ?? ""
 
         // Custom: everything not in managed keys
         customVars = env
@@ -747,6 +856,17 @@ struct EnvironmentView: View {
         setFlag("CLAUDE_CODE_SKIP_PROMPT_HISTORY", skipPromptHistory)
         setFlag("CLAUDE_CODE_USE_POWERSHELL_TOOL", usePowerShellTool)
         setFlag("DISABLE_DOCTOR_COMMAND", disableDoctorCommand)
+
+        // Claude Code 2.1.221 → 2.1.263
+        setString("ANTHROPIC_DEFAULT_MODEL", anthropicDefaultModel)
+        setString("ANTHROPIC_BEDROCK_REGION_PREFIX", bedrockRegionPrefix)
+        setFlag("CLAUDE_CODE_ENABLE_TODO_TOOLS", enableTodoTools)
+        setFlag("CLAUDE_CODE_DISABLE_1M_CONTEXT", disable1MContext)
+        setFlag("CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT", disableUnknownModelWindowEnforcement)
+        setString("CLAUDE_CODE_PROJECT_DIR_NAME", projectDirName)
+        setString("CLAUDE_CODE_TOOL_MEMORY_LIMIT", toolMemoryLimit)
+        setString("CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS", webFetchCacheTtlMs)
+        setString("CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS", workflowPrefixStaggerMs)
 
         // Custom vars
         for v in customVars {

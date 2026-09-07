@@ -1,10 +1,71 @@
 import XCTest
-@testable import CC_Settings
+// The app sources are compiled into this bundle (see project.yml), so the types
+// under test are already in-module — no `@testable import CC_Settings` needed.
 
 final class CC_SettingsTests: XCTestCase {
 
     private func decode(_ json: String) throws -> ClaudeSettings {
         try JSONDecoder().decode(ClaudeSettings.self, from: Data(json.utf8))
+    }
+
+    // MARK: - Claude Code 2.1.221 → 2.1.263 keys
+
+    /// Every key added in the 2.1.221–2.1.263 catch-up, with the exact types and enum
+    /// values read out of the 2.1.263 binary's zod schemas.
+    func testLatestCatchUpKeysDecode() throws {
+        let settings = try decode("""
+        {
+          "timeFormat": "24-hour-utc",
+          "timeZone": "Europe/Prague",
+          "promptCacheTtl": "1h",
+          "bashOutputMaxChars": 64000,
+          "taskOutputMaxChars": 48000,
+          "autoContinueAtUsageLimit": true,
+          "crossSessionInbound": "hold",
+          "dialogExpiry": "10m",
+          "spellcheck": { "enabled": true, "checker": "aspell", "language": "en_US" }
+        }
+        """)
+        XCTAssertEqual(settings.timeFormat, "24-hour-utc")
+        XCTAssertEqual(settings.timeZone, "Europe/Prague")
+        XCTAssertEqual(settings.promptCacheTtl, "1h")
+        XCTAssertEqual(settings.bashOutputMaxChars, 64000)
+        XCTAssertEqual(settings.taskOutputMaxChars, 48000)
+        XCTAssertEqual(settings.autoContinueAtUsageLimit, true)
+        XCTAssertEqual(settings.crossSessionInbound, "hold")
+        XCTAssertEqual(settings.dialogExpiry, "10m")
+        XCTAssertEqual(settings.spellcheck?.enabled, true)
+        XCTAssertEqual(settings.spellcheck?.checker, "aspell")
+        XCTAssertEqual(settings.spellcheck?.language, "en_US")
+    }
+
+    /// `spellcheck` is an object in the schema. A bare bool must not take the whole
+    /// settings decode down with it.
+    func testSpellcheckBoolDoesNotBreakDecoding() throws {
+        let settings = try decode(#"{"spellcheck": true, "model": "opus"}"#)
+        XCTAssertEqual(settings.model, "opus")
+        XCTAssertNil(settings.spellcheck)
+    }
+
+    func testModelSwitchHooksDecode() throws {
+        let settings = try decode("""
+        {
+          "hooks": {
+            "PreModelSwitch": [{ "hooks": [{ "type": "command", "command": "echo pre" }] }],
+            "PostModelSwitch": [{ "hooks": [{ "type": "command", "command": "echo post" }] }]
+          }
+        }
+        """)
+        XCTAssertEqual(settings.hooks?.PreModelSwitch?.first?.hooks.first?.command, "echo pre")
+        XCTAssertEqual(settings.hooks?.PostModelSwitch?.first?.hooks.first?.command, "echo post")
+    }
+
+    /// Every hook event the model knows about must also be offered in the UI, or a
+    /// hook set by the CLI is invisible in the app.
+    func testHookTypeEnumCoversModelHookEvents() {
+        let uiEvents = Set(HookType.allCases.map(\.rawValue))
+        XCTAssertTrue(uiEvents.contains("PreModelSwitch"))
+        XCTAssertTrue(uiEvents.contains("PostModelSwitch"))
     }
 
     // MARK: - Claude Code 2.1.171 → 2.1.220 keys
@@ -192,20 +253,29 @@ final class CC_SettingsTests: XCTestCase {
 
         let sonnet = versions(for: .sonnet).map(\.modelId)
         XCTAssertTrue(sonnet.contains("claude-sonnet-5"))
+        XCTAssertTrue(sonnet.contains("claude-sonnet-5[1m]"))
     }
 
-    /// Only Opus exposes a `[1m]` suffix variant. Fable 5 and Sonnet 5 are natively
-    /// 1M-context and Claude Code's catalog gives them no `supports_1m_suffix`, so
-    /// offering `claude-fable-5[1m]` / `claude-sonnet-5[1m]` would write a model ID
-    /// the CLI does not recognise as a distinct variant.
-    func testNoBogusOneMillionSuffixVariantsInPicker() {
-        for family in [ModelFamily.fable, .sonnet] {
-            let offered = versions(for: family).map(\.modelId)
-            XCTAssertFalse(
-                offered.contains { $0.hasSuffix("[1m]") },
-                "\(family.rawValue) must not offer a [1m] variant, got \(offered)"
-            )
-        }
+    func testFableFiveOneIsTheCurrentFableAndIsPickable() {
+        let fable = versions(for: .fable).map(\.modelId)
+        XCTAssertTrue(fable.contains("claude-fable-5-1"))
+        // Fable 5 is superseded and hidden from the picker.
+        XCTAssertFalse(fable.contains("claude-fable-5"))
+    }
+
+    /// Fable has no `[1m]` row: Claude Code 2.1.263 ships neither `claude-fable-5[1m]`
+    /// as a picker option nor any `claude-fable-5-1[1m]` string at all, so offering one
+    /// writes a model ID the CLI does not recognise as a distinct variant.
+    ///
+    /// Sonnet is NOT in this bucket, despite what v1.5.1 assumed: the 2.1.263 binary
+    /// carries `claude-sonnet-5[1m]` alongside the picker strings "Sonnet 5 (1M context)"
+    /// and "Sonnet 5 with 1M context window", exactly like the Opus 1M rows.
+    func testFableOffersNoOneMillionSuffixVariant() {
+        let offered = versions(for: .fable).map(\.modelId)
+        XCTAssertFalse(
+            offered.contains { $0.hasSuffix("[1m]") },
+            "Fable must not offer a [1m] variant, got \(offered)"
+        )
     }
 
     /// The bad `claude-fable-5[1m]` entry shipped in v1.5.0 stays in the catalog so

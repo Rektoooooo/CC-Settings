@@ -2,6 +2,51 @@
 
 All notable changes to CC Settings are documented here.
 
+## [1.6.0] — 2026-09-07
+
+Catch-up baseline: Claude Code **2.1.221 – 2.1.263**. Key names, types, enum values and
+defaults were read out of the zod settings schemas inside the shipped 2.1.263 binary — the
+published docs are missing 16 of the 19 keys reviewed for this release.
+
+### Added
+- **Claude Fable 5.1** (`claude-fable-5-1`) — now the current Fable model. Fable 5 stays in
+  the catalog but is hidden from the picker.
+- **Time & Locale**: `timeFormat` (auto / 12-hour / 24-hour / 24-hour UTC) and `timeZone`
+- `promptCacheTtl` — Prompt Cache TTL picker (Automatic / 5m / 1h)
+- `bashOutputMaxChars` and `taskOutputMaxChars` — inline output caps, clamped to 4000–128000
+- `autoContinueAtUsageLimit` — wait out a usage limit and resume automatically
+- `crossSessionInbound` (accept / hold / refuse) and `dialogExpiry` (60s / 5m / 10m / never)
+- `spellcheck` — prompt-input spell checking, with checker and dictionary sub-options
+- Hook events `PreModelSwitch` and `PostModelSwitch`
+- Environment: `ANTHROPIC_DEFAULT_MODEL`, `ANTHROPIC_BEDROCK_REGION_PREFIX`,
+  `CLAUDE_CODE_ENABLE_TODO_TOOLS`, `CLAUDE_CODE_DISABLE_1M_CONTEXT`,
+  `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT`, `CLAUDE_CODE_PROJECT_DIR_NAME`,
+  `CLAUDE_CODE_TOOL_MEMORY_LIMIT`, `CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS`,
+  `CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS`
+
+### Fixed
+- **`claude-sonnet-5[1m]` is a real model and was missing from the picker.** 1.5.1 assumed
+  Sonnet 5 had no `[1m]` variant the way Fable does; the 2.1.263 binary carries the ID plus
+  the picker rows "Sonnet 5 (1M context)" and "Sonnet 5 with 1M context window". Fable
+  genuinely has none — there is no `claude-fable-5-1[1m]` string in the binary at all.
+- **`knownSettingsKeys` was missing all 42 fields added in 1.5.0 and 1.5.1.** That set is
+  what lets `saveSettings()` tell "user cleared this" from "key we don't model", so a
+  cleared value could be silently re-written from the old file contents. Latent until now
+  only because every one of those fields happens to save through `saveField`.
+- Editing hooks no longer clears the `hooks` object when only `PreModelSwitch` or
+  `PostModelSwitch` is set (same class of bug 1.5.1 fixed for the seven events before them).
+- **The unit tests could never run.** `CC SettingsTests` was hosted by the app, and XCTest
+  injecting into the SwiftUI `@main` app crashed the runner before any test executed
+  ("More than one NSApplication instance was created") — so the tests added in 1.5.1 had
+  never actually reported. The bundle now runs hostless as a logic bundle; all 15 unit
+  tests execute and pass.
+
+### Not adopted (reviewed)
+- `keybindingFlavor` — shipped 2.1.238, deprecated by 2.1.263 and has no effect
+- `managedMcpServers`, `modelPricing`, `allowedMarketplaces` — managed-settings.json only
+- `modelPicker` — real and user-scoped, but a curation array of labelled rows; deferred
+- Mythos 5 / 5.1 — no picker alias in the binary; gated to approved organizations
+
 ## [1.5.1] — 2026-07-26
 
 Catch-up baseline: Claude Code **2.1.171 – 2.1.220**. Key names, types, enum values and

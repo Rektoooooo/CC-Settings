@@ -36,6 +36,8 @@ enum HookType: String, CaseIterable, Identifiable {
     case cwdChanged = "CwdChanged"
     case fileChanged = "FileChanged"
     case directoryAdded = "DirectoryAdded"
+    case preModelSwitch = "PreModelSwitch"
+    case postModelSwitch = "PostModelSwitch"
 
     var id: String { rawValue }
 
@@ -74,6 +76,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .cwdChanged: return "Cwd Changed"
         case .fileChanged: return "File Changed"
         case .directoryAdded: return "Directory Added"
+        case .preModelSwitch: return "Pre Model Switch"
+        case .postModelSwitch: return "Post Model Switch"
         }
     }
 
@@ -112,6 +116,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .cwdChanged: return "folder.badge.gearshape"
         case .fileChanged: return "doc.badge.gearshape"
         case .directoryAdded: return "folder.badge.plus"
+        case .preModelSwitch: return "arrow.left.arrow.right.square.fill"
+        case .postModelSwitch: return "arrow.left.arrow.right.square"
         }
     }
 
@@ -150,6 +156,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .cwdChanged: return .orange
         case .fileChanged: return .teal
         case .directoryAdded: return .green
+        case .preModelSwitch: return .indigo
+        case .postModelSwitch: return .purple
         }
     }
 
@@ -188,6 +196,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .cwdChanged: return "Runs when the working directory changes"
         case .fileChanged: return "Runs when a watched file changes on disk"
         case .directoryAdded: return "Runs after /add-dir or an SDK repo-root registration"
+        case .preModelSwitch: return "Runs before the session's model changes"
+        case .postModelSwitch: return "Runs after the session's model has changed"
         }
     }
 
@@ -226,6 +236,8 @@ enum HookType: String, CaseIterable, Identifiable {
         case .cwdChanged: return "echo \"Now in $(pwd)\""
         case .fileChanged: return "echo \"File changed\""
         case .directoryAdded: return "echo \"Directory added\""
+        case .preModelSwitch: return "echo \"Switching model\""
+        case .postModelSwitch: return "echo \"Now on $CLAUDE_MODEL\""
         }
     }
 }
@@ -729,6 +741,8 @@ struct HooksView: View {
             case .cwdChanged: groups = hooks?.CwdChanged ?? []
             case .fileChanged: groups = hooks?.FileChanged ?? []
             case .directoryAdded: groups = hooks?.DirectoryAdded ?? []
+            case .preModelSwitch: groups = hooks?.PreModelSwitch ?? []
+            case .postModelSwitch: groups = hooks?.PostModelSwitch ?? []
             }
             for (index, group) in groups.enumerated() {
                 result.append(ScopedHookGroup(hookType: hookType, group: group, scope: scope, indexInScope: index))
@@ -782,6 +796,8 @@ struct HooksView: View {
         case .cwdChanged: return hooks?.CwdChanged ?? []
         case .fileChanged: return hooks?.FileChanged ?? []
         case .directoryAdded: return hooks?.DirectoryAdded ?? []
+        case .preModelSwitch: return hooks?.PreModelSwitch ?? []
+        case .postModelSwitch: return hooks?.PostModelSwitch ?? []
         }
     }
 
@@ -854,6 +870,8 @@ struct HooksView: View {
         case .cwdChanged: configManager.settings.hooks?.CwdChanged = value
         case .fileChanged: configManager.settings.hooks?.FileChanged = value
         case .directoryAdded: configManager.settings.hooks?.DirectoryAdded = value
+        case .preModelSwitch: configManager.settings.hooks?.PreModelSwitch = value
+        case .postModelSwitch: configManager.settings.hooks?.PostModelSwitch = value
         }
         if let hooks = configManager.settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -873,7 +891,8 @@ struct HooksView: View {
            hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
            hooks.StopFailure == nil && hooks.TaskCreated == nil &&
            hooks.CwdChanged == nil && hooks.FileChanged == nil &&
-           hooks.DirectoryAdded == nil {
+           hooks.DirectoryAdded == nil &&
+           hooks.PreModelSwitch == nil && hooks.PostModelSwitch == nil {
             configManager.settings.hooks = nil
         }
         configManager.saveEncodedField("hooks", value: configManager.settings.hooks)
@@ -919,6 +938,8 @@ struct HooksView: View {
         case .cwdChanged: settings.hooks?.CwdChanged = value
         case .fileChanged: settings.hooks?.FileChanged = value
         case .directoryAdded: settings.hooks?.DirectoryAdded = value
+        case .preModelSwitch: settings.hooks?.PreModelSwitch = value
+        case .postModelSwitch: settings.hooks?.PostModelSwitch = value
         }
         if let hooks = settings.hooks,
            hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
@@ -938,7 +959,8 @@ struct HooksView: View {
            hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
            hooks.StopFailure == nil && hooks.TaskCreated == nil &&
            hooks.CwdChanged == nil && hooks.FileChanged == nil &&
-           hooks.DirectoryAdded == nil {
+           hooks.DirectoryAdded == nil &&
+           hooks.PreModelSwitch == nil && hooks.PostModelSwitch == nil {
             settings.hooks = nil
         }
         configManager.saveProjectSettings(settings, projectPath: projectPath)

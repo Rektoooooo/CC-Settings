@@ -3,6 +3,34 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.6.0</title>
+            <sparkle:version>24</sparkle:version>
+            <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <p>Catch-up with Claude Code 2.1.221&ndash;2.1.263.</p>
+                <ul>
+                    <li><strong>Claude Fable 5.1</strong> &mdash; now the current Fable model in the picker</li>
+                    <li><strong>Time &amp; Locale</strong> &mdash; clock format (12-hour, 24-hour, 24-hour UTC) and IANA time zone</li>
+                    <li><strong>Prompt Cache TTL</strong> &mdash; Automatic, 5 minutes, or 1 hour</li>
+                    <li>Inline output caps for shell commands and background tasks (<code>bashOutputMaxChars</code>, <code>taskOutputMaxChars</code>)</li>
+                    <li>Continue automatically when a usage limit resets</li>
+                    <li>Cross-session message handling (accept / hold / refuse) and dialog expiry</li>
+                    <li><strong>Spell checking</strong> for the prompt input, with checker and dictionary options</li>
+                    <li><code>PreModelSwitch</code> and <code>PostModelSwitch</code> hook events, plus 9 new environment variables</li>
+                    <li><strong>Fixed:</strong> <code>claude-sonnet-5[1m]</code> is a real model and was missing from the picker &mdash; Sonnet 5 does offer a 1M-context variant, unlike Fable.</li>
+                    <li><strong>Fixed:</strong> settings added in 1.5.0 and 1.5.1 could not be reliably cleared once set.</li>
+                </ul>
+            ]]></description>
+            <pubDate>Mon, 07 Sep 2026 08:00:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.6.0/CC-Settings-1.6.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="sxcumnSf6VBzYxFv7XDplyzARYzFSMa41h1LQuTAyEHfg8t8PWKeLyKJ0ERCWtux/VsmKpOv8r6BGPhDO3jkDQ=="
+                length="10277948"
+            />
+        </item>
+        <item>
             <title>Version 1.5.1</title>
             <sparkle:version>23</sparkle:version>
             <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>

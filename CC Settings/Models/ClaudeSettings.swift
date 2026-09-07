@@ -69,6 +69,23 @@ struct ClaudeSettings: Equatable {
     var feedbackSurveyRate: Double?
     /// Custom script backing `@` file autocomplete.
     var fileSuggestion: CommandScriptConfig?
+    /// Wait out a claude.ai usage limit and resume the task automatically. Default
+    /// unset == off, in which case the limit dialog offers the wait as a choice.
+    var autoContinueAtUsageLimit: Bool?
+    /// Characters of a successful Bash/PowerShell result Claude receives inline.
+    /// Default 30_000; Claude Code clamps to 4_000…128_000.
+    var bashOutputMaxChars: Int?
+    /// Characters of a background task's output `TaskOutput` hands Claude inline.
+    /// Default 32_000; Claude Code clamps to 4_000…128_000.
+    var taskOutputMaxChars: Int?
+
+    // Time & Locale
+    /// Clock format for times in the UI: `auto` (default, follows locale), `12-hour`,
+    /// `24-hour`, `24-hour-utc`, or a strftime pattern (any value containing `%`).
+    var timeFormat: String?
+    /// IANA time zone for times in the UI, e.g. `UTC` or `Europe/Prague`.
+    /// Default unset == the system time zone; an unknown name falls back to it.
+    var timeZone: String?
 
     // Terminal & Accessibility
     /// Flat, screen-reader friendly rendering with no decorative borders or animations.
@@ -90,6 +107,9 @@ struct ClaudeSettings: Equatable {
     /// Vim INSERT-mode key-sequence remaps, e.g. `{"jj": "<Esc>"}`. Keys are exactly two
     /// printable characters; `<Esc>` is the only supported target. Needs `editorMode: "vim"`.
     var vimInsertModeRemaps: [String: String]?
+    /// Underline misspelled words in the prompt input, using a spell checker the user
+    /// installs (aspell / hunspell / ispell). Nested object, default disabled.
+    var spellcheck: SpellcheckConfig?
 
     // Model & Performance
     var fastMode: Bool?
@@ -104,6 +124,9 @@ struct ClaudeSettings: Equatable {
     /// Claude Code caps the chain at 3 models and also accepts a bare string,
     /// which we normalize to a one-element array on decode.
     var fallbackModel: [String]?
+    /// Prompt cache lifetime for the main conversation: `5m` or `1h`. Default unset ==
+    /// automatic (1h on a subscription within limits, 5m on API key/Bedrock/Vertex/Foundry).
+    var promptCacheTtl: String?
 
     // Memory
     var autoMemoryEnabled: Bool?
@@ -145,6 +168,13 @@ struct ClaudeSettings: Equatable {
     var remoteControlAtStartup: Bool?
     /// Let Claude push proactive mobile notifications while Remote Control is connected.
     var agentPushNotifEnabled: Bool?
+    /// How inbound `SendMessage` peer messages are handled: `accept` delivers them,
+    /// `hold` parks them for review, `refuse` opts this session out. Default unset ==
+    /// mode parity (auto-deliver only when the sender's permission-mode class matches).
+    var crossSessionInbound: String?
+    /// How long a dialog forwarded to Remote Control or an SDK host stays parked before
+    /// resolving to its safe no-action default. One of `60s`, `5m`, `10m`, `never`.
+    var dialogExpiry: String?
 
     // Artifact
     /// Per-user opt-in. Unset defaults to enabled once the feature is available.
@@ -258,6 +288,11 @@ extension ClaudeSettings: Codable {
         fileCheckpointingEnabled = try c.decodeIfPresent(Bool.self, forKey: .fileCheckpointingEnabled)
         feedbackSurveyRate = try c.decodeIfPresent(Double.self, forKey: .feedbackSurveyRate)
         fileSuggestion = try? c.decodeIfPresent(CommandScriptConfig.self, forKey: .fileSuggestion)
+        autoContinueAtUsageLimit = try c.decodeIfPresent(Bool.self, forKey: .autoContinueAtUsageLimit)
+        bashOutputMaxChars = try c.decodeIfPresent(Int.self, forKey: .bashOutputMaxChars)
+        taskOutputMaxChars = try c.decodeIfPresent(Int.self, forKey: .taskOutputMaxChars)
+        timeFormat = try c.decodeIfPresent(String.self, forKey: .timeFormat)
+        timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone)
         axScreenReader = try c.decodeIfPresent(Bool.self, forKey: .axScreenReader)
         autoScrollEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoScrollEnabled)
         wheelScrollAccelerationEnabled = try c.decodeIfPresent(Bool.self, forKey: .wheelScrollAccelerationEnabled)
@@ -268,6 +303,7 @@ extension ClaudeSettings: Codable {
         // Claude Code types the values as `unknown`; only "<Esc>" is a supported target,
         // so drop any non-string values rather than failing the whole settings decode.
         vimInsertModeRemaps = try? c.decodeIfPresent([String: String].self, forKey: .vimInsertModeRemaps)
+        spellcheck = try? c.decodeIfPresent(SpellcheckConfig.self, forKey: .spellcheck)
         fastMode = try c.decodeIfPresent(Bool.self, forKey: .fastMode)
         fastModePerSessionOptIn = try c.decodeIfPresent(Bool.self, forKey: .fastModePerSessionOptIn)
         availableModels = try c.decodeIfPresent([String].self, forKey: .availableModels)
@@ -279,6 +315,7 @@ extension ClaudeSettings: Codable {
         } else if let single = ((try? c.decodeIfPresent(String.self, forKey: .fallbackModel)) ?? nil) {
             fallbackModel = [single]
         }
+        promptCacheTtl = try c.decodeIfPresent(String.self, forKey: .promptCacheTtl)
         autoMemoryEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoMemoryEnabled)
         autoMemoryDirectory = try c.decodeIfPresent(String.self, forKey: .autoMemoryDirectory)
         voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)
@@ -294,6 +331,8 @@ extension ClaudeSettings: Codable {
         disableRemoteControl = try c.decodeIfPresent(Bool.self, forKey: .disableRemoteControl)
         remoteControlAtStartup = try c.decodeIfPresent(Bool.self, forKey: .remoteControlAtStartup)
         agentPushNotifEnabled = try c.decodeIfPresent(Bool.self, forKey: .agentPushNotifEnabled)
+        crossSessionInbound = try c.decodeIfPresent(String.self, forKey: .crossSessionInbound)
+        dialogExpiry = try c.decodeIfPresent(String.self, forKey: .dialogExpiry)
         enableArtifact = try c.decodeIfPresent(Bool.self, forKey: .enableArtifact)
         disableArtifact = try c.decodeIfPresent(Bool.self, forKey: .disableArtifact)
         pluginSuggestionMarketplaces = try c.decodeIfPresent([String].self, forKey: .pluginSuggestionMarketplaces)
@@ -341,6 +380,17 @@ struct StatusLineConfig: Codable, Equatable {
 struct SpinnerTipsOverride: Codable, Equatable {
     var excludeDefault: Bool?
     var tips: [String]?
+}
+
+// MARK: - Spellcheck
+
+/// `spellcheck` is an object, not a bool: `{ "enabled": true, "checker": "aspell", … }`.
+/// `checker` unset (or "auto") picks the first of aspell/hunspell/ispell found on PATH;
+/// `language` is passed to the checker as-is (`aspell --lang`, `hunspell -d`).
+struct SpellcheckConfig: Codable, Equatable {
+    var enabled: Bool?
+    var checker: String?
+    var language: String?
 }
 
 // MARK: - Command Script Config
@@ -501,6 +551,8 @@ struct HooksConfig: Codable, Equatable {
     var CwdChanged: [HookGroup]?
     var FileChanged: [HookGroup]?
     var DirectoryAdded: [HookGroup]?
+    var PreModelSwitch: [HookGroup]?
+    var PostModelSwitch: [HookGroup]?
 
     // Tolerant decoder: unknown hook types are silently ignored instead of failing
     init(from decoder: Decoder) throws {
@@ -542,6 +594,8 @@ struct HooksConfig: Codable, Equatable {
         CwdChanged = decode("CwdChanged")
         FileChanged = decode("FileChanged")
         DirectoryAdded = decode("DirectoryAdded")
+        PreModelSwitch = decode("PreModelSwitch")
+        PostModelSwitch = decode("PostModelSwitch")
     }
 
     init() {}
