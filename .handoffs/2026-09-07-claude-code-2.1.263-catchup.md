@@ -47,7 +47,13 @@ alias; approved orgs only) · `modelPicker` (real, user-scoped, but a curation a
 labelled rows — **the one genuine follow-up**).
 
 ## Status
-Code complete on `main`, **not committed, not released**. Version still 1.5.1 / build 23.
+**v1.6.0 SHIPPED.** https://github.com/Rektoooooo/CC-Settings/releases/tag/v1.6.0
+
+- Version 1.6.0 / build 24 (`project.yml` + `Info.plist`), commit `078ccb7`, tag `v1.6.0`
+- Notarization **Accepted** (submission `d724f8fe-b57b-479a-86a2-04eb718d740e`), stapled, validated
+- DMG uploaded (10,277,948 bytes), URL returns HTTP 200; raw `appcast.xml` on `main` serves the
+  1.6.0 / build 24 item with a matching `edSignature` and `length`
+- `gh` was switched to `Rektoooooo` for the push and **switched back to `SebkuceraRSM`** afterwards
 
 - `xcodebuild` Debug: **BUILD SUCCEEDED**
 - `xcodebuild` Release (Swift 6 strict concurrency): **BUILD SUCCEEDED**
@@ -55,27 +61,37 @@ Code complete on `main`, **not committed, not released**. Version still 1.5.1 / 
 - Release app launched; `~/.claude/settings.json` byte-identical after load (key-preservation
   invariant holds)
 
-## Blocker — pre-existing, NOT caused by this work
-`xcodebuild test` cannot run the unit bundle:
+## Test harness — was broken, now fixed
+`xcodebuild test` used to fail before running anything:
 
 > The test runner crashed while preparing to run tests … **More than one NSApplication
 > instance was created**
 
-Reproduced identically on unmodified `HEAD` (2ac3875) in a throwaway worktree, so it predates
-this change — **the unit tests added in v1.5.1 have never actually executed.** Cause: the
-`CC SettingsTests` bundle is hosted by the app, and the SwiftUI `@main` +
-`@NSApplicationDelegateAdaptor` entry point collides with the runner's NSApplication.
-Fix is a `project.yml` test-target change (drop the test host so the model/decode tests run
-as a logic bundle) — deliberately left alone here as it is app-startup surgery unrelated to a
-changelog sync. **Decide on this before the next release.**
+Reproduced identically on unmodified `HEAD` (2ac3875) in a throwaway worktree, so it predated
+this change — **the unit tests added in v1.5.1 had never actually executed.** Cause: the
+`CC SettingsTests` bundle was hosted by the app, and XCTest injects into the SwiftUI `@main`
+app while it is standing up its own NSApplication.
+
+Fix (in `project.yml`): the bundle is now hostless. App sources compile straight into the test
+bundle, `@testable import CC_Settings` was dropped (types are in-module), and because the test
+target no longer depends on the app target the scheme has to list it explicitly:
+
+```yaml
+  CC Settings:
+    scheme:
+      testTargets: [CC SettingsTests, CC SettingsUITests]
+```
+
+Result: **15 unit tests + 1 UI test, all passing.** If you ever add a test that needs a real
+running app, it belongs in `CC SettingsUITests` (still hosted), not here.
 
 ## What's next
-1. Decide the test-host fix above.
-2. Decide whether this becomes v1.6.0 → bump `project.yml` + `Info.plist`, then the full
-   release flow in CLAUDE.md (Release build → re-sign Sparkle inside-out → DMG → notarize →
-   staple → sign_update → appcast → tag → `gh release upload`).
-3. `gh auth switch -u Rektoooooo` before any push/release — the other account 403s.
-4. Optional: `modelPicker` curation UI.
+1. Optional: `modelPicker` curation UI — the one reviewed key deliberately deferred. It is
+   `{ options: [rows], replaceBuiltInOptions: bool }`, user-or-managed scope, needs a
+   reorderable list editor.
+2. Next sync baseline is **2.1.263** — the commit message carries it, which is how
+   `changelog-sync` Step 1 finds it.
+3. Read the key names out of the binary again (see method note above). Do not trust the docs.
 
 ## Key files touched
 - `CC Settings/Models/ModelVersion.swift`
