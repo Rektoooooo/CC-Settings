@@ -17,6 +17,8 @@ struct Project: Identifiable, Hashable {
         hasher.combine(id)
     }
 
+    var isPathResolved: Bool { ProjectPathResolver.isResolved(originalPath) }
+
     var displayName: String {
         (originalPath as NSString).lastPathComponent
     }

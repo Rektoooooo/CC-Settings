@@ -11,6 +11,7 @@ class ConfigurationManager: ObservableObject {
         case malformedJSON(URL)
         case notAnObject(URL)
         case settingsDecodeFailed
+        case unresolvedProject(String)
 
         var errorDescription: String? {
             switch self {
@@ -22,6 +23,8 @@ class ConfigurationManager: ObservableObject {
                 return "\(url.lastPathComponent) does not contain a JSON object. Nothing was saved."
             case .settingsDecodeFailed:
                 return "settings.json could not be fully read, so a full save was refused to avoid overwriting data."
+            case .unresolvedProject(let id):
+                return "The folder for project \(id) could not be determined (it is not listed in ~/.claude.json and has no session with a recorded path). Nothing was saved."
             }
         }
     }
@@ -87,6 +90,8 @@ class ConfigurationManager: ObservableObject {
     let localSettingsURL: URL
     let claudeMDURL: URL
     private let projectsDir: URL
+    /// Folder name -> resolved path. Only successful resolutions are cached.
+    private var resolvedPathCache: [String: String] = [:]
     private let commandsDir: URL
     private let skillsDir: URL
     private let pluginsDir: URL
@@ -822,12 +827,13 @@ class ConfigurationManager: ObservableObject {
         }
 
         var projects: [Project] = []
+        let knownProjectPaths = MCPConfigStore(fileURL: mcpConfigURL).projectPaths()
         for dir in contents {
             guard (try? dir.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else {
                 continue
             }
             let projectId = dir.lastPathComponent
-            let originalPath = decodePath(projectId)
+            let originalPath = decodePath(projectId, knownProjectPaths: knownProjectPaths)
             var sessions: [Session] = []
             var totalSize: Int64 = 0
             var lastAccessed: Date?
@@ -867,15 +873,10 @@ class ConfigurationManager: ObservableObject {
                 projectSettings = try? decoder.decode(ClaudeSettings.self, from: validateAndFix(jsonData: data))
             }
 
-            // Load project CLAUDE.md — check project root first, then ~/.claude/projects/<id>/
-            let rootClaudeMDURL = URL(fileURLWithPath: originalPath).appendingPathComponent("CLAUDE.md")
-            let internalClaudeMDURL = dir.appendingPathComponent("CLAUDE.md")
-            let claudeMDContent: String? = {
-                if let content = try? String(contentsOf: rootClaudeMDURL, encoding: .utf8) {
-                    return content
-                }
-                return try? String(contentsOf: internalClaudeMDURL, encoding: .utf8)
-            }()
+            // Claude Code reads <project>/CLAUDE.md or <project>/.claude/CLAUDE.md.
+            let claudeMDContent: String? = ProjectPathResolver.isResolved(originalPath)
+                ? try? String(contentsOf: Self.projectClaudeMDURL(projectRoot: originalPath), encoding: .utf8)
+                : nil
 
             projects.append(Project(
                 id: projectId,
@@ -891,120 +892,60 @@ class ConfigurationManager: ObservableObject {
         return projects.sorted { ($0.lastAccessed ?? .distantPast) > ($1.lastAccessed ?? .distantPast) }
     }
 
-    /// Decodes a Claude Code project ID back into a filesystem path.
-    ///
-    /// Claude Code encodes project paths by replacing `/`, `.`, ` `, and `_` with `-`.
-    /// This is inherently ambiguous: a hyphen in the encoded string could be a literal
-    /// hyphen from the original directory name, or a separator that replaced `/`, `.`,
-    /// ` `, or `_`. For example, `my-project` and `my/project` both encode to `my-project`.
-    ///
-    /// The algorithm resolves ambiguity by greedily matching against the actual filesystem,
-    /// preferring the longest directory name that exists on disk. This works well in practice
-    /// but can fail if: (1) the directory no longer exists, (2) multiple directories share
-    /// the same encoded form, or (3) the path contains mixed separator types within a single
-    /// component (e.g. `my.project-name`). In those edge cases the fallback joins all
-    /// remaining parts with `/`.
-    private func decodePath(_ encoded: String) -> String {
-        let fm = FileManager.default
-        let parts = encoded.split(separator: "-").map(String.init)
-
-        // Resolve the full path greedily from root, handling all encoded separators
-        // (/, ., space, _) uniformly via filesystem matching.
-        return resolvePathComponents(parts, basePath: "/", fileManager: fm)
-    }
-
-    /// Greedily resolve encoded path components by checking which combinations exist on disk.
-    /// Claude Code encodes paths by replacing /, ., space, and _ with -
-    /// So "Autoskola-Trefa" could be "Autoskola-Trefa", "Autoskola.Trefa", "Autoskola Trefa", or "Autoskola_Trefa"
-    private func resolvePathComponents(_ parts: [String], basePath: String, fileManager fm: FileManager) -> String {
-        guard !parts.isEmpty else { return basePath }
-
-        // Try joining progressively more parts (greedy: longest match first)
-        for joinCount in stride(from: parts.count, through: 1, by: -1) {
-            let segment = Array(parts[0..<joinCount])
-
-            // Try different separators: -, ., space, and _
-            let candidates = [
-                segment.joined(separator: "-"),
-                segment.joined(separator: "."),
-                segment.joined(separator: " "),
-                segment.joined(separator: "_"),
-            ]
-
-            for candidate in candidates {
-                let candidatePath = (basePath as NSString).appendingPathComponent(candidate)
-                var isDir: ObjCBool = false
-                if fm.fileExists(atPath: candidatePath, isDirectory: &isDir), isDir.boolValue {
-                    let remainingParts = Array(parts[joinCount...])
-                    if remainingParts.isEmpty {
-                        return candidatePath
-                    }
-                    let result = resolvePathComponents(remainingParts, basePath: candidatePath, fileManager: fm)
-                    if fm.fileExists(atPath: result) {
-                        return result
-                    }
-                }
-            }
-
-            // Also try matching against actual directory listing (handles mixed separators)
-            if joinCount > 1, let entries = try? fm.contentsOfDirectory(atPath: basePath) {
-                let normalized = segment.joined(separator: "-").lowercased()
-                for entry in entries {
-                    let entryNormalized = entry
-                        .replacingOccurrences(of: ".", with: "-")
-                        .replacingOccurrences(of: " ", with: "-")
-                        .replacingOccurrences(of: "_", with: "-")
-                        .lowercased()
-                    if entryNormalized == normalized {
-                        let candidatePath = (basePath as NSString).appendingPathComponent(entry)
-                        var isDir: ObjCBool = false
-                        if fm.fileExists(atPath: candidatePath, isDirectory: &isDir), isDir.boolValue {
-                            let remainingParts = Array(parts[joinCount...])
-                            if remainingParts.isEmpty {
-                                return candidatePath
-                            }
-                            let result = resolvePathComponents(remainingParts, basePath: candidatePath, fileManager: fm)
-                            if fm.fileExists(atPath: result) {
-                                return result
-                            }
-                        }
-                    }
-                }
-            }
+    /// Resolves a Claude Code project folder name to its real path using
+    /// authoritative sources only (see `ProjectPathResolver`): `~/.claude.json`
+    /// project keys, then the `cwd` in the newest session. When neither knows,
+    /// returns an inert sentinel path (never a guess) so nothing gets created
+    /// under a wrong location.
+    private func decodePath(_ encoded: String, knownProjectPaths: [String]? = nil) -> String {
+        if let cached = resolvedPathCache[encoded] { return cached }
+        let keys = knownProjectPaths ?? MCPConfigStore(fileURL: mcpConfigURL).projectPaths()
+        if let path = ProjectPathResolver.resolve(
+            id: encoded,
+            projectDir: projectsDir.appendingPathComponent(encoded),
+            knownProjectPaths: keys
+        ) {
+            resolvedPathCache[encoded] = path
+            return path
         }
-
-        // Fallback: join all remaining with / (no match found)
-        return (basePath as NSString).appendingPathComponent(parts.joined(separator: "/"))
+        return ProjectPathResolver.unresolvedPath(for: encoded)
     }
 
     // MARK: - Project CLAUDE.md
 
-    func loadProjectClaudeMD(projectId: String) -> String? {
-        let originalPath = decodePath(projectId)
-        // Check project root first (where Claude Code actually reads it)
-        let rootClaudeMD = URL(fileURLWithPath: originalPath).appendingPathComponent("CLAUDE.md")
-        if let content = try? String(contentsOf: rootClaudeMD, encoding: .utf8) {
-            return content
-        }
-        // Fall back to ~/.claude/projects/<id>/CLAUDE.md
-        let internalClaudeMD = projectsDir.appendingPathComponent(projectId).appendingPathComponent("CLAUDE.md")
-        return try? String(contentsOf: internalClaudeMD, encoding: .utf8)
+    /// The file Claude Code reads for a project: root CLAUDE.md, else
+    /// `.claude/CLAUDE.md` when only that exists, else the root path (to create).
+    static func projectClaudeMDURL(projectRoot: String, fileManager fm: FileManager = .default) -> URL {
+        let root = URL(fileURLWithPath: projectRoot)
+        let rootMD = root.appendingPathComponent("CLAUDE.md")
+        let nestedMD = root.appendingPathComponent(".claude/CLAUDE.md")
+        if !fm.fileExists(atPath: rootMD.path), fm.fileExists(atPath: nestedMD.path) { return nestedMD }
+        return rootMD
     }
 
-    func saveProjectClaudeMD(_ content: String, projectId: String) {
+    func loadProjectClaudeMD(projectId: String) -> String? {
         let originalPath = decodePath(projectId)
-        // Save to project root (where Claude Code reads it)
-        let rootClaudeMD = URL(fileURLWithPath: originalPath).appendingPathComponent("CLAUDE.md")
+        guard ProjectPathResolver.isResolved(originalPath) else { return nil }
+        return try? String(contentsOf: Self.projectClaudeMDURL(projectRoot: originalPath), encoding: .utf8)
+    }
+
+    /// Returns true when the file was written. Failures surface through `lastError`;
+    /// there is deliberately no fallback location because Claude Code would never read it.
+    @discardableResult
+    func saveProjectClaudeMD(_ content: String, projectId: String) -> Bool {
+        let originalPath = decodePath(projectId)
+        guard ProjectPathResolver.isResolved(originalPath) else {
+            lastError = WriteError.unresolvedProject(projectId)
+            return false
+        }
+        let target = Self.projectClaudeMDURL(projectRoot: originalPath)
         do {
-            try content.write(to: rootClaudeMD, atomically: true, encoding: .utf8)
+            try content.writeAtomicallyFollowingSymlinks(to: target)
             lastSaveTime = Date()
+            return true
         } catch {
-            // If project root isn't writable, save to ~/.claude/projects/<id>/
-            let projectDir = projectsDir.appendingPathComponent(projectId)
-            try? FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
-            let internalClaudeMD = projectDir.appendingPathComponent("CLAUDE.md")
-            try? content.write(to: internalClaudeMD, atomically: true, encoding: .utf8)
-            lastSaveTime = Date()
+            lastError = error
+            return false
         }
     }
 

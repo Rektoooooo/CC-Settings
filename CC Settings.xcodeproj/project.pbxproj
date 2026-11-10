@@ -61,6 +61,7 @@
 		3B0ACF9EFAF6F71F1F9F9496 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9619513D2C0BE5154D9833F /* MessageBubbleView.swift */; };
 		3B6F93F57B49CF0D5E4A2D0F /* SlashCommandFrontmatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ADF188DD739E750B74A4403 /* SlashCommandFrontmatterTests.swift */; };
 		3D882FAE41F305B47C3A178A /* CCSettingsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8655FE9A624FB9D4F68C7DA3 /* CCSettingsApp.swift */; };
+		3DFD579135B15A761CAA352D /* ProjectPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F790CBA32D82C6F36AD22B47 /* ProjectPathResolver.swift */; };
 		3E704DE7C3A9D378DA66D86E /* DirectoryListingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5EEEE88FC56C23AFA36CD6 /* DirectoryListingView.swift */; };
 		3F39E8E069CF36FF81BCF93E /* MCPServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C7A6E93D140CCC5829939B /* MCPServersView.swift */; };
 		40F77CB072666FF1D4B61E6E /* ClaudeFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6D9E06B91DEF7F04F9B3F3F /* ClaudeFile.swift */; };
@@ -196,6 +197,7 @@
 		F144192964A1AA01C6D603F4 /* SessionSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29CB8E953CC9F46733739C85 /* SessionSearchView.swift */; };
 		F34AE311D801800042ADE35C /* ThemePresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 674CFA83FAC8B873FB2486A4 /* ThemePresets.swift */; };
 		F3571B9F963F938E17350A67 /* CommandsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CF305B3F5031F47BFBC288 /* CommandsView.swift */; };
+		F44224AE2A4CBDC08A724142 /* ProjectPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F790CBA32D82C6F36AD22B47 /* ProjectPathResolver.swift */; };
 		F702D28207C7F862F53E4502 /* MarkdownPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37EEB10BE53ECE84E30DD551 /* MarkdownPreview.swift */; };
 		F7AB4C1C5C3EEAA699C254FA /* ConfigurationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0CF4CFAD380347450E02C7 /* ConfigurationManager.swift */; };
 		FA2E35EA49E170C0CC37FD61 /* ProfilesSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787331C74C55993C50570328 /* ProfilesSectionView.swift */; };
@@ -315,6 +317,7 @@
 		F2126896F55B4B94360386B2 /* ClaudeMDEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMDEditorView.swift; sourceTree = "<group>"; };
 		F568003017C0230719C5A1E4 /* FileViewerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerComponents.swift; sourceTree = "<group>"; };
 		F5C1A44C83F0821A840BB9AB /* FileHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHistoryView.swift; sourceTree = "<group>"; };
+		F790CBA32D82C6F36AD22B47 /* ProjectPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPathResolver.swift; sourceTree = "<group>"; };
 		FABD61633522C4352FFF6291 /* VersionControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionControlView.swift; sourceTree = "<group>"; };
 		FD444EC0B7B70C59EEA2039C /* MCPTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTool.swift; sourceTree = "<group>"; };
 		FE84A05A160B69109A6A7E69 /* GitInitSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitInitSheet.swift; sourceTree = "<group>"; };
@@ -401,6 +404,7 @@
 				5C31368E98A4BDE1A3DE6FEC /* MCPConfigStore.swift */,
 				7BEFCED7828F1FC7F068EA07 /* MCPDiscoveryService.swift */,
 				75FD32E0843EE91FBE088CCB /* ProfileManager.swift */,
+				F790CBA32D82C6F36AD22B47 /* ProjectPathResolver.swift */,
 				3F73D5383713DD99791104ED /* SessionCleanup.swift */,
 				47072A3C88A36BF1F684809C /* SessionParser.swift */,
 				49548B495707E7309C0AFE1D /* StatsService.swift */,
@@ -928,6 +932,7 @@
 				E54B057C0DFB6E2B170E35DD /* ProfileRowView.swift in Sources */,
 				B97B99802528BFC2AAD6568A /* ProfilesSectionView.swift in Sources */,
 				95307B376948477FB8642E4A /* Project.swift in Sources */,
+				3DFD579135B15A761CAA352D /* ProjectPathResolver.swift in Sources */,
 				EF4902605B3DABBABDBF5B83 /* ProjectSettingsView.swift in Sources */,
 				677A355C42931213DCE3D49A /* RemoteConfigSheet.swift in Sources */,
 				EEDD01085E8017ACB7B28038 /* RenameProfileSheet.swift in Sources */,
@@ -1038,6 +1043,7 @@
 				A2802CE957FDAE66F69FDE98 /* ProfileRowView.swift in Sources */,
 				FA2E35EA49E170C0CC37FD61 /* ProfilesSectionView.swift in Sources */,
 				973A9AF7C67E4054E07DA32B /* Project.swift in Sources */,
+				F44224AE2A4CBDC08A724142 /* ProjectPathResolver.swift in Sources */,
 				E5DB1383134998189EB70A63 /* ProjectSettingsView.swift in Sources */,
 				DABA32E893D13C742E89FA1A /* RemoteConfigSheet.swift in Sources */,
 				0EABB38CD4C5C6F2ECB00BE5 /* RenameProfileSheet.swift in Sources */,

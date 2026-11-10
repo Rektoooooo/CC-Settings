@@ -492,6 +492,10 @@ struct CommandsView: View {
         let targetDir = commandsURLForScope(targetScope)
         let targetURL = targetDir.appendingPathComponent(command.fileURL.lastPathComponent)
         let fm = FileManager.default
+        guard ProjectPathResolver.isResolved(targetDir.path) else {
+            fileErrorMessage = "The target project's folder could not be determined, so nothing was moved."
+            return
+        }
         do {
             try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
             if fm.fileExists(atPath: targetURL.path) {
@@ -1157,6 +1161,10 @@ struct CommandEditorSheet: View {
 
         let markdown = command.toMarkdown()
 
+        guard ProjectPathResolver.isResolved(targetDir.path) else {
+            createError = "The project's folder could not be determined, so the command was not created."
+            return
+        }
         do {
             try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
             try markdown.write(to: fileURL, atomically: true, encoding: .utf8)

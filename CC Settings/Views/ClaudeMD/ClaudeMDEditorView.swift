@@ -353,10 +353,11 @@ struct ClaudeMDEditorView: View {
             configManager.saveClaudeMD()
             originalContent = content
         } else {
-            configManager.saveProjectClaudeMD(content, projectId: selectedScope)
-            originalContent = content
-            // Reload projects to pick up changes
-            loadProjects()
+            if configManager.saveProjectClaudeMD(content, projectId: selectedScope) {
+                originalContent = content
+                // Reload projects to pick up changes
+                loadProjects()
+            }
         }
     }
 }
