@@ -126,6 +126,72 @@ struct PaneHeader: View {
 
 // MARK: - ReadOnlyBanner
 
+/// Tracks the on-disk modification date a raw editor loaded, so a save can detect
+/// that something else (typically the Claude Code CLI) wrote the file meanwhile.
+struct FileEditGuard {
+    private(set) var loadedModDate: Date?
+    private(set) var conflict = false
+    private(set) var errorMessage: String?
+
+    static func modDate(of url: URL) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: url.resolvingWriteTarget().path))?[.modificationDate] as? Date
+    }
+
+    mutating func markLoaded(_ url: URL) {
+        loadedModDate = Self.modDate(of: url)
+        conflict = false
+        errorMessage = nil
+    }
+
+    /// Writes `content` unless the file changed since load (then flags a conflict
+    /// and writes nothing). `force` is the user's explicit "Overwrite". Returns true on success.
+    mutating func save(_ content: String, to url: URL, force: Bool = false) -> Bool {
+        if !force, Self.modDate(of: url) != loadedModDate {
+            conflict = true
+            return false
+        }
+        do {
+            try content.writeAtomicallyFollowingSymlinks(to: url)
+            markLoaded(url)
+            return true
+        } catch {
+            errorMessage = "Could not save: \(error.localizedDescription)"
+            return false
+        }
+    }
+}
+
+struct FileConflictBanner: View {
+    let state: FileEditGuard
+    var onReload: () -> Void
+    var onOverwrite: () -> Void
+
+    var body: some View {
+        if state.conflict {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                Text("This file changed on disk since you opened it. Saving now would discard those changes.")
+                    .font(.caption)
+                Spacer()
+                Button("Reload", action: onReload).controlSize(.small)
+                Button("Overwrite", role: .destructive, action: onOverwrite).controlSize(.small)
+            }
+            .padding(8)
+            .glassBanner(tint: .orange)
+            .padding(.horizontal, 12)
+        } else if let message = state.errorMessage {
+            HStack(spacing: 8) {
+                Image(systemName: "xmark.octagon.fill").foregroundColor(.red)
+                Text(message).font(.caption)
+                Spacer()
+            }
+            .padding(8)
+            .glassBanner(tint: .red)
+            .padding(.horizontal, 12)
+        }
+    }
+}
+
 struct ReadOnlyBanner: View {
     var message: String = "This file is read-only."
 

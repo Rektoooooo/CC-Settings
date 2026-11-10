@@ -11,6 +11,8 @@ struct CleanupView: View {
     @State private var filterOption: FilterOption = .all
     @State private var isLoading = false
     @State private var showDeleteAlert = false
+    @State private var deleteErrors: [String] = []
+    @State private var showDeleteErrors = false
 
     enum SortOrder: String, CaseIterable {
         case size = "Size"
@@ -79,7 +81,7 @@ struct CleanupView: View {
 
         if let cutoff = filterOption.cutoffDate {
             filtered = filtered.filter { project in
-                guard let lastAccessed = project.lastAccessed else { return true }
+                guard let lastAccessed = project.lastAccessed else { return false }
                 return lastAccessed < cutoff
             }
         }
@@ -217,7 +219,7 @@ struct CleanupView: View {
                             onSelectOld: {
                                 let cutoff = Calendar.current.date(byAdding: .month, value: -3, to: Date())!
                                 selectedProjectIds = Set(projects.filter { project in
-                                    guard let lastAccessed = project.lastAccessed else { return true }
+                                    guard let lastAccessed = project.lastAccessed else { return false }
                                     return lastAccessed < cutoff
                                 }.map(\.id))
                             },
@@ -249,7 +251,7 @@ struct CleanupView: View {
                     Button(role: .destructive) {
                         showDeleteAlert = true
                     } label: {
-                        Label("Delete Selected (\(selectedProjectIds.count) - \(formattedSize(selectedSize)))", systemImage: "trash")
+                        Label("Trash Sessions (\(selectedProjectIds.count) - \(formattedSize(selectedSize)))", systemImage: "trash")
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
@@ -263,13 +265,21 @@ struct CleanupView: View {
             loadProjects()
             calculateTotalClaudeStorage()
         }
-        .alert("Delete Selected Projects", isPresented: $showDeleteAlert) {
+        .onChange(of: filterOption) { _, _ in
+            selectedProjectIds.removeAll()
+        }
+        .alert("Move Session Data to Trash", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
+            Button("Move to Trash", role: .destructive) {
                 deleteSelectedProjects()
             }
         } message: {
-            Text("Are you sure you want to delete \(selectedProjectIds.count) project\(selectedProjectIds.count == 1 ? "" : "s") (\(formattedSize(selectedSize)))? This cannot be undone.")
+            Text("Move the session history of \(selectedProjectIds.count) project\(selectedProjectIds.count == 1 ? "" : "s") (\(formattedSize(selectedSize))) to the Trash? Project memory and settings are kept.")
+        }
+        .alert("Some items could not be removed", isPresented: $showDeleteErrors) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrors.prefix(5).joined(separator: "\n"))
         }
     }
 
@@ -283,17 +293,25 @@ struct CleanupView: View {
     }
 
     private func deleteSelectedProjects() {
-        let fm = FileManager.default
         let home = FileManager.default.homeDirectoryForCurrentUser
         let projectsDir = home.appendingPathComponent(".claude/projects")
+        // Only ever act on what the user can currently see.
+        let visible = Set(sortedFilteredProjects.map(\.id))
+        var errors: [String] = []
 
-        for id in selectedProjectIds {
+        for id in selectedProjectIds where visible.contains(id) {
             let projectDir = projectsDir.appendingPathComponent(id)
-            try? fm.removeItem(at: projectDir)
+            for (url, error) in SessionCleanup.trashSessions(in: projectDir) {
+                errors.append("\(url.lastPathComponent): \(error.localizedDescription)")
+            }
         }
 
         selectedProjectIds.removeAll()
         loadProjects()
+        if !errors.isEmpty {
+            deleteErrors = errors
+            showDeleteErrors = true
+        }
     }
 
     private func formattedSize(_ bytes: Int64) -> String {
@@ -459,10 +477,7 @@ private struct AgeDistributionView: View {
         var moreThanThreeMonths = 0
 
         for project in projects {
-            guard let date = project.lastAccessed else {
-                moreThanThreeMonths += 1
-                continue
-            }
+            guard let date = project.lastAccessed else { continue }
             if date > oneWeek {
                 lessThanWeek += 1
             } else if date > fourWeeks {
@@ -523,7 +538,7 @@ private struct RecommendationsView: View {
     private var oldProjectCount: Int {
         let cutoff = Calendar.current.date(byAdding: .month, value: -3, to: Date())!
         return projects.filter { project in
-            guard let date = project.lastAccessed else { return true }
+            guard let date = project.lastAccessed else { return false }
             return date < cutoff
         }.count
     }

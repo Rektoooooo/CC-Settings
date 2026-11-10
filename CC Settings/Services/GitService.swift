@@ -15,6 +15,7 @@ class GitService: ObservableObject {
     @Published var changedFiles: [GitFileChange] = []
     @Published var commitLog: [GitCommit] = []
     @Published var isLoading: Bool = false
+    @Published var initError: String?
 
     @Published var repoPath: URL {
         didSet {
@@ -131,6 +132,7 @@ class GitService: ObservableObject {
     // MARK: - Init Repo
 
     func initRepo() async -> Bool {
+        initError = nil
         let fm = FileManager.default
         try? fm.createDirectory(at: repoPath, withIntermediateDirectories: true)
 
@@ -138,10 +140,24 @@ class GitService: ObservableObject {
         guard initExit == 0 else { return false }
 
         let gitignoreURL = repoPath.appendingPathComponent(".gitignore")
-        do {
-            try Self.defaultGitignoreContent.write(to: gitignoreURL, atomically: true, encoding: .utf8)
-        } catch {
-            return false
+        let existing = try? String(contentsOf: gitignoreURL, encoding: .utf8)
+        if let merged = Self.gitignoreContent(merging: existing) {
+            do {
+                try merged.write(to: gitignoreURL, atomically: true, encoding: .utf8)
+            } catch {
+                initError = "Could not write .gitignore: \(error.localizedDescription)"
+                return false
+            }
+        }
+
+        // Refuse to stage secrets: anything obvious that exists must be ignored.
+        for name in Self.obviousSecretFiles
+        where fm.fileExists(atPath: repoPath.appendingPathComponent(name).path) {
+            let (_, ignored) = await runGit(["check-ignore", "-q", name])
+            if ignored != 0 {
+                initError = "\(name) contains secrets and is not ignored by .gitignore. Add it to .gitignore (or remove it) before initializing."
+                return false
+            }
         }
 
         let (_, addExit) = await runGit(["add", "."])
@@ -276,24 +292,44 @@ class GitService: ObservableObject {
 
     // MARK: - Helpers
 
-    static let defaultGitignoreContent = """
-    # Session files (large, machine-specific)
-    projects/*/sessions/*.jsonl
-    projects/*/*.jsonl
+    /// Entries we want ignored in a ~/.claude repo: secrets first, then bulky or
+    /// volatile runtime data. Settings, CLAUDE.md, commands, skills, agents and
+    /// hook scripts stay tracked.
+    static let recommendedIgnoreEntries: [String] = [
+        // Secrets
+        ".credentials.json", "credentials.json", ".env", "*.token",
+        // Conversation history and per-session runtime data
+        "history.jsonl", "projects/*/*", "!projects/*/memory/",
+        "file-history/", "paste-cache/", "shell-snapshots/", "session-env/",
+        "sessions/", "todos/", "statsig/", "telemetry/", "ide/",
+        // Caches, backups, runtime state
+        "cache/", "downloads/", "debug/", "backups/", "daemon/", "jobs/", "state/", "tasks/", "teams/",
+        "plugins/cache/", "plugins/marketplaces/", "stats-cache.json",
+        // Misc
+        "*.lock", "*.log", "*.bak", "settings.json.backup*", ".DS_Store",
+    ]
 
-    # Log files
-    *.log
+    static let gitignoreSectionMarker = "# --- CC Settings recommended ignores ---"
 
-    # OS files
-    .DS_Store
+    static var defaultGitignoreContent: String {
+        gitignoreSectionMarker + "\n" + recommendedIgnoreEntries.joined(separator: "\n") + "\n"
+    }
 
-    # Credentials and tokens
-    credentials.json
-    *.token
+    /// Never overwrites: with no existing file returns the default content;
+    /// otherwise returns the existing text with only the missing entries appended
+    /// under a marked section (nil when nothing is missing).
+    static func gitignoreContent(merging existing: String?) -> String? {
+        guard let existing else { return defaultGitignoreContent }
+        let present = Set(existing.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) })
+        let missing = recommendedIgnoreEntries.filter { !present.contains($0) }
+        if missing.isEmpty { return nil }
+        var result = existing
+        if !result.isEmpty && !result.hasSuffix("\n") { result += "\n" }
+        result += "\n" + gitignoreSectionMarker + "\n" + missing.joined(separator: "\n") + "\n"
+        return result
+    }
 
-    # Backup files
-    *.bak
-    """
+    static let obviousSecretFiles = [".credentials.json", "credentials.json", ".env"]
 
     func defaultGitignore() -> String {
         Self.defaultGitignoreContent

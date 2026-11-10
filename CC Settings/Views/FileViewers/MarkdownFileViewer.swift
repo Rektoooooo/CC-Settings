@@ -6,6 +6,7 @@ struct MarkdownFileViewer: View {
 
     @State private var content: String = ""
     @State private var originalContent: String = ""
+    @State private var editGuard = FileEditGuard()
     @State private var viewMode: ViewMode = .preview
 
     private var hasChanges: Bool {
@@ -18,13 +19,15 @@ struct MarkdownFileViewer: View {
                 file: file,
                 readOnly: readOnly,
                 hasChanges: hasChanges,
-                onSave: save,
+                onSave: { save() },
                 onRevert: revert
             ) {
                 ViewModePicker(mode: $viewMode)
             }
 
             Divider()
+
+            FileConflictBanner(state: editGuard, onReload: loadContent, onOverwrite: { save(force: true) })
 
             if readOnly && viewMode != .preview {
                 ReadOnlyBanner()
@@ -91,6 +94,7 @@ struct MarkdownFileViewer: View {
     }
 
     private func loadContent() {
+        editGuard.markLoaded(file.path)
         if let text = try? String(contentsOf: file.path, encoding: .utf8) {
             content = text
             originalContent = text
@@ -100,12 +104,9 @@ struct MarkdownFileViewer: View {
         }
     }
 
-    private func save() {
-        do {
-            try content.write(to: file.path, atomically: true, encoding: .utf8)
+    private func save(force: Bool = false) {
+        if editGuard.save(content, to: file.path, force: force) {
             originalContent = content
-        } catch {
-            print("Failed to save file: \(error)")
         }
     }
 

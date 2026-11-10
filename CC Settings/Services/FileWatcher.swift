@@ -9,6 +9,9 @@ class FileWatcher: ObservableObject {
     private var debounceTimer: Timer?
     private let globalWatchPath: String
     private var watchPaths: [String] = []
+    /// Per-project config files (<project>/.claude/settings*.json, .mcp.json, CLAUDE.md) whose
+    /// mtime+size are snapshotted like the global ones, so CLI edits to them are noticed.
+    private var projectConfigFiles: [String] = []
 
     /// Per-file mtime+size tracking to skip reloads when nothing actually changed on disk.
     private var fileSnapshots: [String: FileSnapshot] = [:]
@@ -44,7 +47,16 @@ class FileWatcher: ObservableObject {
         let fm = FileManager.default
         var paths: [String] = [globalWatchPath]
 
-        for project in projects {
+        var configFiles: [String] = []
+        for project in projects where project.isPathResolved {
+            let root = URL(fileURLWithPath: project.originalPath)
+            configFiles += [
+                root.appendingPathComponent(".claude/settings.json").path,
+                root.appendingPathComponent(".claude/settings.local.json").path,
+                root.appendingPathComponent(".mcp.json").path,
+                root.appendingPathComponent("CLAUDE.md").path,
+                root.appendingPathComponent(".claude/CLAUDE.md").path,
+            ]
             let projectClaudeDir = (project.originalPath as NSString).appendingPathComponent(".claude")
             var isDir: ObjCBool = false
             if fm.fileExists(atPath: projectClaudeDir, isDirectory: &isDir), isDir.boolValue {
@@ -56,6 +68,8 @@ class FileWatcher: ObservableObject {
                 paths.append(project.originalPath)
             }
         }
+
+        projectConfigFiles = configFiles
 
         // Deduplicate and sort for stable comparison
         let newPaths = Array(Set(paths)).sorted()
@@ -114,6 +128,22 @@ class FileWatcher: ObservableObject {
             } else {
                 fileSnapshots[path] = current
                 changed = true
+            }
+        }
+
+        for path in projectConfigFiles {
+            guard let current = snapshotFile(at: path) else {
+                if fileSnapshots[path] != nil {
+                    fileSnapshots.removeValue(forKey: path)
+                    changed = true
+                }
+                continue
+            }
+            if let previous = fileSnapshots[path] {
+                if current != previous { fileSnapshots[path] = current; changed = true }
+            } else {
+                // First sighting of a project file is a baseline, not a change.
+                fileSnapshots[path] = current
             }
         }
 

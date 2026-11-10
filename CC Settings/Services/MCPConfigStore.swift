@@ -48,6 +48,13 @@ struct MCPConfigStore {
         return result
     }
 
+    /// Keys of the top-level `projects` map (real project paths). Empty if the file
+    /// is missing or unreadable.
+    func projectPaths() -> [String] {
+        guard let root = try? readRoot(), let projects = root["projects"] as? [String: Any] else { return [] }
+        return Array(projects.keys)
+    }
+
     func rawServer(named name: String) throws -> [String: Any]? {
         try loadRawServers()[name]
     }
@@ -80,7 +87,7 @@ struct MCPConfigStore {
         }
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try JSONTextFixer.restoreIntegers(data).write(to: fileURL, options: .atomic)
+        try JSONTextFixer.restoreIntegers(data).writeAtomicallyFollowingSymlinks(to: fileURL)
     }
 
     /// Writes (or replaces) raw server dicts by name.
