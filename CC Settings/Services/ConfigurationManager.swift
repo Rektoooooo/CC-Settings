@@ -1271,10 +1271,20 @@ class ConfigurationManager: ObservableObject {
     }
 
     private func sanitizeThemeName(_ name: String) -> String {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleaned = trimmed.isEmpty ? "untitled" : trimmed
-        // Strip path separators and reserved characters; keep alnum, dash, underscore, dot
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
-        return String(cleaned.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" })
+        ThemeFile.slug(from: name)
+    }
+
+    /// Converts a theme written in the old flat format to `{name, base, overrides}`. The
+    /// original file is first copied next to it as `<slug>.json.bak` (Claude Code only loads
+    /// `*.json`), so the conversion can always be undone by hand.
+    @discardableResult
+    func convertLegacyTheme(_ theme: ThemeFile) throws -> ThemeFile {
+        let backup = theme.url.appendingPathExtension("bak")
+        if FileManager.default.fileExists(atPath: theme.url.path), !FileManager.default.fileExists(atPath: backup.path) {
+            try FileManager.default.copyItem(at: theme.url, to: backup)
+        }
+        let converted = theme.convertedFromLegacy()
+        try saveTheme(converted)
+        return converted
     }
 }

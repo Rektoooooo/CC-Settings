@@ -45,9 +45,7 @@ struct ThemesView: View {
         guard !searchText.isEmpty else { return themes }
         let q = searchText.lowercased()
         return themes.filter {
-            $0.id.lowercased().contains(q) ||
-            ($0.colors.name?.lowercased().contains(q) ?? false) ||
-            ($0.colors.description?.lowercased().contains(q) ?? false)
+            $0.id.lowercased().contains(q) || $0.name.lowercased().contains(q)
         }
     }
 
@@ -121,7 +119,7 @@ struct ThemesView: View {
                 if !filteredCustomThemes.isEmpty {
                     Section("Custom") {
                         ForEach(filteredCustomThemes) { theme in
-                            ThemeListRow(theme: theme, isActive: theme.id == activeThemeName)
+                            ThemeListRow(theme: theme, isActive: isActive(custom: theme))
                                 .tag(ThemeSelection.custom(theme.id))
                                 .contentShape(Rectangle())
                         }
@@ -195,6 +193,11 @@ struct ThemesView: View {
     private func isActive(builtIn theme: BuiltInTheme) -> Bool {
         if theme.isAuto { return activeThemeName == nil }
         return theme.id == activeThemeName
+    }
+
+    /// Claude Code stores a custom theme as `custom:<slug>` in settings.json `theme`.
+    private func isActive(custom theme: ThemeFile) -> Bool {
+        ThemeFile.slug(fromActivationValue: activeThemeName) == theme.id
     }
 
     private func activate(builtIn theme: BuiltInTheme) {
@@ -317,7 +320,7 @@ struct ThemesView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "lock")
                             .foregroundColor(.secondary)
-                        Text("Built into Claude Code — colors are baked into the CLI binary and can't be edited.")
+                        Text("Built into Claude Code and can't be edited. Duplicate it to make a custom theme based on it.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -326,18 +329,15 @@ struct ThemesView: View {
                         HStack(spacing: 6) {
                             Text("Preview")
                                 .font(.headline)
-                            Text("(approximate)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
                         ThemePreview(theme: ThemeFile(
                             id: theme.id,
                             url: URL(fileURLWithPath: "/dev/null"),
-                            colors: theme.approximateColors,
-                            unknownFields: [:]
+                            name: theme.displayName,
+                            base: theme.base ?? "dark"
                         ))
                         .frame(height: 260)
-                        Text("These colors are CC Settings' best-effort approximation. The CLI's actual built-in palette may differ.")
+                        Text("Rendered from the palette shipped in Claude Code, so these are the real colours.")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -352,10 +352,7 @@ struct ThemesView: View {
     private func duplicateBuiltIn(_ theme: BuiltInTheme) {
         let url = configManager.themeURL(forNewName: "\(theme.id)-copy")
         let newID = url.deletingPathExtension().lastPathComponent
-        var colors = theme.approximateColors
-        colors.name = newID
-        colors.description = "Editable copy of the built-in \(theme.displayName) theme (colors are approximate)."
-        let dup = ThemeFile(id: newID, url: url, colors: colors, unknownFields: [:])
+        let dup = ThemeFile(id: newID, url: url, name: newID, base: theme.base ?? "dark")
         do {
             try configManager.saveTheme(dup)
             reload()
@@ -371,13 +368,13 @@ struct ThemesView: View {
     @ViewBuilder
     private func customDetailPane(for theme: ThemeFile) -> some View {
         let bindingIndex = themes.firstIndex(of: theme) ?? 0
-        let isActive = theme.id == activeThemeName
+        let isActive = isActive(custom: theme)
 
         VStack(spacing: 0) {
             // Header bar
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(theme.colors.name ?? theme.id)
+                    Text(theme.name)
                         .font(.title3.weight(.semibold))
                     Text(theme.url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                         .font(.caption)
@@ -392,7 +389,7 @@ struct ThemesView: View {
                     }
                 } else {
                     Button {
-                        configManager.saveField("theme", value: theme.id)
+                        configManager.saveField("theme", value: ThemeFile.activationValue(forSlug: theme.id))
                     } label: {
                         Label("Set as Active", systemImage: "checkmark.circle")
                     }
@@ -440,7 +437,8 @@ struct ThemesView: View {
                     case .structured:
                         ThemeColorsEditor(
                             theme: themesBinding(at: bindingIndex),
-                            onChange: { persistTheme(at: bindingIndex) }
+                            onChange: { persistTheme(at: bindingIndex) },
+                            onConvertLegacy: { convertLegacy(theme) }
                         )
                         .frame(minHeight: 480)
                     case .json:
@@ -518,7 +516,7 @@ struct ThemesView: View {
         Binding<ThemeFile>(
             get: {
                 guard themes.indices.contains(index) else {
-                    return ThemeFile(id: "", url: URL(fileURLWithPath: "/"), colors: ThemeColors(), unknownFields: [:])
+                    return ThemeFile(id: "", url: URL(fileURLWithPath: "/"))
                 }
                 return themes[index]
             },
@@ -558,18 +556,7 @@ struct ThemesView: View {
                 return
             }
             jsonError = nil
-            var newColors = ThemeColors()
-            var unknown: [String: Any] = [:]
-            for (key, value) in dict {
-                if ThemeColors.knownKeys.contains(key), let s = value as? String {
-                    newColors.setValue(s, forKey: key)
-                } else {
-                    unknown[key] = value
-                }
-            }
-            var updated = theme
-            updated.colors = newColors
-            updated.unknownFields = unknown
+            let updated = ThemeFile.parse(dict, id: theme.id, url: theme.url)
             if let idx = themes.firstIndex(where: { $0.id == theme.id }) {
                 themes[idx] = updated
                 persistTheme(at: idx)
@@ -588,24 +575,10 @@ struct ThemesView: View {
         let url = configManager.themeURL(forNewName: basename)
         let id = url.deletingPathExtension().lastPathComponent
 
-        var colors: ThemeColors
-        if let preset = preset {
-            colors = preset.colors
-            // Preset templates ship with a fixed (dark) surface — swap it to a
-            // light or dark surface to match the app's current appearance.
-            if colorScheme == .light {
-                colors.background = "#ffffff"
-                colors.foreground = "#1f2328"
-            } else {
-                colors.background = "#1e1e1e"
-                colors.foreground = "#f8f8f2"
-            }
-        } else {
-            colors = ThemeColors.starter
-        }
-        colors.name = id
-
-        let theme = ThemeFile(id: id, url: url, colors: colors, unknownFields: [:])
+        // Same shape the CLI writes for a new theme: { name, base: "dark", overrides: {} }.
+        let theme = ThemeFile(id: id, url: url, name: id,
+                              base: preset?.base ?? "dark",
+                              overrides: preset?.overrides ?? [:])
         do {
             try configManager.saveTheme(theme)
             reload()
@@ -619,9 +592,10 @@ struct ThemesView: View {
     private func duplicateTheme(_ theme: ThemeFile) {
         let url = configManager.themeURL(forNewName: "\(theme.id)-copy")
         let newID = url.deletingPathExtension().lastPathComponent
-        var copy = theme.colors
-        copy.name = newID
-        let dup = ThemeFile(id: newID, url: url, colors: copy, unknownFields: theme.unknownFields)
+        var dup = theme
+        dup = ThemeFile(id: newID, url: url, name: newID, base: theme.base,
+                        overrides: theme.overrides, extraOverrides: theme.extraOverrides,
+                        unknownFields: theme.unknownFields, legacyFlatColors: theme.legacyFlatColors)
         do {
             try configManager.saveTheme(dup)
             reload()
@@ -631,8 +605,18 @@ struct ThemesView: View {
         }
     }
 
+    private func convertLegacy(_ theme: ThemeFile) {
+        do {
+            try configManager.convertLegacyTheme(theme)
+            reload()
+            if editorMode == .json, let updated = selectedCustomTheme { syncJSONText(from: updated) }
+        } catch {
+            print("[Themes] legacy conversion failed: \(error)")
+        }
+    }
+
     private func deleteTheme(_ theme: ThemeFile) {
-        let wasActive = theme.id == activeThemeName
+        let wasActive = isActive(custom: theme)
         let didDelete = configManager.deleteTheme(at: theme.url)
         if didDelete && wasActive {
             configManager.saveField("theme", value: nil)

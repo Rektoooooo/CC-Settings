@@ -11,6 +11,7 @@
 		050CD697089C9A8087BC1A1B /* SessionBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328FF89B7FA04E0D158C45B1 /* SessionBrowserView.swift */; };
 		079CDC220C1AD8519FA18815 /* ClaudeMDTemplateSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F09989E8223ECF15204F6E9C /* ClaudeMDTemplateSheet.swift */; };
 		07F68B5C3EF194A8BA80410C /* PDFFileViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1C5E50B44090D96EF8F0F6 /* PDFFileViewer.swift */; };
+		0A3BC86700579C7FB3D5D0EA /* ThemeColorValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA152C547250B571B5FDCE1 /* ThemeColorValue.swift */; };
 		0A93D37C46C8D7290E86E037 /* FilesEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95DD4BEB6376F68DD0EEB95D /* FilesEditorView.swift */; };
 		0AF15F5D2C5F93CAB8A8D411 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 05708D1EEE134DA9D98FA47D /* Sparkle */; };
 		0C3538A23C67ED399C0BCFF1 /* EnvironmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBACEF453905427755724E6B /* EnvironmentView.swift */; };
@@ -58,6 +59,7 @@
 		3641489046707FF2CF2E1A41 /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABBEA91C9241775E4762FA3 /* DiffView.swift */; };
 		3783A2CA38FF004ECBD4A170 /* ProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FD32E0843EE91FBE088CCB /* ProfileManager.swift */; };
 		39C2964A5E3910D0585E0379 /* LocalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1188CEA5F6403489C8F5B8D5 /* LocalSettings.swift */; };
+		39E9C47C166F4AF20589596D /* ClaudeThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 279AEC88061726C85038469E /* ClaudeThemePalette.swift */; };
 		39FE13B6686533A0D25A84A3 /* ConfigScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F073C786ED3E06CF317D2B2 /* ConfigScope.swift */; };
 		3B0ACF9EFAF6F71F1F9F9496 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9619513D2C0BE5154D9833F /* MessageBubbleView.swift */; };
 		3B6F93F57B49CF0D5E4A2D0F /* SlashCommandFrontmatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ADF188DD739E750B74A4403 /* SlashCommandFrontmatterTests.swift */; };
@@ -158,6 +160,7 @@
 		B538EA1DF7F5A282C5884500 /* MCPServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6848B502FFF62D5E12171 /* MCPServerDetailView.swift */; };
 		B97B99802528BFC2AAD6568A /* ProfilesSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787331C74C55993C50570328 /* ProfilesSectionView.swift */; };
 		BA4F5C81EDB04391BAD343E2 /* SparkleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */; };
+		BC61EA98CB27762F5BB914F0 /* ClaudeThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 279AEC88061726C85038469E /* ClaudeThemePalette.swift */; };
 		BF52AAA75485984038BCE620 /* ModelVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51FE8839C47A55D39017A981 /* ModelVersion.swift */; };
 		C1FED1B45E30E528B0ED393B /* FilesEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95DD4BEB6376F68DD0EEB95D /* FilesEditorView.swift */; };
 		C4CF6339CB907B182EA1A065 /* SessionMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B8EDA42E53A1801F62C1D4D /* SessionMessage.swift */; };
@@ -192,6 +195,7 @@
 		EEDD01085E8017ACB7B28038 /* RenameProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD13628C4D250700720A2A4 /* RenameProfileSheet.swift */; };
 		EF4902605B3DABBABDBF5B83 /* ProjectSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB2AED6BDA87B6F3DE6EBC7 /* ProjectSettingsView.swift */; };
 		EFC602EA2A067A7DB29417B5 /* SkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275444EFD66E137506BB4EF0 /* SkillsView.swift */; };
+		EFE2D4DABFC95FDAA3EFBB0E /* ThemeColorValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA152C547250B571B5FDCE1 /* ThemeColorValue.swift */; };
 		F0C46396585CF6417080D3BC /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9619513D2C0BE5154D9833F /* MessageBubbleView.swift */; };
 		F0D3FA3EC01BD4CF0AADA4E1 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1189E528380743FB14D6A843 /* FileBrowserView.swift */; };
 		F144192964A1AA01C6D603F4 /* SessionSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29CB8E953CC9F46733739C85 /* SessionSearchView.swift */; };
@@ -233,6 +237,7 @@
 		23EB37849C3A01025DEC331C /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		251928B6A1254822B0EAFBE8 /* PermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsView.swift; sourceTree = "<group>"; };
 		275444EFD66E137506BB4EF0 /* SkillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsView.swift; sourceTree = "<group>"; };
+		279AEC88061726C85038469E /* ClaudeThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeThemePalette.swift; sourceTree = "<group>"; };
 		29CB8E953CC9F46733739C85 /* SessionSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSearchView.swift; sourceTree = "<group>"; };
 		2B8EDA42E53A1801F62C1D4D /* SessionMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMessage.swift; sourceTree = "<group>"; };
 		2DAAEA6D3C05B1AFF7973F22 /* TextFileViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFileViewer.swift; sourceTree = "<group>"; };
@@ -305,6 +310,7 @@
 		D6D9E06B91DEF7F04F9B3F3F /* ClaudeFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeFile.swift; sourceTree = "<group>"; };
 		D839A7EB03B06AA9091A4A87 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D9619513D2C0BE5154D9833F /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
+		DAA152C547250B571B5FDCE1 /* ThemeColorValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeColorValue.swift; sourceTree = "<group>"; };
 		DB76297BD50B47F6E08293E2 /* JSONFileViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFileViewer.swift; sourceTree = "<group>"; };
 		E078EEF2396FC63786AA8871 /* ThemeListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeListRow.swift; sourceTree = "<group>"; };
 		E6A0C97F7B9C63135FC42CC5 /* AppGitPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGitPreferences.swift; sourceTree = "<group>"; };
@@ -493,6 +499,7 @@
 			isa = PBXGroup;
 			children = (
 				CB11AF781C112FC55BC2948A /* ThemeColorsEditor.swift */,
+				DAA152C547250B571B5FDCE1 /* ThemeColorValue.swift */,
 				E078EEF2396FC63786AA8871 /* ThemeListRow.swift */,
 				674CFA83FAC8B873FB2486A4 /* ThemePresets.swift */,
 				8600336C40FA467DC344DA7A /* ThemePreview.swift */,
@@ -564,6 +571,7 @@
 				D6D9E06B91DEF7F04F9B3F3F /* ClaudeFile.swift */,
 				E8D11316B1B54134A2BCEB44 /* ClaudeMDTemplate.swift */,
 				66B2C43096D4BEC57C5024F9 /* ClaudeSettings.swift */,
+				279AEC88061726C85038469E /* ClaudeThemePalette.swift */,
 				0F073C786ED3E06CF317D2B2 /* ConfigScope.swift */,
 				1B1F90F1677A78B70953916E /* GitModels.swift */,
 				20E6BAEA0D50A77EA377254A /* JSONValue.swift */,
@@ -879,6 +887,7 @@
 				47FB497D4B354E06BEE91BE0 /* ClaudeMDTemplate.swift in Sources */,
 				079CDC220C1AD8519FA18815 /* ClaudeMDTemplateSheet.swift in Sources */,
 				9906C239BDE1308EE085E593 /* ClaudeSettings.swift in Sources */,
+				BC61EA98CB27762F5BB914F0 /* ClaudeThemePalette.swift in Sources */,
 				168EB1562CCDAB9CAF0A31E5 /* CleanupView.swift in Sources */,
 				99DC87BADFF2757E3B71ACB7 /* ColorHexExtension.swift in Sources */,
 				DE2994FC751D671E10C0C3F5 /* CommandFrontmatter.swift in Sources */,
@@ -951,6 +960,7 @@
 				E108FDD9BF6D25D3C5B51324 /* StatsView.swift in Sources */,
 				224DB4B0BA132358417F0DE2 /* TasksView.swift in Sources */,
 				D86D9F8F6478CA2E59D44BD1 /* TextFileViewer.swift in Sources */,
+				0A3BC86700579C7FB3D5D0EA /* ThemeColorValue.swift in Sources */,
 				A55190A5F540D398A98E5825 /* ThemeColorsEditor.swift in Sources */,
 				20D2665B9971097F895A7BAE /* ThemeFile.swift in Sources */,
 				89C85454B75A22A66F2B8DD6 /* ThemeListRow.swift in Sources */,
@@ -987,6 +997,7 @@
 				E162359C2F1F49F1EDBCFAF5 /* ClaudeMDTemplate.swift in Sources */,
 				5EC55AAD01668163735D19A5 /* ClaudeMDTemplateSheet.swift in Sources */,
 				8D517863543883B850335D11 /* ClaudeSettings.swift in Sources */,
+				39E9C47C166F4AF20589596D /* ClaudeThemePalette.swift in Sources */,
 				20A73BC06CF91A880BA46A63 /* CleanupView.swift in Sources */,
 				E6E5FF9459136BC78DDA4407 /* ColorHexExtension.swift in Sources */,
 				DE9944C23B162AEF74013856 /* CommandFrontmatter.swift in Sources */,
@@ -1064,6 +1075,7 @@
 				FDF61B35D5063CB0E5BCD26B /* StatsView.swift in Sources */,
 				8EAEFF58029DBB15DEA76F8B /* TasksView.swift in Sources */,
 				78B5BB5A9A9A4755B1C1CB5A /* TextFileViewer.swift in Sources */,
+				EFE2D4DABFC95FDAA3EFBB0E /* ThemeColorValue.swift in Sources */,
 				CD7E06A36B0A531C8C8DA0C7 /* ThemeColorsEditor.swift in Sources */,
 				86D6BA655AD3FBA7E70B495A /* ThemeFile.swift in Sources */,
 				14DEEFB5396439C0B10D1650 /* ThemeListRow.swift in Sources */,

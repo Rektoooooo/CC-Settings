@@ -12,15 +12,13 @@ struct ThemeListRow: View {
             swatchStrip
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(theme.colors.name ?? theme.id)
+                Text(theme.name)
                     .font(.body)
                     .lineLimit(1)
-                if theme.colors.name != nil && theme.colors.name != theme.id {
-                    Text(theme.id)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
+                Text(theme.name != theme.id ? "\(theme.id) · base \(theme.base)" : "base \(theme.base)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -40,29 +38,16 @@ struct ThemeListRow: View {
 
     @ViewBuilder
     private var swatchStrip: some View {
-        let swatchPaths: [WritableKeyPath<ThemeColors, String?>] = [
-            \.background, \.foreground, \.accent, \.error, \.success, \.keyword,
-        ]
+        let keys = ["claude", "permission", "success", "error", "warning", "promptBorder"]
         HStack(spacing: 2) {
-            ForEach(0..<swatchPaths.count, id: \.self) { i in
-                swatch(for: swatchPaths[i])
+            ForEach(keys, id: \.self) { key in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(ThemeColorValue.color(theme.effectiveValue(for: key)) ?? Color.gray.opacity(0.25))
+                    .frame(width: 12, height: 18)
             }
         }
         .padding(2)
         .background(Color.secondary.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 4))
-    }
-
-    @ViewBuilder
-    private func swatch(for path: WritableKeyPath<ThemeColors, String?>) -> some View {
-        let color: Color = {
-            guard let hex = theme.colors[keyPath: path], Color.isValidHex(hex) else {
-                return Color.gray.opacity(0.25)
-            }
-            return Color(hex: hex)
-        }()
-        RoundedRectangle(cornerRadius: 2)
-            .fill(color)
-            .frame(width: 12, height: 18)
     }
 }

@@ -167,6 +167,114 @@ final class Phase2SettingsTests: XCTestCase {
         XCTAssertNil(model.toHookGroup().matcherString, "empty matcher matches everything and is omitted")
     }
 
+    // MARK: - Themes
+
+    private func themeURL(_ slug: String) -> URL {
+        home.appendingPathComponent(".claude/themes/\(slug).json")
+    }
+
+    func testThemeFileRoundTripsNameBaseOverridesAndKeepsUnknownKeys() throws {
+        let json = ##"{"name":"Midnight","base":"light","overrides":{"claude":"#112233","notAPaletteKey":"#ffffff","success":42},"futureField":{"a":1}}"##
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        var theme = ThemeFile.parse(object, id: "midnight", url: themeURL("midnight"))
+
+        XCTAssertEqual(theme.name, "Midnight")
+        XCTAssertEqual(theme.base, "light")
+        XCTAssertEqual(theme.overrides, ["claude": "#112233"])
+        XCTAssertNotNil(theme.extraOverrides["notAPaletteKey"], "unmodeled override entries are preserved")
+        XCTAssertNotNil(theme.extraOverrides["success"], "non-string override values are preserved")
+        XCTAssertFalse(theme.needsLegacyConversion)
+
+        theme.overrides["error"] = "#ff0000"
+        let out = try XCTUnwrap(JSONSerialization.jsonObject(with: theme.serialize()) as? [String: Any])
+        XCTAssertEqual(out["name"] as? String, "Midnight")
+        XCTAssertEqual(out["base"] as? String, "light")
+        XCTAssertNotNil(out["futureField"])
+        let overrides = try XCTUnwrap(out["overrides"] as? [String: Any])
+        XCTAssertEqual(overrides["claude"] as? String, "#112233")
+        XCTAssertEqual(overrides["error"] as? String, "#ff0000")
+        XCTAssertEqual(overrides["notAPaletteKey"] as? String, "#ffffff")
+        XCTAssertEqual(overrides["success"] as? Int, 42)
+    }
+
+    func testNewThemeMatchesCLIDefaultShape() throws {
+        let theme = ThemeFile(id: "my-theme", url: themeURL("my-theme"))
+        let out = try XCTUnwrap(JSONSerialization.jsonObject(with: theme.serialize()) as? [String: Any])
+        XCTAssertEqual(out["name"] as? String, "my-theme")
+        XCTAssertEqual(out["base"] as? String, "dark")
+        XCTAssertEqual((out["overrides"] as? [String: Any])?.count, 0)
+    }
+
+    func testUnknownBaseFallsBackToDarkLikeTheCLI() {
+        let theme = ThemeFile(id: "x", url: themeURL("x"), base: "solarized")
+        XCTAssertEqual(theme.base, "dark")
+    }
+
+    func testPaletteHasTheDocumentedKeysForEveryBase() {
+        for base in ClaudeThemePalette.baseNames {
+            for key in ["promptBorder", "bashBorder", "diffAdded", "claude", "success"] {
+                XCTAssertNotNil(ClaudeThemePalette.value(base: base, key: key), "\(base).\(key)")
+            }
+        }
+        XCTAssertEqual(ClaudeThemePalette.keys.count, 72)
+    }
+
+    func testFlatFormatThemeIsDetectedAndConvertedWithoutLosingData() throws {
+        let flat = ##"{"name":"old","description":"mine","accent":"#4a90e2","error":"#ff5555","keyword":"#ff79c6","ansiRed":"#ff0000"}"##
+        try FileManager.default.createDirectory(at: themeURL("old").deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(flat.utf8).write(to: themeURL("old"))
+        let manager = ConfigurationManager(homeDirectory: home)
+
+        let loaded = try XCTUnwrap(manager.loadThemes().first)
+        XCTAssertTrue(loaded.needsLegacyConversion)
+        XCTAssertTrue(loaded.overrides.isEmpty, "flat colours are not honoured by Claude Code, so they are not overrides yet")
+        XCTAssertEqual(loaded.base, "dark")
+
+        let converted = try manager.convertLegacyTheme(loaded)
+        XCTAssertFalse(converted.needsLegacyConversion)
+        XCTAssertEqual(converted.overrides["claude"], "#4a90e2")
+        XCTAssertEqual(converted.overrides["error"], "#ff5555")
+
+        let onDisk = try readJSON(themeURL("old"))
+        XCTAssertEqual(onDisk["base"] as? String, "dark")
+        XCTAssertEqual((onDisk["overrides"] as? [String: Any])?["error"] as? String, "#ff5555")
+        XCTAssertEqual(onDisk["keyword"] as? String, "#ff79c6", "unmapped colours stay in the file")
+        XCTAssertEqual(onDisk["ansiRed"] as? String, "#ff0000")
+        XCTAssertEqual(onDisk["description"] as? String, "mine")
+        let backup = themeURL("old").appendingPathExtension("bak")
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), flat, "original kept as .bak")
+    }
+
+    func testCustomThemeActivationValueUsesCustomPrefix() throws {
+        XCTAssertEqual(ThemeFile.activationValue(forSlug: "midnight"), "custom:midnight")
+        XCTAssertEqual(ThemeFile.slug(fromActivationValue: "custom:midnight"), "midnight")
+        XCTAssertNil(ThemeFile.slug(fromActivationValue: "midnight"))
+        XCTAssertNil(ThemeFile.slug(fromActivationValue: "dark"))
+        XCTAssertNil(ThemeFile.slug(fromActivationValue: nil))
+
+        let manager = ConfigurationManager(homeDirectory: home)
+        manager.saveField("theme", value: ThemeFile.activationValue(forSlug: "midnight"))
+        XCTAssertEqual(try readJSON()["theme"] as? String, "custom:midnight")
+        XCTAssertEqual(manager.settings.theme, "custom:midnight")
+    }
+
+    func testSlugFollowsTheCLIRule() {
+        XCTAssertEqual(ThemeFile.slug(from: "My Cool Theme!"), "my-cool-theme")
+        XCTAssertEqual(ThemeFile.slug(from: "  --Nord__v2--  "), "nord-v2")
+        XCTAssertEqual(ThemeFile.slug(from: "***"), "theme")
+        XCTAssertEqual(ThemeFile.slug(from: "solarized-dark"), "solarized-dark")
+    }
+
+    func testThemeColorValueParsesCLIColourSyntaxes() {
+        XCTAssertEqual(ThemeColorValue.rgb("rgb(215,119,87)")?.r, 215)
+        XCTAssertEqual(ThemeColorValue.rgb("#fff")?.g, 255)
+        XCTAssertEqual(ThemeColorValue.rgb("#0a141e")?.b, 30)
+        XCTAssertNotNil(ThemeColorValue.rgb("ansi:redBright"))
+        XCTAssertNotNil(ThemeColorValue.rgb("ansi256(196)"))
+        XCTAssertNil(ThemeColorValue.rgb("ansi:notacolor"))
+        XCTAssertNil(ThemeColorValue.rgb("red"))
+    }
+
     // MARK: - Commit-on-focus-loss helper
 
     func testTempHomeNeverTouchesRealClaudeDir() {
