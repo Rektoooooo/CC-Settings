@@ -16,7 +16,6 @@ struct ExperimentalFeaturesView: View {
 
     // Performance
     @State private var skipWebFetchPreflight: Bool = s.skipWebFetchPreflight ?? false
-    @State private var disableNonEssentialCalls: Bool = env["DISABLE_NON_ESSENTIAL_MODEL_CALLS"] == "1"
 
     // Privacy
     @State private var disableTelemetry: Bool = env["DISABLE_TELEMETRY"] == "1"
@@ -111,15 +110,6 @@ struct ExperimentalFeaturesView: View {
                         configManager.saveField("skipWebFetchPreflight", value: skipWebFetchPreflight ? true : nil)
                     }
                 Text("Skip preflight validation before fetching web content.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Toggle("Disable Non-Essential Model Calls", isOn: $disableNonEssentialCalls)
-                    .onChange(of: disableNonEssentialCalls) { _, _ in
-                        guard !isSyncing else { return }
-                        configManager.saveField("env.DISABLE_NON_ESSENTIAL_MODEL_CALLS", value: disableNonEssentialCalls ? "1" : nil)
-                    }
-                Text("Reduce API usage by disabling non-essential model calls.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
@@ -476,7 +466,6 @@ struct ExperimentalFeaturesView: View {
 
         // Performance
         skipWebFetchPreflight = s.skipWebFetchPreflight ?? false
-        disableNonEssentialCalls = env["DISABLE_NON_ESSENTIAL_MODEL_CALLS"] == "1"
 
         // Privacy
         disableTelemetry = env["DISABLE_TELEMETRY"] == "1"

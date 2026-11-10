@@ -9,7 +9,7 @@ struct EnvironmentView: View {
 
     // API & Auth
     @State private var anthropicApiKey: String = env["ANTHROPIC_API_KEY"] ?? ""
-    @State private var apiBaseURL: String = env["API_BASE_URL"] ?? ""
+    @State private var apiBaseURL: String = env["ANTHROPIC_BASE_URL"] ?? ""
 
     // Model Overrides
     @State private var anthropicModel: String = env["ANTHROPIC_MODEL"] ?? ""
@@ -36,7 +36,6 @@ struct EnvironmentView: View {
     @State private var noProxy: String = env["NO_PROXY"] ?? ""
 
     // Display & Misc
-    @State private var hideAccountInfo: Bool = env["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
     @State private var disableBugCommand: Bool = env["DISABLE_BUG_COMMAND"] == "1"
     @State private var hideCwd: Bool = env["CLAUDE_CODE_HIDE_CWD"] == "1"
     @State private var forceSyncOutput: Bool = env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] == "1"
@@ -89,6 +88,9 @@ struct EnvironmentView: View {
     @State private var webFetchCacheTtlMs: String = env["CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS"] ?? ""
     @State private var workflowPrefixStaggerMs: String = env["CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS"] ?? ""
 
+    // Claude Code 2.1.322 variables, driven by EnvCatalog (flags hold "1" or "")
+    @State private var catalogValues: [String: String] = [:]
+
     // Custom variables (not in any known category)
     @State private var customVars: [EnvVar] = []
 
@@ -105,7 +107,7 @@ struct EnvironmentView: View {
                 TextField("API Base URL", text: $apiBaseURL, prompt: Text("https://api.anthropic.com"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                Text("Custom API endpoint URL. Leave empty for default Anthropic API.")
+                Text("Custom API endpoint or gateway URL (ANTHROPIC_BASE_URL). Leave empty for the default Anthropic API.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -121,7 +123,7 @@ struct EnvironmentView: View {
 
             // MARK: - Model Overrides
             Section {
-                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-fable-5)"))
+                TextField("Default Model", text: $anthropicModel, prompt: Text("Override model (e.g. claude-fable-5-2)"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Override the model used by Claude Code. This takes priority over the model setting.")
@@ -141,7 +143,7 @@ struct EnvironmentView: View {
                             Text("fable =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-fable-5", text: $defaultFableModel)
+                            TextField("e.g. claude-fable-5-2", text: $defaultFableModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -157,7 +159,7 @@ struct EnvironmentView: View {
                             Text("sonnet =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-sonnet-4-6", text: $defaultSonnetModel)
+                            TextField("e.g. claude-sonnet-5-5", text: $defaultSonnetModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -165,7 +167,7 @@ struct EnvironmentView: View {
                             Text("haiku =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-haiku-4-5-20251001", text: $defaultHaikuModel)
+                            TextField("e.g. claude-haiku-5-5", text: $defaultHaikuModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }
@@ -176,14 +178,14 @@ struct EnvironmentView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                TextField("Effort Level Override", text: $envEffortLevel, prompt: Text("low / medium / high / xhigh / max"))
+                TextField("Effort Level Override", text: $envEffortLevel, prompt: Text(EnvCatalog.effortLevelHint))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                Text("Env-var override for effort level. Takes priority over the effortLevel setting in General.")
+                Text("Env-var override for effort level. Takes priority over the effortLevel setting in General. \"auto\" or \"unset\" ignores that setting and lets the model decide.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                TextField("Starting Model", text: $anthropicDefaultModel, prompt: Text("e.g. claude-fable-5-1"))
+                TextField("Starting Model", text: $anthropicDefaultModel, prompt: Text("e.g. claude-fable-5-2"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                 Text("Model new sessions start on. Unlike ANTHROPIC_MODEL, a /model pick still overrides this and persists across restarts.")
@@ -351,12 +353,6 @@ struct EnvironmentView: View {
 
             // MARK: - Display
             Section {
-                Toggle("Hide Account Info", isOn: $hideAccountInfo)
-                    .onChange(of: hideAccountInfo) { _, _ in save() }
-                Text("Hide email and organization details from the UI.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
                 Toggle("Hide Working Directory in Logo", isOn: $hideCwd)
                     .onChange(of: hideCwd) { _, _ in save() }
                 Text("Hide the cwd shown in the startup logo.")
@@ -594,6 +590,11 @@ struct EnvironmentView: View {
                 Text("Bedrock")
             }
 
+            // MARK: - Catalog (Claude Code 2.1.322)
+            ForEach(EnvCatalog.groups) { group in
+                catalogSection(group)
+            }
+
             // MARK: - Custom Variables
             Section {
                 ForEach($customVars) { $envVar in
@@ -645,17 +646,56 @@ struct EnvironmentView: View {
         }
     }
 
+    // MARK: - Catalog rows
+
+    @ViewBuilder
+    private func catalogSection(_ group: EnvVarGroup) -> some View {
+        Section {
+            ForEach(group.vars) { spec in
+                catalogRow(spec)
+            }
+        } header: {
+            Text(group.title)
+        }
+    }
+
+    @ViewBuilder
+    private func catalogRow(_ spec: EnvVarSpec) -> some View {
+        switch spec.kind {
+        case .flag:
+            Toggle(spec.title, isOn: Binding(
+                get: { catalogValues[spec.key] == "1" },
+                set: { newValue in
+                    catalogValues[spec.key] = newValue ? "1" : ""
+                    save()
+                }
+            ))
+        case .text(let placeholder):
+            let text = Binding(
+                get: { catalogValues[spec.key] ?? "" },
+                set: { catalogValues[spec.key] = $0 }
+            )
+            TextField(spec.title, text: text, prompt: Text(placeholder))
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .commitOnFocusLoss(of: catalogValues[spec.key] ?? "") { save() }
+        }
+        Text(spec.help)
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
     // MARK: - Known env var keys managed by this view
 
-    private static let managedKeys: Set<String> = [
-        "ANTHROPIC_API_KEY", "API_BASE_URL",
+    static let managedKeys: Set<String> = EnvCatalog.allKeys.union([
+        "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL",
         "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
         "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS", "MAX_THINKING_TOKENS", "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
         "DISABLE_PROMPT_CACHING", "DISABLE_PROMPT_CACHING_HAIKU", "DISABLE_PROMPT_CACHING_SONNET", "DISABLE_PROMPT_CACHING_OPUS",
         "MCP_TIMEOUT", "MCP_TOOL_TIMEOUT",
         "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
-        "CLAUDE_CODE_HIDE_ACCOUNT_INFO", "DISABLE_BUG_COMMAND",
+        "DISABLE_BUG_COMMAND",
         "CLAUDE_CODE_HIDE_CWD", "CLAUDE_CODE_FORCE_SYNC_OUTPUT",
         "DISABLE_UPDATES", "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE",
         "CLAUDE_CODE_FORK_SUBAGENT", "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
@@ -677,7 +717,7 @@ struct EnvironmentView: View {
         "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
         "CLAUDE_CODE_PROJECT_DIR_NAME", "CLAUDE_CODE_TOOL_MEMORY_LIMIT",
         "CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS", "CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS",
-    ]
+    ])
 
     // MARK: - Data Sync
 
@@ -686,7 +726,7 @@ struct EnvironmentView: View {
 
         // API
         anthropicApiKey = env["ANTHROPIC_API_KEY"] ?? ""
-        apiBaseURL = env["API_BASE_URL"] ?? ""
+        apiBaseURL = env["ANTHROPIC_BASE_URL"] ?? ""
 
         // Model
         anthropicModel = env["ANTHROPIC_MODEL"] ?? ""
@@ -713,7 +753,6 @@ struct EnvironmentView: View {
         noProxy = env["NO_PROXY"] ?? ""
 
         // Display
-        hideAccountInfo = env["CLAUDE_CODE_HIDE_ACCOUNT_INFO"] == "1"
         disableBugCommand = env["DISABLE_BUG_COMMAND"] == "1"
         hideCwd = env["CLAUDE_CODE_HIDE_CWD"] == "1"
         forceSyncOutput = env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] == "1"
@@ -766,6 +805,11 @@ struct EnvironmentView: View {
         webFetchCacheTtlMs = env["CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS"] ?? ""
         workflowPrefixStaggerMs = env["CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS"] ?? ""
 
+        // Claude Code 2.1.322
+        var loaded: [String: String] = [:]
+        for key in EnvCatalog.allKeys { loaded[key] = env[key] ?? "" }
+        catalogValues = loaded
+
         // Custom: everything not in managed keys
         customVars = env
             .filter { !Self.managedKeys.contains($0.key) }
@@ -788,7 +832,7 @@ struct EnvironmentView: View {
 
         // API
         setString("ANTHROPIC_API_KEY", anthropicApiKey)
-        setString("API_BASE_URL", apiBaseURL)
+        setString("ANTHROPIC_BASE_URL", apiBaseURL)
 
         // Model
         setString("ANTHROPIC_MODEL", anthropicModel)
@@ -815,7 +859,6 @@ struct EnvironmentView: View {
         setString("NO_PROXY", noProxy)
 
         // Display
-        setFlag("CLAUDE_CODE_HIDE_ACCOUNT_INFO", hideAccountInfo)
         setFlag("DISABLE_BUG_COMMAND", disableBugCommand)
         setFlag("CLAUDE_CODE_HIDE_CWD", hideCwd)
         setFlag("CLAUDE_CODE_FORCE_SYNC_OUTPUT", forceSyncOutput)
@@ -867,6 +910,9 @@ struct EnvironmentView: View {
         setString("CLAUDE_CODE_TOOL_MEMORY_LIMIT", toolMemoryLimit)
         setString("CLAUDE_CODE_WEBFETCH_CACHE_TTL_MS", webFetchCacheTtlMs)
         setString("CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS", workflowPrefixStaggerMs)
+
+        // Claude Code 2.1.322
+        for (key, value) in EnvCatalog.entries(from: catalogValues) { env[key] = value }
 
         // Custom vars
         for v in customVars {

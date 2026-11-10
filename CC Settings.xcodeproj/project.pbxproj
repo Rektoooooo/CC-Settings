@@ -52,6 +52,7 @@
 		2C94D38C318284D131DF24CB /* ConfigurationManager+Effort.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */; };
 		2CDDF9E5B70F978CC2D7FC3F /* LocalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1188CEA5F6403489C8F5B8D5 /* LocalSettings.swift */; };
 		2D056F915E28079E530EE360 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
+		2E59CA5DBB9D93BF8C739E7F /* EnvCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B149DFFE8AFEC973B46DCAD /* EnvCatalog.swift */; };
 		2E882D00E589E01ED9E6CE5C /* ClaudeMDRestoreSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */; };
 		31599CB86142F88B7BD2F36F /* ClaudeMDRestoreSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */; };
 		3557DF255BB475CFD9E05819 /* MCPServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6848B502FFF62D5E12171 /* MCPServerDetailView.swift */; };
@@ -163,6 +164,7 @@
 		AA5253386D712F4C524659E2 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1272144BB3458BCC276CEF2A /* ThemeManager.swift */; };
 		AA778A2AB527D9EE31EEF4BD /* MCPServerEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B1474031CF8BC28B64C214 /* MCPServerEditorSheet.swift */; };
 		AD265160657F09CDB1890CA8 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
+		AE0F66E418C006D8E3E04A2F /* Phase6EnvTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF45FCC2D27581F056FEF0E /* Phase6EnvTests.swift */; };
 		AFC76AD94E046724E4BBCA2A /* ModelVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51FE8839C47A55D39017A981 /* ModelVersion.swift */; };
 		B2515A140D16B80C36B8C7CC /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A1F0B40DCCBCDD81881DED /* GlassModifiers.swift */; };
 		B372E01E0136EBA73782D1A8 /* AtomicWrite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ADBF942B755968E26569FE /* AtomicWrite.swift */; };
@@ -204,6 +206,7 @@
 		EB6C82D989049CC8B9F04101 /* CommandsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CF305B3F5031F47BFBC288 /* CommandsView.swift */; };
 		EBA0610ADFA02A93747E2950 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D839A7EB03B06AA9091A4A87 /* ContentView.swift */; };
 		EEDD01085E8017ACB7B28038 /* RenameProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD13628C4D250700720A2A4 /* RenameProfileSheet.swift */; };
+		EF1E8D4EF54FF098198EA270 /* EnvCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B149DFFE8AFEC973B46DCAD /* EnvCatalog.swift */; };
 		EF4902605B3DABBABDBF5B83 /* ProjectSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB2AED6BDA87B6F3DE6EBC7 /* ProjectSettingsView.swift */; };
 		EFC602EA2A067A7DB29417B5 /* SkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275444EFD66E137506BB4EF0 /* SkillsView.swift */; };
 		EFE2D4DABFC95FDAA3EFBB0E /* ThemeColorValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA152C547250B571B5FDCE1 /* ThemeColorValue.swift */; };
@@ -282,6 +285,7 @@
 		66B2C43096D4BEC57C5024F9 /* ClaudeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSettings.swift; sourceTree = "<group>"; };
 		674CFA83FAC8B873FB2486A4 /* ThemePresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePresets.swift; sourceTree = "<group>"; };
 		679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleEnvironment.swift; sourceTree = "<group>"; };
+		6B149DFFE8AFEC973B46DCAD /* EnvCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvCatalog.swift; sourceTree = "<group>"; };
 		6EE6848B502FFF62D5E12171 /* MCPServerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerDetailView.swift; sourceTree = "<group>"; };
 		74DC4AD7323D8E29693D8F4A /* GitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitService.swift; sourceTree = "<group>"; };
 		7548B4D1CDD7B7F3DF012945 /* SaveProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveProfileSheet.swift; sourceTree = "<group>"; };
@@ -346,6 +350,7 @@
 		F790CBA32D82C6F36AD22B47 /* ProjectPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPathResolver.swift; sourceTree = "<group>"; };
 		FABD61633522C4352FFF6291 /* VersionControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionControlView.swift; sourceTree = "<group>"; };
 		FD444EC0B7B70C59EEA2039C /* MCPTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTool.swift; sourceTree = "<group>"; };
+		FDF45FCC2D27581F056FEF0E /* Phase6EnvTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase6EnvTests.swift; sourceTree = "<group>"; };
 		FE84A05A160B69109A6A7E69 /* GitInitSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitInitSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -427,6 +432,7 @@
 				5A0CF4CFAD380347450E02C7 /* ConfigurationManager.swift */,
 				F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */,
 				3898B96BD5C15A5644CCA7AD /* ConfigurationManager+Phase6.swift */,
+				6B149DFFE8AFEC973B46DCAD /* EnvCatalog.swift */,
 				8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */,
 				74DC4AD7323D8E29693D8F4A /* GitService.swift */,
 				03F52DADF8C0BC5E3DF5376C /* HUDConfigFile.swift */,
@@ -579,6 +585,7 @@
 				A3D3D1E09DB879505C010306 /* MCPConfigStoreTests.swift */,
 				CA93FB8BE47171FA49698879 /* Phase2SettingsTests.swift */,
 				DB32168184D32059C8D0C9D8 /* Phase5SafetyTests.swift */,
+				FDF45FCC2D27581F056FEF0E /* Phase6EnvTests.swift */,
 				A8355D574445556A424139F0 /* Phase6SettingsTests.swift */,
 				C0A63E5FB8EE73ECC5A8906B /* SettingsSafetyTests.swift */,
 				5ADF188DD739E750B74A4403 /* SlashCommandFrontmatterTests.swift */,
@@ -930,6 +937,7 @@
 				FE2FD4BB02254725A89F8E55 /* ContentView.swift in Sources */,
 				3641489046707FF2CF2E1A41 /* DiffView.swift in Sources */,
 				3E704DE7C3A9D378DA66D86E /* DirectoryListingView.swift in Sources */,
+				EF1E8D4EF54FF098198EA270 /* EnvCatalog.swift in Sources */,
 				189E2F1E3242D76B99C0EA85 /* EnvironmentView.swift in Sources */,
 				C602337400E81C6CD12EA6A1 /* ExperimentalFeaturesView.swift in Sources */,
 				A6CA0AB83C764938002C74A9 /* FileBrowserView.swift in Sources */,
@@ -1046,6 +1054,7 @@
 				7270DD5F382E6754F35380FE /* DiffView.swift in Sources */,
 				C860E97287A7E6F467B7118B /* DirectoryListingView.swift in Sources */,
 				74A55B10A857A1AE750A01E7 /* EffortSettingsTests.swift in Sources */,
+				2E59CA5DBB9D93BF8C739E7F /* EnvCatalog.swift in Sources */,
 				0C3538A23C67ED399C0BCFF1 /* EnvironmentView.swift in Sources */,
 				411FE9D39CA24AFD7DFB8CFC /* ExperimentalFeaturesView.swift in Sources */,
 				F0D3FA3EC01BD4CF0AADA4E1 /* FileBrowserView.swift in Sources */,
@@ -1088,6 +1097,7 @@
 				AD265160657F09CDB1890CA8 /* PermissionsView.swift in Sources */,
 				03C8B5E1428FE08DD2DE9F47 /* Phase2SettingsTests.swift in Sources */,
 				A31E37796728FBAFA4726A08 /* Phase5SafetyTests.swift in Sources */,
+				AE0F66E418C006D8E3E04A2F /* Phase6EnvTests.swift in Sources */,
 				BED00EF9537AA1F73C17BA05 /* Phase6SettingsTests.swift in Sources */,
 				5AEA2C9A2E15484F6EE41D42 /* PluginsView.swift in Sources */,
 				3783A2CA38FF004ECBD4A170 /* ProfileManager.swift in Sources */,
