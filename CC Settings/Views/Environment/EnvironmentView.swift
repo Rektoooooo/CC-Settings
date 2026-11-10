@@ -149,7 +149,7 @@ struct EnvironmentView: View {
                             Text("opus =")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 80, alignment: .trailing)
-                            TextField("e.g. claude-opus-4-8", text: $defaultOpusModel)
+                            TextField("e.g. claude-opus-5-5", text: $defaultOpusModel)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
                         }

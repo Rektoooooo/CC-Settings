@@ -51,6 +51,8 @@ let allModelVersions: [ModelVersion] = [
     ModelVersion(id: "fable", family: .fable, version: "", modelId: "fable", displayName: "Fable (latest)", isLatest: true),
 
     // Opus
+    ModelVersion(id: "claude-opus-5-5[1m]", family: .opus, version: "5.5 (1M)", modelId: "claude-opus-5-5[1m]", displayName: "Opus 5.5 (1M context)", isLatest: false),
+    ModelVersion(id: "claude-opus-5-5", family: .opus, version: "5.5", modelId: "claude-opus-5-5", displayName: "Opus 5.5", isLatest: false),
     ModelVersion(id: "claude-opus-5[1m]", family: .opus, version: "5 (1M)", modelId: "claude-opus-5[1m]", displayName: "Opus 5 (1M context)", isLatest: false),
     ModelVersion(id: "claude-opus-5", family: .opus, version: "5", modelId: "claude-opus-5", displayName: "Opus 5", isLatest: false),
     ModelVersion(id: "claude-opus-4-8[1m]", family: .opus, version: "4.8 (1M)", modelId: "claude-opus-4-8[1m]", displayName: "Opus 4.8 (1M context)", isLatest: false, isLegacy: true),
@@ -60,6 +62,11 @@ let allModelVersions: [ModelVersion] = [
     ModelVersion(id: "claude-opus-4-6[1m]", family: .opus, version: "4.6 (1M)", modelId: "claude-opus-4-6[1m]", displayName: "Opus 4.6 (1M context)", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-opus-4-6", family: .opus, version: "4.6", modelId: "claude-opus-4-6", displayName: "Opus 4.6", isLatest: false, isLegacy: true),
     ModelVersion(id: "opus", family: .opus, version: "", modelId: "opus", displayName: "Opus (latest)", isLatest: true),
+    // Aliases Claude Code's own /model picker writes on first-party accounts
+    // (the `U$` alias list in the 2.1.280 binary). Without these rows a terminal
+    // pick like `opus[1m]` shows up as a blank selection in the app.
+    ModelVersion(id: "opus[1m]", family: .opus, version: "", modelId: "opus[1m]", displayName: "Opus (latest, 1M context)", isLatest: false),
+    ModelVersion(id: "opusplan", family: .opus, version: "", modelId: "opusplan", displayName: "Opus Plan (Opus in plan mode, Sonnet otherwise)", isLatest: false),
 
     // Sonnet
     // Unlike Fable, Sonnet 5 DOES expose a `[1m]` row ("Sonnet 5 (1M context)") in
@@ -70,6 +77,7 @@ let allModelVersions: [ModelVersion] = [
     ModelVersion(id: "claude-sonnet-4-6", family: .sonnet, version: "4.6", modelId: "claude-sonnet-4-6", displayName: "Sonnet 4.6", isLatest: false, isLegacy: true),
     ModelVersion(id: "claude-sonnet-4-5-20250929", family: .sonnet, version: "4.5", modelId: "claude-sonnet-4-5-20250929", displayName: "Sonnet 4.5", isLatest: false, isLegacy: true),
     ModelVersion(id: "sonnet", family: .sonnet, version: "", modelId: "sonnet", displayName: "Sonnet (latest)", isLatest: true),
+    ModelVersion(id: "sonnet[1m]", family: .sonnet, version: "", modelId: "sonnet[1m]", displayName: "Sonnet (latest, 1M context)", isLatest: false),
 
     // Haiku
     ModelVersion(id: "claude-haiku-4-5-20251001", family: .haiku, version: "4.5", modelId: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5", isLatest: false),

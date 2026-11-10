@@ -38,9 +38,11 @@ struct HierarchicalModelPicker: View {
             }
             .pickerStyle(.segmented)
             .onChange(of: selectedFamily) { _, newFamily in
-                if !isCustomMode, let fam = newFamily {
+                // Only auto-switch when the user picked a different family. If the current
+                // model already belongs to this family (e.g. an external `opus[1m]` edit
+                // re-synced the segment), keep it — otherwise we'd overwrite the file.
+                if !isCustomMode, let fam = newFamily, family(for: selectedModelId) != fam {
                     let newVersions = versions(for: fam)
-                    // Only auto-switch if the current selection isn't already in this family
                     if !newVersions.contains(where: { $0.modelId == selectedModelId }),
                        let latest = newVersions.first(where: { $0.isLatest }) {
                         selectedModelId = latest.modelId

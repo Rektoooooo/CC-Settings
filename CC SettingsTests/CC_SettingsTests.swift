@@ -248,12 +248,24 @@ final class CC_SettingsTests: XCTestCase {
 
     func testOpusFiveAndSonnetFiveArePickable() {
         let opus = versions(for: .opus).map(\.modelId)
+        XCTAssertTrue(opus.contains("claude-opus-5-5"))
+        XCTAssertTrue(opus.contains("claude-opus-5-5[1m]"))
         XCTAssertTrue(opus.contains("claude-opus-5"))
         XCTAssertTrue(opus.contains("claude-opus-5[1m]"))
 
         let sonnet = versions(for: .sonnet).map(\.modelId)
         XCTAssertTrue(sonnet.contains("claude-sonnet-5"))
         XCTAssertTrue(sonnet.contains("claude-sonnet-5[1m]"))
+    }
+
+    /// `/model` in the terminal writes these aliases to settings.json; the picker must
+    /// have a row for each or it renders a blank selection.
+    func testTerminalWrittenAliasesArePickable() {
+        let opus = versions(for: .opus).map(\.modelId)
+        XCTAssertTrue(opus.contains("opus[1m]"))
+        XCTAssertTrue(opus.contains("opusplan"))
+        XCTAssertTrue(versions(for: .sonnet).map(\.modelId).contains("sonnet[1m]"))
+        XCTAssertEqual(family(for: "opus[1m]"), .opus)
     }
 
     func testFableFiveOneIsTheCurrentFableAndIsPickable() {

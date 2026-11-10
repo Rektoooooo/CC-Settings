@@ -353,6 +353,11 @@ struct GeneralSettingsView: View {
     private var modelSection: some View {
         Section("Model") {
             HierarchicalModelPicker(selectedModelId: $selectedModel)
+            // Claude Code snapshots the model at startup; its settings watcher never
+            // updates the running session's model (verified in the 2.1.280 binary).
+            Label("Applies to new Claude Code sessions. A running session keeps its model — use /model there to switch it live.", systemImage: "info.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             TextField("Fallback Models", text: $fallbackModels, prompt: Text("e.g. opus, sonnet"))
                 .textFieldStyle(.roundedBorder)
