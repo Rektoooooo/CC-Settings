@@ -5,6 +5,27 @@ import SwiftUI
 class ConfigurationManager: ObservableObject {
     static let shared = ConfigurationManager()
 
+    /// Errors raised before a write so a damaged file is never overwritten.
+    enum WriteError: LocalizedError {
+        case unreadable(URL, underlying: Error)
+        case malformedJSON(URL)
+        case notAnObject(URL)
+        case settingsDecodeFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable(let url, let err):
+                return "Could not read \(url.lastPathComponent): \(err.localizedDescription). Nothing was saved."
+            case .malformedJSON(let url):
+                return "\(url.lastPathComponent) is not valid JSON. Fix it by hand; nothing was saved."
+            case .notAnObject(let url):
+                return "\(url.lastPathComponent) does not contain a JSON object. Nothing was saved."
+            case .settingsDecodeFailed:
+                return "settings.json could not be fully read, so a full save was refused to avoid overwriting data."
+            }
+        }
+    }
+
     @Published var settings: ClaudeSettings = ClaudeSettings() {
         didSet {
             if !isLoadingFromDisk { isDirty = true }
@@ -24,6 +45,11 @@ class ConfigurationManager: ObservableObject {
     @Published var lastError: Error?
     /// Message from the last failed MCP read/write, shown by the MCP view. Nil when the last one succeeded.
     @Published var lastMCPError: String?
+
+    /// True when settings.json exists but could not be decoded into `ClaudeSettings`.
+    /// While set, the in-memory `settings` are defaults, so every whole-object write is
+    /// refused (field-level dotted writes still go through — they never use the model).
+    @Published private(set) var settingsDecodeFailed: Bool = false
 
     /// Bumped by FileWatcher whenever an external change is detected on disk.
     /// Views that hold their own @State (MCP, sessions, stats, git, themes,
@@ -74,8 +100,10 @@ class ConfigurationManager: ObservableObject {
 
     private let decoder = JSONDecoder()
 
-    private init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+    /// - Parameter homeDirectory: Overrides the home directory so tests can run against a
+    ///   temporary folder and never touch the real `~/.claude`.
+    init(homeDirectory: URL? = nil) {
+        let home = homeDirectory ?? FileManager.default.homeDirectoryForCurrentUser
         claudeDir = home.appendingPathComponent(".claude")
         settingsURL = claudeDir.appendingPathComponent("settings.json")
         localSettingsURL = claudeDir.appendingPathComponent("settings.local.json")
@@ -114,9 +142,11 @@ class ConfigurationManager: ObservableObject {
             let fixed = validateAndFix(jsonData: data)
             do {
                 settings = try decoder.decode(ClaudeSettings.self, from: fixed)
+                settingsDecodeFailed = false
                 print("[CC Settings] Loaded settings: model=\(settings.model), hooks=\(settings.hooks != nil ? "yes" : "nil"), effort=\(settings.effortLevel ?? "nil")")
             } catch {
                 // Decode failed — do NOT touch settings; preserve current state
+                settingsDecodeFailed = true
                 lastError = error
                 print("[CC Settings] DECODE FAILED: \(error)")
             }
@@ -155,7 +185,28 @@ class ConfigurationManager: ObservableObject {
     }
 
     /// Writes multiple fields atomically in a single read-modify-write cycle.
+    /// Key paths are split on "." — use `applyEdits` for keys that may contain dots.
     func saveFields(_ fields: [(keyPath: String, value: Any?)], to url: URL? = nil) {
+        applyEdits(fields.map { (path: $0.keyPath.split(separator: ".").map(String.init), value: $0.value) }, to: url)
+    }
+
+    /// Reads `url` for a read-modify-write. A missing file yields `[:]` (it will be created);
+    /// a file that exists but cannot be read or parsed throws, so the caller aborts instead
+    /// of overwriting it with a partial object.
+    func readJSONObjectForWrite(at url: URL) throws -> [String: Any] {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+        let data: Data
+        do { data = try Data(contentsOf: url) } catch { throw WriteError.unreadable(url, underlying: error) }
+        if data.allSatisfy({ $0 == 0x20 || $0 == 0x0A || $0 == 0x0D || $0 == 0x09 }) { return [:] }
+        let fixed = validateAndFix(jsonData: data)
+        guard let obj = try? JSONSerialization.jsonObject(with: fixed) else { throw WriteError.malformedJSON(url) }
+        guard let dict = obj as? [String: Any] else { throw WriteError.notAnObject(url) }
+        return dict
+    }
+
+    /// Core read-modify-write. Each edit is a key path given as components, so keys that
+    /// contain dots (env var names, path-keyed maps) stay addressable.
+    func applyEdits(_ edits: [(path: [String], value: Any?)], to url: URL? = nil) {
         let targetURL = url ?? settingsURL
         do {
             try FileManager.default.createDirectory(
@@ -163,26 +214,11 @@ class ConfigurationManager: ObservableObject {
                 withIntermediateDirectories: true
             )
 
-            var existingJSON: [String: Any] = [:]
-            if let data = try? Data(contentsOf: targetURL) {
-                let fixed = validateAndFix(jsonData: data)
-                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
-                    existingJSON = json
-                }
+            var existingJSON = try readJSONObjectForWrite(at: targetURL)
+            for edit in edits {
+                setNestedValue(&existingJSON, keyPath: edit.path, value: edit.value)
             }
-
-            for field in fields {
-                let components = field.keyPath.split(separator: ".").map(String.init)
-                setNestedValue(&existingJSON, keyPath: components, value: field.value)
-            }
-
-            let outputData = try JSONSerialization.data(
-                withJSONObject: existingJSON,
-                options: [.prettyPrinted, .sortedKeys]
-            )
-            let fixedOutput = fixIntegerFormatting(outputData)
-            try fixedOutput.write(to: targetURL, options: .atomic)
-            lastSaveTime = Date()
+            try writeJSONObject(existingJSON, to: targetURL)
 
             if targetURL == settingsURL {
                 isDirty = false
@@ -191,15 +227,51 @@ class ConfigurationManager: ObservableObject {
                     let fixed = validateAndFix(jsonData: reloadData)
                     if let decoded = try? decoder.decode(ClaudeSettings.self, from: fixed) {
                         settings = decoded
+                        settingsDecodeFailed = false
                     }
                 }
                 isLoadingFromDisk = false
             }
-
-            FileWatcher.shared.updateFileTracking(for: [targetURL])
         } catch {
             lastError = error
         }
+    }
+
+    private func writeJSONObject(_ object: [String: Any], to url: URL) throws {
+        let outputData = try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        try fixIntegerFormatting(outputData).write(to: url, options: .atomic)
+        lastSaveTime = Date()
+        FileWatcher.shared.updateFileTracking(for: [url])
+    }
+
+    /// Writes only `hooks.<event>` (the encoded groups, or removes it when empty) and drops
+    /// the `hooks` object if that leaves it empty. Other events, and any event this app does
+    /// not know, are never touched.
+    func saveHookGroups(_ groups: [HookGroup], event: String, to url: URL? = nil) {
+        var value: Any?
+        if !groups.isEmpty {
+            do {
+                let data = try encoder.encode(groups)
+                value = try JSONSerialization.jsonObject(with: data)
+            } catch {
+                lastError = error
+                return
+            }
+        }
+        applyEdits([(path: ["hooks", event], value: value)], to: url)
+    }
+
+    /// Applies env changes as per-variable edits (`env.KEY`) instead of replacing the whole
+    /// `env` object: sets/updates the given pairs and removes the listed keys.
+    func saveEnvChanges(set: [String: String], remove: [String], to url: URL? = nil) {
+        var edits: [(path: [String], value: Any?)] = []
+        for key in remove.sorted() { edits.append((path: ["env", key], value: nil)) }
+        for (key, value) in set.sorted(by: { $0.key < $1.key }) { edits.append((path: ["env", key], value: value)) }
+        guard !edits.isEmpty else { return }
+        applyEdits(edits, to: url)
     }
 
     /// Writes a Codable value at a top-level key. Pass nil to remove the key.
@@ -217,6 +289,9 @@ class ConfigurationManager: ObservableObject {
         }
     }
 
+    /// Sets (or, for nil, removes) the value at `keyPath`, creating intermediate objects only
+    /// when there is something to write. A removal that empties its parent object also removes
+    /// the parent, so `permissions: {}` / `hooks: {}` are never left behind.
     private func setNestedValue(_ dict: inout [String: Any], keyPath: [String], value: Any?) {
         guard let first = keyPath.first else { return }
 
@@ -226,9 +301,21 @@ class ConfigurationManager: ObservableObject {
             } else {
                 dict.removeValue(forKey: first)
             }
+            return
+        }
+
+        guard var nested = dict[first] as? [String: Any] else {
+            // Nothing to remove under a missing (or non-object) parent.
+            guard value != nil else { return }
+            var created: [String: Any] = [:]
+            setNestedValue(&created, keyPath: Array(keyPath.dropFirst()), value: value)
+            dict[first] = created
+            return
+        }
+        setNestedValue(&nested, keyPath: Array(keyPath.dropFirst()), value: value)
+        if value == nil && nested.isEmpty {
+            dict.removeValue(forKey: first)
         } else {
-            var nested = dict[first] as? [String: Any] ?? [:]
-            setNestedValue(&nested, keyPath: Array(keyPath.dropFirst()), value: value)
             dict[first] = nested
         }
     }
@@ -250,42 +337,52 @@ class ConfigurationManager: ObservableObject {
         }
     }
 
+    /// Whole-object save. Prefer `saveField`/`saveFields`; this exists for callers that hold a
+    /// full `ClaudeSettings`. It still never rewrites the file wholesale: it compares `settings`
+    /// against what the file decodes to right now and writes only the top-level keys that
+    /// differ. Refused while `settingsDecodeFailed`, because the in-memory model is then defaults.
     func saveSettings() {
+        guard !settingsDecodeFailed else {
+            lastError = WriteError.settingsDecodeFailed
+            return
+        }
+        writeSettingsDiff(settings, to: settingsURL)
+        isDirty = false
+    }
+
+    /// Writes only the top-level keys where `new` differs from the decode of the file on disk.
+    /// Aborts (without writing) if the file is unreadable, malformed, or does not decode.
+    @discardableResult
+    private func writeSettingsDiff(_ new: ClaudeSettings, to url: URL) -> Bool {
         do {
-            try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            var existingJSON = try readJSONObjectForWrite(at: url)
 
-            // Load existing JSON to preserve unknown keys the CLI uses
-            var existingJSON: [String: Any] = [:]
-            if let data = try? Data(contentsOf: settingsURL) {
-                let fixed = validateAndFix(jsonData: data)
-                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
-                    existingJSON = json
-                }
+            let baseline = try decoder.decode(
+                ClaudeSettings.self,
+                from: try JSONSerialization.data(withJSONObject: existingJSON)
+            )
+            let oldEncoded = try encodedDictionary(baseline)
+            let newEncoded = try encodedDictionary(new)
+
+            for key in Set(oldEncoded.keys).union(newEncoded.keys) {
+                let oldValue = oldEncoded[key]
+                let newValue = newEncoded[key]
+                if let oldValue, let newValue, (oldValue as AnyObject).isEqual(newValue) { continue }
+                if oldValue == nil && newValue == nil { continue }
+                if let newValue { existingJSON[key] = newValue } else { existingJSON.removeValue(forKey: key) }
             }
-
-            // Encode our known settings and merge on top
-            let settingsData = try encoder.encode(settings)
-            if let settingsJSON = try JSONSerialization.jsonObject(with: settingsData) as? [String: Any] {
-                for (key, value) in settingsJSON {
-                    existingJSON[key] = value
-                }
-                // Remove keys that our model explicitly set to nil (encoded as absent)
-                for key in existingJSON.keys {
-                    if settingsJSON[key] == nil, knownSettingsKeys.contains(key) {
-                        existingJSON.removeValue(forKey: key)
-                    }
-                }
-            }
-
-            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
-            let fixedOutput = fixIntegerFormatting(outputData)
-            try fixedOutput.write(to: settingsURL, options: .atomic)
-            lastSaveTime = Date()
-            isDirty = false
-            FileWatcher.shared.updateFileTracking(for: [settingsURL])
+            try writeJSONObject(existingJSON, to: url)
+            return true
         } catch {
             lastError = error
+            return false
         }
+    }
+
+    private func encodedDictionary(_ settings: ClaudeSettings) throws -> [String: Any] {
+        let data = try encoder.encode(settings)
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
     /// Keys that ClaudeSettings models — used to distinguish "intentionally nil" from "unknown".
@@ -565,40 +662,22 @@ class ConfigurationManager: ObservableObject {
         return try? decoder.decode(ClaudeSettings.self, from: fixed)
     }
 
-    /// Saves project-level settings to `<project>/.claude/settings.json`, preserving unknown keys.
+    /// Saves project-level settings to `<project>/.claude/settings.json`. Only the top-level
+    /// keys that differ from what the file currently decodes to are written, so absent keys are
+    /// never filled with defaults, and a project file that is malformed or fails to decode is
+    /// left untouched (the error is surfaced via `lastError`).
     func saveProjectSettings(_ settings: ClaudeSettings, projectPath: String) {
-        let claudeDir = URL(fileURLWithPath: projectPath).appendingPathComponent(".claude")
-        let settingsURL = claudeDir.appendingPathComponent("settings.json")
-        do {
-            try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
+        let url = URL(fileURLWithPath: projectPath)
+            .appendingPathComponent(".claude")
+            .appendingPathComponent("settings.json")
+        writeSettingsDiff(settings, to: url)
+    }
 
-            var existingJSON: [String: Any] = [:]
-            if let data = try? Data(contentsOf: settingsURL) {
-                let fixed = validateAndFix(jsonData: data)
-                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
-                    existingJSON = json
-                }
-            }
-
-            let settingsData = try encoder.encode(settings)
-            if let settingsJSON = try JSONSerialization.jsonObject(with: settingsData) as? [String: Any] {
-                for (key, value) in settingsJSON {
-                    existingJSON[key] = value
-                }
-                for key in existingJSON.keys {
-                    if settingsJSON[key] == nil, knownSettingsKeys.contains(key) {
-                        existingJSON.removeValue(forKey: key)
-                    }
-                }
-            }
-
-            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
-            let fixedOutput = fixIntegerFormatting(outputData)
-            try fixedOutput.write(to: settingsURL, options: .atomic)
-            lastSaveTime = Date()
-        } catch {
-            lastError = error
-        }
+    /// URL of `<project>/.claude/settings.json`.
+    func projectSettingsURL(projectPath: String) -> URL {
+        URL(fileURLWithPath: projectPath)
+            .appendingPathComponent(".claude")
+            .appendingPathComponent("settings.json")
     }
 
     // MARK: - Project MCP Servers

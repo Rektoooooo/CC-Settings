@@ -16,6 +16,35 @@ struct ContentView: View {
             detailView
         }
         .navigationSplitViewStyle(.balanced)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let error = configManager.lastError {
+                errorBanner(error)
+            }
+        }
+    }
+
+    /// Surfaces `configManager.lastError` (failed or refused writes, undecodable files).
+    private func errorBanner(_ error: Error) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text(error.localizedDescription)
+                .font(.subheadline)
+                .lineLimit(3)
+                .textSelection(.enabled)
+            Spacer(minLength: 8)
+            Button {
+                configManager.lastError = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+        }
+        .padding(10)
+        .glassBanner(tint: .orange)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     @ViewBuilder

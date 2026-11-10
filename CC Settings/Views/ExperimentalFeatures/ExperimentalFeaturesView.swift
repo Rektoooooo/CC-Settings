@@ -492,14 +492,6 @@ struct ExperimentalFeaturesView: View {
             }.id("status-line")
         }
         .formStyle(.grouped)
-        .onDisappear {
-            guard !isSyncing else { return }
-            saveSandbox()
-            saveLegacySandbox()
-            saveWorktree()
-            saveSpinner()
-            saveStatusLine()
-        }
         .onAppear {
             isSyncing = true
             loadSettings()
@@ -677,33 +669,44 @@ struct ExperimentalFeaturesView: View {
 
     private func saveWorktree() {
         guard !isSyncing else { return }
-        var wt: [String: Any] = [:]
-        if let v = parseCSV(worktreeSparsePaths) { wt["sparsePaths"] = v }
-        if let v = parseCSV(worktreeSymlinkDirs) { wt["symlinkDirectories"] = v }
+        // Dotted paths: only the sub-keys this UI manages are written, so worktree.location
+        // and any other key the CLI adds survive.
         let trimmedBaseRef = worktreeBaseRef.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedBaseRef.isEmpty { wt["baseRef"] = trimmedBaseRef }
         let trimmedBgIsolation = worktreeBgIsolation.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedBgIsolation.isEmpty { wt["bgIsolation"] = trimmedBgIsolation }
-        configManager.saveField("worktree", value: wt.isEmpty ? nil : wt)
+        configManager.saveFields([
+            (keyPath: "worktree.sparsePaths", value: parseCSV(worktreeSparsePaths)),
+            (keyPath: "worktree.symlinkDirectories", value: parseCSV(worktreeSymlinkDirs)),
+            (keyPath: "worktree.baseRef", value: trimmedBaseRef.isEmpty ? nil : trimmedBaseRef),
+            (keyPath: "worktree.bgIsolation", value: trimmedBgIsolation.isEmpty ? nil : trimmedBgIsolation)
+        ])
     }
 
     private func saveSpinner() {
         guard !isSyncing else { return }
+        let stored = configManager.settings
+        let verbs = parseCSV(spinnerVerbs)
+        let tips = parseCSV(customTips)
         var fields: [(keyPath: String, value: Any?)] = [
             (keyPath: "spinnerTipsEnabled", value: spinnerTipsEnabled ? nil : false),
-            (keyPath: "spinnerVerbsMode", value: spinnerVerbsMode != "append" ? spinnerVerbsMode : nil),
-            (keyPath: "spinnerVerbs", value: parseCSV(spinnerVerbs)),
-            (keyPath: "customTips", value: parseCSV(customTips)),
-            (keyPath: "excludeDefaultTips", value: excludeDefaultTips ? true : nil)
+            (keyPath: "excludeDefaultTips", value: excludeDefaultTips ? true : nil),
+            (keyPath: "spinnerTipsOverride.excludeDefault", value: excludeDefaultTips ? true : nil)
         ]
-        let tips = parseCSV(customTips)
-        if tips != nil || excludeDefaultTips {
-            var overrideDict: [String: Any] = [:]
-            if excludeDefaultTips { overrideDict["excludeDefault"] = true }
-            if let t = tips { overrideDict["tips"] = t }
-            fields.append((keyPath: "spinnerTipsOverride", value: overrideDict))
-        } else {
-            fields.append((keyPath: "spinnerTipsOverride", value: nil))
+        // Claude Code stores spinnerVerbs as { mode, verbs }. Only rewrite it when the user
+        // actually changed it, and retire the old flat spinnerVerbsMode key.
+        if verbs != stored.spinnerVerbs || spinnerVerbsMode != (stored.spinnerVerbsMode ?? "append") {
+            fields.append((keyPath: "spinnerVerbsMode", value: nil))
+            if verbs == nil {
+                fields.append((keyPath: "spinnerVerbs", value: nil))
+            } else {
+                fields.append((keyPath: "spinnerVerbs", value: ["mode": spinnerVerbsMode, "verbs": verbs ?? []] as [String: Any]))
+            }
+        }
+        // tips may hold {id,text} objects on disk (shown flattened here); leave them alone
+        // unless the visible text was edited.
+        let storedTips = stored.spinnerTipsOverride?.tips ?? stored.customTips
+        if tips != storedTips {
+            fields.append((keyPath: "customTips", value: tips))
+            fields.append((keyPath: "spinnerTipsOverride.tips", value: tips))
         }
         configManager.saveFields(fields)
     }
@@ -716,10 +719,11 @@ struct ExperimentalFeaturesView: View {
                 (keyPath: "statusLineCommand", value: nil)
             ])
         } else {
-            var dict: [String: Any] = ["type": "command", "command": statusLineCommand]
-            if let padding = Int(statusLinePadding) { dict["padding"] = padding }
+            // Dotted paths keep statusLine.refreshInterval, hideVimModeIndicator, etc.
             configManager.saveFields([
-                (keyPath: "statusLine", value: dict),
+                (keyPath: "statusLine.type", value: "command"),
+                (keyPath: "statusLine.command", value: statusLineCommand),
+                (keyPath: "statusLine.padding", value: Int(statusLinePadding)),
                 (keyPath: "statusLineCommand", value: nil)
             ])
         }

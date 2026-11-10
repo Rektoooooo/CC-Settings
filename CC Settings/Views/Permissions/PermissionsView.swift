@@ -566,25 +566,16 @@ struct PermissionsView: View {
 
     private func saveAutoMode() {
         guard !isSyncing else { return }
-        var dict: [String: Any] = [:]
-        if let v = joinDefaultsSentinel(text: autoModeAllowText, includeDefaults: autoModeAllowDefaults) {
-            dict["allow"] = v
-        }
-        if let v = joinDefaultsSentinel(text: autoModeSoftDenyText, includeDefaults: autoModeSoftDenyDefaults) {
-            dict["soft_deny"] = v
-        }
-        if let v = joinDefaultsSentinel(text: autoModeHardDenyText, includeDefaults: autoModeHardDenyDefaults) {
-            dict["hard_deny"] = v
-        }
-        if let v = joinDefaultsSentinel(text: autoModeEnvironmentText, includeDefaults: autoModeEnvironmentDefaults) {
-            dict["environment"] = v
-        }
-        // Off by default — only persist the opt-in, so an untouched toggle leaves
-        // `autoMode` absent entirely rather than writing `{"classifyAllShell": false}`.
-        if autoModeClassifyAllShell {
-            dict["classifyAllShell"] = true
-        }
-        configManager.saveField("autoMode", value: dict.isEmpty ? nil : dict)
+        // Dotted paths: only the keys this UI manages are written, so unknown autoMode
+        // sub-keys survive. Emptied keys are removed (and an emptied autoMode with them).
+        // classifyAllShell is off by default, so only the opt-in is persisted.
+        configManager.saveFields([
+            (keyPath: "autoMode.allow", value: joinDefaultsSentinel(text: autoModeAllowText, includeDefaults: autoModeAllowDefaults)),
+            (keyPath: "autoMode.soft_deny", value: joinDefaultsSentinel(text: autoModeSoftDenyText, includeDefaults: autoModeSoftDenyDefaults)),
+            (keyPath: "autoMode.hard_deny", value: joinDefaultsSentinel(text: autoModeHardDenyText, includeDefaults: autoModeHardDenyDefaults)),
+            (keyPath: "autoMode.environment", value: joinDefaultsSentinel(text: autoModeEnvironmentText, includeDefaults: autoModeEnvironmentDefaults)),
+            (keyPath: "autoMode.classifyAllShell", value: autoModeClassifyAllShell ? true : nil)
+        ])
     }
 
     // MARK: - Auto Mode Rule List sub-view

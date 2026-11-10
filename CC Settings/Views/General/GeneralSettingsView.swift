@@ -31,7 +31,6 @@ struct GeneralSettingsView: View {
     @State private var ultracodeKeywordEnabled: Bool = s.workflowKeywordTriggerEnabled ?? true
     @State private var outputStyle: String = s.outputStyle ?? ""
     @State private var verbose: Bool = s.verbose ?? false
-    @State private var skillOverrides: String = s.skillOverrides ?? ""
     @State private var bundledSkillsEnabled: Bool = !(s.disableBundledSkills ?? false)
     @State private var workflowSizeGuideline: String = s.workflowSizeGuideline ?? ""
 
@@ -480,19 +479,18 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Picker("Skill Visibility", selection: $skillOverrides) {
-                Text("Default").tag("")
-                Text("Name Only").tag("name-only")
-                Text("User-Invocable Only").tag("user-invocable-only")
-                Text("Off").tag("off")
-            }
-            .pickerStyle(.segmented)
-            Text("Controls how skills appear to the model and to /. \"Name Only\" hides descriptions, \"User-Invocable Only\" hides skills from the model (still visible via /), \"Off\" hides them everywhere.")
+            LabeledContent("Skill Visibility", value: skillOverridesSummary)
+            Text("Per-skill overrides (skillOverrides) map a skill name to \"on\", \"name-only\", \"user-invocable-only\" or \"off\". Edit them in settings.json; this app leaves them untouched.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             bundledSkillsRow
         }
+    }
+
+    private var skillOverridesSummary: String {
+        let count = configManager.settings.skillOverrides?.count ?? 0
+        return count == 0 ? "None set" : "\(count) skill override\(count == 1 ? "" : "s")"
     }
 
     @ViewBuilder
@@ -1346,10 +1344,6 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("verbose", value: verbose ? true : nil)
             }
-            .onChange(of: skillOverrides) {
-                guard isLoaded else { return }
-                configManager.saveField("skillOverrides", value: skillOverrides.isEmpty ? nil : skillOverrides)
-            }
             .onChange(of: showTurnDuration) {
                 guard isLoaded else { return }
                 configManager.saveField("showTurnDuration", value: showTurnDuration ? nil : false)
@@ -1672,12 +1666,13 @@ struct GeneralSettingsView: View {
             configManager.saveField("spellcheck", value: nil)
             return
         }
-        var object: [String: Any] = ["enabled": true]
         let checker: String = spellcheckChecker.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !checker.isEmpty { object["checker"] = checker }
         let language: String = spellcheckLanguage.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !language.isEmpty { object["language"] = language }
-        configManager.saveField("spellcheck", value: object)
+        configManager.saveFields([
+            (keyPath: "spellcheck.enabled", value: true),
+            (keyPath: "spellcheck.checker", value: checker.isEmpty ? nil : checker),
+            (keyPath: "spellcheck.language", value: language.isEmpty ? nil : language)
+        ])
     }
 
     /// Writes a positive integer field, clamped to Claude Code's accepted range.
@@ -1725,7 +1720,6 @@ struct GeneralSettingsView: View {
         ultracodeKeywordEnabled = s.workflowKeywordTriggerEnabled ?? true
         outputStyle = s.outputStyle ?? ""
         verbose = s.verbose ?? false
-        skillOverrides = s.skillOverrides ?? ""
         bundledSkillsEnabled = !(s.disableBundledSkills ?? false)
         workflowSizeGuideline = s.workflowSizeGuideline ?? ""
 
@@ -1934,11 +1928,12 @@ struct GeneralSettingsView: View {
         if commit == nil && pr == nil && sessionUrl == nil {
             configManager.saveField("attribution", value: nil)
         } else {
-            var dict: [String: Any] = [:]
-            if let c = commit { dict["commit"] = c }
-            if let p = pr { dict["pr"] = p }
-            if let s = sessionUrl { dict["sessionUrl"] = s }
-            configManager.saveField("attribution", value: dict)
+            // Dotted paths so any other attribution key survives.
+            configManager.saveFields([
+                (keyPath: "attribution.commit", value: commit),
+                (keyPath: "attribution.pr", value: pr),
+                (keyPath: "attribution.sessionUrl", value: sessionUrl)
+            ])
         }
     }
 
