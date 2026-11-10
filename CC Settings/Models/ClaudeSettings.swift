@@ -78,6 +78,19 @@ struct ClaudeSettings: Equatable {
     /// Characters of a successful Bash/PowerShell result Claude receives inline.
     /// Default 30_000; Claude Code clamps to 4_000…128_000.
     var bashOutputMaxChars: Int?
+    /// Compact a long conversation while the session is idle. CLI default true.
+    var idleCompaction: Bool?
+    /// Maximum width (terminal columns, min 40) of the prose in responses. Unset = full width.
+    var maxProseWidth: Int?
+    /// Show a diff of files a Bash command changed. Tri-state: unset follows the CLI default.
+    var bashEditDiffEnabled: Bool?
+    /// Auto-switch model when safeguards flag a message. CLI default true.
+    var switchModelsOnFlag: Bool?
+    /// Only `false` is honoured by the CLI (read from user/local/managed, not project).
+    var syncClaudeAiSkills: Bool?
+    var syncClaudeAiPlugins: Bool?
+    /// claude.ai Project named in usage reports (`claude_proj_…` / `chan_…`).
+    var attributionProject: String?
     /// Characters of a background task's output `TaskOutput` hands Claude inline.
     /// Default 32_000; Claude Code clamps to 4_000…128_000.
 
@@ -296,6 +309,13 @@ extension ClaudeSettings: Codable {
         fileSuggestion = try? c.decodeIfPresent(CommandScriptConfig.self, forKey: .fileSuggestion)
         autoContinueAtUsageLimit = try? c.decodeIfPresent(Bool.self, forKey: .autoContinueAtUsageLimit)
         bashOutputMaxChars = try? c.decodeIfPresent(Int.self, forKey: .bashOutputMaxChars)
+        idleCompaction = try? c.decodeIfPresent(Bool.self, forKey: .idleCompaction)
+        maxProseWidth = try? c.decodeIfPresent(Int.self, forKey: .maxProseWidth)
+        bashEditDiffEnabled = try? c.decodeIfPresent(Bool.self, forKey: .bashEditDiffEnabled)
+        switchModelsOnFlag = try? c.decodeIfPresent(Bool.self, forKey: .switchModelsOnFlag)
+        syncClaudeAiSkills = try? c.decodeIfPresent(Bool.self, forKey: .syncClaudeAiSkills)
+        syncClaudeAiPlugins = try? c.decodeIfPresent(Bool.self, forKey: .syncClaudeAiPlugins)
+        attributionProject = try? c.decodeIfPresent(String.self, forKey: .attributionProject)
         timeFormat = try? c.decodeIfPresent(String.self, forKey: .timeFormat)
         timeZone = try? c.decodeIfPresent(String.self, forKey: .timeZone)
         axScreenReader = try? c.decodeIfPresent(Bool.self, forKey: .axScreenReader)

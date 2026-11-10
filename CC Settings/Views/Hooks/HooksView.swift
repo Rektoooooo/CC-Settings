@@ -403,7 +403,7 @@ struct HooksView: View {
     private var filteredProjects: [Project] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return projects.filter { project in
-            guard project.originalPath != home else { return false }
+            guard project.originalPath != home, project.isPathResolved else { return false }
             return !project.sessions.isEmpty || project.settings != nil || project.claudeMD != nil
         }
     }
@@ -689,7 +689,7 @@ struct HooksView: View {
         // Project hooks
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         for project in filteredProjects {
-            guard project.originalPath != home else { continue }
+            guard project.originalPath != home, project.isPathResolved else { continue }
             let scope = ConfigScope.project(id: project.id, path: project.originalPath)
             if let settings = configManager.loadProjectSettings(projectPath: project.originalPath) {
                 projectSettingsCache[project.originalPath] = settings
@@ -987,6 +987,8 @@ struct HookEditorSheet: View {
                                         .font(.caption)
                                         .padding(.leading, 48)
                                 }
+
+                                advancedFields(at: i)
                             }
                             .padding(.vertical, 4)
                         }
@@ -1054,6 +1056,83 @@ struct HookEditorSheet: View {
                 initialDefinitions.indices.contains(i) ? initialDefinitions[i] : HookDefinition()
             }
         }
+    }
+
+    // MARK: - Optional hook fields (statusMessage / once / async / onFailure)
+
+    /// Stored on the original definition's `extra`, so nothing else on the hook is disturbed.
+    /// Command hooks accept all four; `onFailure` has no effect on async hooks.
+    @ViewBuilder
+    private func advancedFields(at index: Int) -> some View {
+        HStack(spacing: 8) {
+            Text("status")
+                .font(.caption.monospaced())
+                .foregroundColor(.secondary)
+                .frame(width: 40, alignment: .leading)
+            TextField("(optional) spinner text while the hook runs", text: bindingForStatusMessage(at: index))
+                .textFieldStyle(.roundedBorder)
+                .font(.caption.monospaced())
+        }
+
+        let isCommand = !originalDefinitions.indices.contains(index) || originalDefinitions[index].type == "command"
+        HStack(spacing: 16) {
+            Toggle("Run once, then remove", isOn: bindingForDefinitionFlag(at: index, \.once))
+            if isCommand {
+                Toggle("Run in background (async)", isOn: bindingForDefinitionFlag(at: index, \.runsAsync))
+            }
+        }
+        .font(.caption)
+        .padding(.leading, 48)
+
+        if isCommand {
+            Picker("On failure", selection: bindingForOnFailure(at: index)) {
+                Text("Continue (default)").tag("")
+                Text("Block").tag("block")
+            }
+            .pickerStyle(.segmented)
+            .font(.caption)
+            .padding(.leading, 48)
+            .disabled(definitionFlag(at: index, \.runsAsync))
+            Text("A hook that fails to start, times out, or errors either lets the action go ahead or blocks it. Ignored for async hooks and on Stop, SubagentStop, TaskCompleted and TeammateIdle.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .padding(.leading, 48)
+        }
+    }
+
+    private func definitionFlag(at index: Int, _ keyPath: KeyPath<HookDefinition, Bool?>) -> Bool {
+        originalDefinitions.indices.contains(index) ? (originalDefinitions[index][keyPath: keyPath] ?? false) : false
+    }
+
+    /// On writes `true`; off removes the key (an explicit `false` equals the default).
+    private func bindingForDefinitionFlag(at index: Int, _ keyPath: WritableKeyPath<HookDefinition, Bool?>) -> Binding<Bool> {
+        Binding(
+            get: { originalDefinitions.indices.contains(index) ? (originalDefinitions[index][keyPath: keyPath] ?? false) : false },
+            set: { newValue in
+                guard originalDefinitions.indices.contains(index) else { return }
+                originalDefinitions[index][keyPath: keyPath] = newValue ? true : nil
+            }
+        )
+    }
+
+    private func bindingForStatusMessage(at index: Int) -> Binding<String> {
+        Binding(
+            get: { originalDefinitions.indices.contains(index) ? (originalDefinitions[index].statusMessage ?? "") : "" },
+            set: { newValue in
+                guard originalDefinitions.indices.contains(index) else { return }
+                originalDefinitions[index].statusMessage = newValue.isEmpty ? nil : newValue
+            }
+        )
+    }
+
+    private func bindingForOnFailure(at index: Int) -> Binding<String> {
+        Binding(
+            get: { originalDefinitions.indices.contains(index) ? (originalDefinitions[index].onFailure == "block" ? "block" : "") : "" },
+            set: { newValue in
+                guard originalDefinitions.indices.contains(index) else { return }
+                originalDefinitions[index].onFailure = newValue.isEmpty ? nil : newValue
+            }
+        )
     }
 
     // MARK: - Safe index bindings (index may briefly outlive the array during ForEach updates)

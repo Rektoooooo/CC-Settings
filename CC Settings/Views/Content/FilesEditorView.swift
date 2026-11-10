@@ -27,7 +27,7 @@ enum FileContentItem: Hashable {
         case .general: return "~/.claude"
         case .project(let projectId):
             let path = ConfigurationManager.shared.projectOriginalPath(for: projectId)
-            return path
+            return ProjectPathResolver.displayPath(path, id: projectId)
         case .folder(let name): return "~/.claude/\(name)"
         }
     }

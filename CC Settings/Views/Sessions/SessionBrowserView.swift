@@ -25,7 +25,7 @@ struct SessionBrowserView: View {
         let query = projectSearchText.lowercased()
         return filtered.filter {
             $0.displayName.lowercased().contains(query) ||
-            $0.originalPath.lowercased().contains(query)
+            $0.displayPath.lowercased().contains(query)
         }
     }
 
@@ -470,7 +470,7 @@ private struct ProjectSessionRow: View {
             Text(project.displayName)
                 .font(.body)
                 .lineLimit(1)
-            Text(project.originalPath)
+            Text(project.displayPath)
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .lineLimit(1)

@@ -460,6 +460,8 @@ class ConfigurationManager: ObservableObject {
         "emojiCompletionEnabled", "fileCheckpointingEnabled", "feedbackSurveyRate",
         "fileSuggestion", "autoContinueAtUsageLimit",
         "bashOutputMaxChars",
+        "idleCompaction", "maxProseWidth", "bashEditDiffEnabled", "switchModelsOnFlag",
+        "syncClaudeAiSkills", "syncClaudeAiPlugins", "attributionProject", "pluginConfigs",
         // Time & locale
         "timeFormat", "timeZone",
         // Terminal & accessibility
