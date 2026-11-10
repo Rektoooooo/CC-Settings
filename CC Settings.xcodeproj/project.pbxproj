@@ -47,6 +47,7 @@
 		2A53825A7EC15AEC0B823192 /* MCPDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEFCED7828F1FC7F068EA07 /* MCPDiscoveryService.swift */; };
 		2AD80397C41063BA0B53C4D4 /* BinaryFileInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A9BB63F24A2B95FD78514DA /* BinaryFileInfoView.swift */; };
 		2BB8FD4D27FA11F639020DDE /* HUDPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4699D0B613DDB636D7573411 /* HUDPanel.swift */; };
+		2C94D38C318284D131DF24CB /* ConfigurationManager+Effort.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */; };
 		2CDDF9E5B70F978CC2D7FC3F /* LocalSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1188CEA5F6403489C8F5B8D5 /* LocalSettings.swift */; };
 		2D056F915E28079E530EE360 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
 		2E882D00E589E01ED9E6CE5C /* ClaudeMDRestoreSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7711161F063C2E0A9F758CE4 /* ClaudeMDRestoreSheet.swift */; };
@@ -100,6 +101,8 @@
 		70F6F0983E39C0F61CC8FBEA /* SkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 275444EFD66E137506BB4EF0 /* SkillsView.swift */; };
 		7270DD5F382E6754F35380FE /* DiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABBEA91C9241775E4762FA3 /* DiffView.swift */; };
 		73E7C2A4D68F74840DB4451F /* HUDConfigFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03F52DADF8C0BC5E3DF5376C /* HUDConfigFile.swift */; };
+		74A55B10A857A1AE750A01E7 /* EffortSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39504AC61414F1E261F0C1AB /* EffortSettingsTests.swift */; };
+		74EED0FDD358D206A7AD51ED /* ConfigurationManager+Effort.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */; };
 		757BED7459E1EBE0F54F6E11 /* ScopedMCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD522B7FE5253FC7C02F1E8 /* ScopedMCPServer.swift */; };
 		78B5BB5A9A9A4755B1C1CB5A /* TextFileViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAAEA6D3C05B1AFF7973F22 /* TextFileViewer.swift */; };
 		7901CAE01A84B8D05EDBACF6 /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */; };
@@ -234,6 +237,7 @@
 		328FF89B7FA04E0D158C45B1 /* SessionBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionBrowserView.swift; sourceTree = "<group>"; };
 		3415B9C3F116F9588DC3951D /* AgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsView.swift; sourceTree = "<group>"; };
 		37EEB10BE53ECE84E30DD551 /* MarkdownPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreview.swift; sourceTree = "<group>"; };
+		39504AC61414F1E261F0C1AB /* EffortSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EffortSettingsTests.swift; sourceTree = "<group>"; };
 		3A7612910340BC2299919E89 /* SettingsProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfile.swift; sourceTree = "<group>"; };
 		43F808FFEE1F9EC98E3C42DC /* ExperimentalFeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperimentalFeaturesView.swift; sourceTree = "<group>"; };
 		4699D0B613DDB636D7573411 /* HUDPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDPanel.swift; sourceTree = "<group>"; };
@@ -307,6 +311,7 @@
 		F0C7A6E93D140CCC5829939B /* MCPServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServersView.swift; sourceTree = "<group>"; };
 		F16E024358B9E4F5D6727065 /* Project.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Project.swift; sourceTree = "<group>"; };
 		F2126896F55B4B94360386B2 /* ClaudeMDEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMDEditorView.swift; sourceTree = "<group>"; };
+		F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ConfigurationManager+Effort.swift"; sourceTree = "<group>"; };
 		F568003017C0230719C5A1E4 /* FileViewerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerComponents.swift; sourceTree = "<group>"; };
 		F5C1A44C83F0821A840BB9AB /* FileHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHistoryView.swift; sourceTree = "<group>"; };
 		FABD61633522C4352FFF6291 /* VersionControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionControlView.swift; sourceTree = "<group>"; };
@@ -388,6 +393,7 @@
 			children = (
 				964E9CF99C0DD8CD2D1212C7 /* CommandFrontmatter.swift */,
 				5A0CF4CFAD380347450E02C7 /* ConfigurationManager.swift */,
+				F3E9754900CA50103E95BB9F /* ConfigurationManager+Effort.swift */,
 				8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */,
 				74DC4AD7323D8E29693D8F4A /* GitService.swift */,
 				03F52DADF8C0BC5E3DF5376C /* HUDConfigFile.swift */,
@@ -532,6 +538,7 @@
 			isa = PBXGroup;
 			children = (
 				6041440B75AC75088ABFAE94 /* CC_SettingsTests.swift */,
+				39504AC61414F1E261F0C1AB /* EffortSettingsTests.swift */,
 				CD6106B6011C767493F324FE /* HUDConfigFileTests.swift */,
 				A3D3D1E09DB879505C010306 /* MCPConfigStoreTests.swift */,
 				C0A63E5FB8EE73ECC5A8906B /* SettingsSafetyTests.swift */,
@@ -872,6 +879,7 @@
 				DE2994FC751D671E10C0C3F5 /* CommandFrontmatter.swift in Sources */,
 				EB6C82D989049CC8B9F04101 /* CommandsView.swift in Sources */,
 				88E38EEEBA296DB123D0F0C5 /* ConfigScope.swift in Sources */,
+				74EED0FDD358D206A7AD51ED /* ConfigurationManager+Effort.swift in Sources */,
 				F7AB4C1C5C3EEAA699C254FA /* ConfigurationManager.swift in Sources */,
 				FE2FD4BB02254725A89F8E55 /* ContentView.swift in Sources */,
 				3641489046707FF2CF2E1A41 /* DiffView.swift in Sources */,
@@ -978,10 +986,12 @@
 				DE9944C23B162AEF74013856 /* CommandFrontmatter.swift in Sources */,
 				F3571B9F963F938E17350A67 /* CommandsView.swift in Sources */,
 				39FE13B6686533A0D25A84A3 /* ConfigScope.swift in Sources */,
+				2C94D38C318284D131DF24CB /* ConfigurationManager+Effort.swift in Sources */,
 				68AF3ACF82EA3C494598970E /* ConfigurationManager.swift in Sources */,
 				EBA0610ADFA02A93747E2950 /* ContentView.swift in Sources */,
 				7270DD5F382E6754F35380FE /* DiffView.swift in Sources */,
 				C860E97287A7E6F467B7118B /* DirectoryListingView.swift in Sources */,
+				74A55B10A857A1AE750A01E7 /* EffortSettingsTests.swift in Sources */,
 				0C3538A23C67ED399C0BCFF1 /* EnvironmentView.swift in Sources */,
 				411FE9D39CA24AFD7DFB8CFC /* ExperimentalFeaturesView.swift in Sources */,
 				F0D3FA3EC01BD4CF0AADA4E1 /* FileBrowserView.swift in Sources */,

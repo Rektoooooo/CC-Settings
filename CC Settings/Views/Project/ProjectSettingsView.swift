@@ -12,6 +12,7 @@ struct ProjectSettingsView: View {
     // Model
     @State private var model: String = ""
     @State private var effortLevel: String = ""
+    @State private var maxEffortLevel: String = ""
     @State private var outputStyle: String = ""
 
     // Behavior
@@ -109,7 +110,9 @@ struct ProjectSettingsView: View {
                 onToggleOverride: { enabled in
                     if enabled {
                         model = configManager.settings.model
-                        saveProjectField("model", value: model)
+                        // Never write "model": "" — with no global model there is nothing to
+                        // copy yet; the override is written once a model is picked.
+                        if !model.isEmpty { saveProjectField("model", value: model) }
                     } else {
                         saveProjectField("model", value: nil)
                     }
@@ -118,8 +121,8 @@ struct ProjectSettingsView: View {
             ) {
                 HierarchicalModelPicker(selectedModelId: $model)
                     .onChange(of: model) {
-                        guard isLoaded, isOverridden("model") else { return }
-                        saveProjectField("model", value: model)
+                        guard isLoaded, isOverridden("model") || !model.isEmpty else { return }
+                        saveProjectField("model", value: model.isEmpty ? nil : model)
                     }
             }
 
@@ -143,12 +146,34 @@ struct ProjectSettingsView: View {
                     Text("Medium").tag("medium")
                     Text("High").tag("high")
                     Text("Xhigh").tag("xhigh")
-                    Text("Max").tag("max")
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: effortLevel) {
                     guard isLoaded, isOverridden("effortLevel") else { return }
                     saveProjectField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
+                }
+            }
+
+            OverridableSettingRow(
+                title: "Max Effort Cap",
+                description: "Caps the effort any session in this project can use; the lowest cap across scopes wins.",
+                globalSummary: (configManager.rawSettingsObject()["maxEffortLevel"] as? String) ?? "Not set",
+                isOverridden: isOverridden("maxEffortLevel"),
+                onToggleOverride: { enabled in
+                    if !enabled { configManager.saveMaxEffortLevel(nil, to: projectSettingsURL) }
+                    reloadRawJSON()
+                }
+            ) {
+                Picker("", selection: $maxEffortLevel) {
+                    Text("None").tag("")
+                    ForEach(EffortLevels.cap, id: \.self) { level in
+                        Text(level.capitalized).tag(level)
+                    }
+                }
+                .onChange(of: maxEffortLevel) {
+                    guard isLoaded else { return }
+                    configManager.saveMaxEffortLevel(maxEffortLevel.isEmpty ? nil : maxEffortLevel, to: projectSettingsURL)
+                    reloadRawJSON()
                 }
             }
 
@@ -538,6 +563,7 @@ struct ProjectSettingsView: View {
         // Model
         model = rawProjectJSON.keys.contains("model") ? ps.model : configManager.settings.model
         effortLevel = rawProjectJSON.keys.contains("effortLevel") ? (ps.effortLevel ?? "") : (configManager.settings.effortLevel ?? "")
+        maxEffortLevel = rawProjectJSON["maxEffortLevel"] as? String ?? ""
         outputStyle = rawProjectJSON.keys.contains("outputStyle") ? (ps.outputStyle ?? "") : (configManager.settings.outputStyle ?? "")
 
         // Behavior

@@ -26,7 +26,9 @@ struct GeneralSettingsView: View {
 
     // Language & Output
     @State private var language: String = s.language ?? ""
-    @State private var effortLevel: String = s.effortLevel ?? ""
+    @State private var effortLevel: String = ""
+    @State private var maxEffortLevel: String = ""
+    @State private var invalidTopLevelEffort: String? = nil
     @State private var dynamicWorkflowsEnabled: Bool = !(s.disableWorkflows ?? false)
     @State private var ultracodeKeywordEnabled: Bool = s.workflowKeywordTriggerEnabled ?? true
     @State private var outputStyle: String = s.outputStyle ?? ""
@@ -442,11 +444,36 @@ struct GeneralSettingsView: View {
                 Text("Medium").tag("medium")
                 Text("High").tag("high")
                 Text("Xhigh").tag("xhigh")
-                Text("Max").tag("max")
-                Text("Ultracode").tag("ultracode")
             }
             .pickerStyle(.segmented)
-            Text("Controls adaptive reasoning effort on Opus models. Ultracode uses xhigh effort and lets Claude auto-orchestrate dynamic workflows.")
+            Text(selectedModel.isEmpty
+                 ? "Controls adaptive reasoning effort. No model is set, so this is saved as the top-level effortLevel, which the 5.5 models ignore — pick a model to set its effort."
+                 : "Saved per model (modelSettings.\(canonicalModelId(selectedModel)).effortLevel) for the 5.5 models, matching /effort; older models use the top-level effortLevel.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Label("Applies to new Claude Code sessions.", systemImage: "info.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            if let bad = invalidTopLevelEffort {
+                HStack {
+                    Label("effortLevel \"\(bad)\" in settings.json is not valid — Claude Code ignores it.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    Button("Clear") {
+                        configManager.clearTopLevelEffort()
+                        invalidTopLevelEffort = nil
+                    }
+                }
+            }
+
+            Picker("Max Effort Cap", selection: $maxEffortLevel) {
+                Text("None").tag("")
+                ForEach(EffortLevels.cap, id: \.self) { level in
+                    Text(level.capitalized).tag(level)
+                }
+            }
+            Text("maxEffortLevel caps the effort any session can use; if several scopes set it, the lowest wins.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -1310,6 +1337,9 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 // Empty == "no override"; clear the key rather than persisting a fake default.
                 configManager.saveField("model", value: selectedModel.isEmpty ? nil : selectedModel)
+                // Effort is stored per model: show the new model's value (the effort onChange
+                // below skips writes that match what is already on disk).
+                reloadEffortState()
             }
             .onChange(of: fastMode) {
                 guard isLoaded else { return }
@@ -1333,7 +1363,13 @@ struct GeneralSettingsView: View {
             }
             .onChange(of: effortLevel) {
                 guard isLoaded else { return }
-                configManager.saveField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
+                let onDisk = configManager.readEffort(forModel: selectedModel).value ?? ""
+                guard effortLevel != onDisk else { return }
+                configManager.saveEffortLevel(effortLevel.isEmpty ? nil : effortLevel, forModel: selectedModel)
+            }
+            .onChange(of: maxEffortLevel) {
+                guard isLoaded else { return }
+                configManager.saveMaxEffortLevel(maxEffortLevel.isEmpty ? nil : maxEffortLevel)
             }
             .onChange(of: outputStyle) {
                 guard isLoaded else { return }
@@ -1697,6 +1733,16 @@ struct GeneralSettingsView: View {
 
     // MARK: - Data Sync
 
+    /// Re-reads effort for the current model straight from settings.json (modelSettings and
+    /// maxEffortLevel are not part of the decoded model).
+    private func reloadEffortState() {
+        let raw = configManager.rawSettingsObject()
+        let reading = ConfigurationManager.readEffort(in: raw, model: selectedModel)
+        effortLevel = reading.value ?? ""
+        invalidTopLevelEffort = reading.invalidTopLevel
+        maxEffortLevel = raw["maxEffortLevel"] as? String ?? ""
+    }
+
     private func loadFromSettings() {
         isLoaded = false
         let s = configManager.settings
@@ -1715,7 +1761,7 @@ struct GeneralSettingsView: View {
 
         // Language & Output
         language = s.language ?? ""
-        effortLevel = s.effortLevel ?? ""
+        reloadEffortState()
         dynamicWorkflowsEnabled = !(s.disableWorkflows ?? false)
         ultracodeKeywordEnabled = s.workflowKeywordTriggerEnabled ?? true
         outputStyle = s.outputStyle ?? ""
