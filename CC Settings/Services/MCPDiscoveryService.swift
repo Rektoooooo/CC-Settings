@@ -329,14 +329,35 @@ final class MCPDiscoveryService: ObservableObject {
             return nil
         }
 
+        return token(in: mcpOAuth, forURL: server.url)
+    }
+
+    /// Find a stored token whose `serverUrl` equals `url` after normalization.
+    /// Deliberately ignores `serverName`: a repo-defined server called "github"
+    /// that points elsewhere must never receive the user's real github token.
+    nonisolated static func token(in mcpOAuth: [String: Any], forURL url: String?) -> String? {
+        guard let wanted = normalizedURL(url) else { return nil }
         for (_, value) in mcpOAuth {
             guard let entry = value as? [String: Any],
-                  let token = entry["accessToken"] as? String, !token.isEmpty else { continue }
-            let nameMatches = (entry["serverName"] as? String) == server.id
-            let urlMatches = (entry["serverUrl"] as? String) == server.url
-            if nameMatches || urlMatches { return token }
+                  let token = entry["accessToken"] as? String, !token.isEmpty,
+                  let stored = normalizedURL(entry["serverUrl"] as? String) else { continue }
+            if stored == wanted { return token }
         }
         return nil
+    }
+
+    /// scheme://host[:port]/path with lowercase scheme/host, default ports and
+    /// trailing slashes removed. Query/fragment/userinfo are dropped.
+    nonisolated static func normalizedURL(_ raw: String?) -> String? {
+        guard let raw, let comps = URLComponents(string: raw.trimmingCharacters(in: .whitespaces)),
+              let scheme = comps.scheme?.lowercased(), let host = comps.host?.lowercased() else { return nil }
+        var port = ""
+        if let p = comps.port, !((scheme == "https" && p == 443) || (scheme == "http" && p == 80)) {
+            port = ":\(p)"
+        }
+        var path = comps.path
+        while path.hasSuffix("/") { path.removeLast() }
+        return "\(scheme)://\(host)\(port)\(path)"
     }
 
     /// Pull the last JSON-RPC object out of an SSE response body (`data:` lines).

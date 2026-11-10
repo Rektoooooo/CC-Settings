@@ -12,6 +12,7 @@ struct MCPServerDetailView: View {
     @ObservedObject private var discovery = MCPDiscoveryService.shared
 
     @State private var showDeleteAlert = false
+    @State private var showDiscoverConfirm = false
     @State private var newToolName: String = ""
 
     var body: some View {
@@ -105,9 +106,8 @@ struct MCPServerDetailView: View {
             }
         }
         .frame(minWidth: 400)
-        .task(id: server.id) {
-            if case .loaded = discovery.currentState(for: server.id) { return }
-            await discovery.discover(server)
+        .sheet(isPresented: $showDiscoverConfirm) {
+            discoverConfirmSheet
         }
         .alert("Delete Server", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
@@ -394,14 +394,14 @@ struct MCPServerDetailView: View {
                 Spacer()
 
                 Button {
-                    Task { await discovery.discover(server) }
+                    requestDiscovery()
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    Label(discoveryButtonTitle, systemImage: "magnifyingglass")
                         .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .help("Refresh action list")
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Start the server and list its tools")
                 .disabled({ if case .loading = discovery.currentState(for: server.id) { return true } else { return false } }())
             }
 
@@ -490,6 +490,59 @@ struct MCPServerDetailView: View {
                 .help(allServerAllowed ? "Covered by auto-accept all" : "Auto-accept this action")
         }
         .padding(.vertical, 6)
+    }
+
+    private var discoveryButtonTitle: String {
+        if case .loaded(_, let live) = discovery.currentState(for: server.id), live { return "Refresh tools" }
+        return "Discover tools"
+    }
+
+    /// Project-scope (.mcp.json) servers come from a repo and may be untrusted,
+    /// so running one needs an explicit confirmation showing what will execute.
+    private func requestDiscovery() {
+        if case .projectShared = storage {
+            showDiscoverConfirm = true
+        } else {
+            Task { await discovery.discover(server) }
+        }
+    }
+
+    private var commandPreview: String {
+        if server.transportType == .stdio {
+            return ([server.command ?? ""] + (server.args ?? [])).joined(separator: " ")
+        }
+        return server.url ?? ""
+    }
+
+    private var discoverConfirmSheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Run project server?", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundColor(.orange)
+            Text(server.transportType == .stdio
+                 ? "This server is defined in \(storage.pathDescription), which may come from a cloned repository. Discovering its tools will run this command on your Mac:"
+                 : "This server is defined in \(storage.pathDescription). Discovering its tools will connect to:")
+                .font(.callout)
+            Text(commandPreview)
+                .font(.body.monospaced())
+                .textSelection(.enabled)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondary.opacity(0.12))
+                .cornerRadius(6)
+            HStack {
+                Spacer()
+                Button("Cancel") { showDiscoverConfirm = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Run and discover") {
+                    showDiscoverConfirm = false
+                    Task { await discovery.discover(server) }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
     }
 
     private var discoveryStatusText: String? {
