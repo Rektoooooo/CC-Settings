@@ -29,7 +29,9 @@ struct ClaudeSettings: Equatable {
     var outputStyle: String?
     var verbose: Bool?
     var prefersReducedMotion: Bool?
-    var skillOverrides: String?
+    /// Per-skill visibility: `{ "<skillName>": "on" | "name-only" | "user-invocable-only" | "off" }`.
+    /// Read-only in the UI; edited by hand in settings.json (writes never touch it).
+    var skillOverrides: [String: String]?
     /// Inverted: `true` hides Claude Code's bundled skills (/code-review, /loop, …)
     /// from the model. Default unset == bundled skills visible.
     var disableBundledSkills: Bool?
@@ -248,122 +250,143 @@ struct ClaudeSettings: Equatable {
 extension ClaudeSettings: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        apiKeyHelper = try c.decodeIfPresent(String.self, forKey: .apiKeyHelper)
-        env = (try? c.decodeIfPresent([String: String].self, forKey: .env)) ?? [:]
+        apiKeyHelper = try? c.decodeIfPresent(String.self, forKey: .apiKeyHelper)
+        // Claude Code tolerates non-string env values (numbers, booleans); show them as strings
+        // instead of discarding the whole map. Writes are per-key, so nothing is rewritten.
+        if let strict = (try? c.decodeIfPresent([String: String].self, forKey: .env)) ?? nil {
+            env = strict
+        } else if let loose = (try? c.decodeIfPresent([String: JSONValue].self, forKey: .env)) ?? nil {
+            env = loose.reduce(into: [:]) { result, pair in
+                switch pair.value {
+                case .string(let v): result[pair.key] = v
+                case .int(let v): result[pair.key] = String(v)
+                case .double(let v): result[pair.key] = String(v)
+                case .bool(let v): result[pair.key] = v ? "true" : "false"
+                default: break
+                }
+            }
+        }
         permissions = (try? c.decodeIfPresent(PermissionsConfig.self, forKey: .permissions)) ?? PermissionsConfig()
         model = (try? c.decodeIfPresent(String.self, forKey: .model)) ?? ""
         hooks = try? c.decodeIfPresent(HooksConfig.self, forKey: .hooks)
-        skipWebFetchPreflight = try c.decodeIfPresent(Bool.self, forKey: .skipWebFetchPreflight)
-        alwaysThinkingEnabled = try c.decodeIfPresent(Bool.self, forKey: .alwaysThinkingEnabled)
-        thinkingBudgetTokens = try c.decodeIfPresent(Int.self, forKey: .thinkingBudgetTokens)
-        mainBranch = try c.decodeIfPresent(String.self, forKey: .mainBranch)
-        preferredGitApp = try c.decodeIfPresent(GitAppPreference.self, forKey: .preferredGitApp)
-        customGitAppPath = try c.decodeIfPresent(String.self, forKey: .customGitAppPath)
-        theme = try c.decodeIfPresent(String.self, forKey: .theme)
-        language = try c.decodeIfPresent(String.self, forKey: .language)
-        effortLevel = try c.decodeIfPresent(String.self, forKey: .effortLevel)
-        disableWorkflows = try c.decodeIfPresent(Bool.self, forKey: .disableWorkflows)
-        workflowKeywordTriggerEnabled = try c.decodeIfPresent(Bool.self, forKey: .workflowKeywordTriggerEnabled)
-        outputStyle = try c.decodeIfPresent(String.self, forKey: .outputStyle)
-        verbose = try c.decodeIfPresent(Bool.self, forKey: .verbose)
-        prefersReducedMotion = try c.decodeIfPresent(Bool.self, forKey: .prefersReducedMotion)
-        skillOverrides = try c.decodeIfPresent(String.self, forKey: .skillOverrides)
-        disableBundledSkills = try c.decodeIfPresent(Bool.self, forKey: .disableBundledSkills)
-        workflowSizeGuideline = try c.decodeIfPresent(String.self, forKey: .workflowSizeGuideline)
-        showTurnDuration = try c.decodeIfPresent(Bool.self, forKey: .showTurnDuration)
-        respectGitignore = try c.decodeIfPresent(Bool.self, forKey: .respectGitignore)
-        autoCompact = try c.decodeIfPresent(AutoCompactConfig.self, forKey: .autoCompact)
-        plansDirectory = try c.decodeIfPresent(String.self, forKey: .plansDirectory)
-        includeGitInstructions = try c.decodeIfPresent(Bool.self, forKey: .includeGitInstructions)
-        showThinkingSummaries = try c.decodeIfPresent(Bool.self, forKey: .showThinkingSummaries)
-        showClearContextOnPlanAccept = try c.decodeIfPresent(Bool.self, forKey: .showClearContextOnPlanAccept)
-        defaultShell = try c.decodeIfPresent(String.self, forKey: .defaultShell)
-        autoCompactWindow = try c.decodeIfPresent(Int.self, forKey: .autoCompactWindow)
-        precomputeCompactionEnabled = try c.decodeIfPresent(Bool.self, forKey: .precomputeCompactionEnabled)
-        todoFeatureEnabled = try c.decodeIfPresent(Bool.self, forKey: .todoFeatureEnabled)
-        askUserQuestionTimeout = try c.decodeIfPresent(String.self, forKey: .askUserQuestionTimeout)
-        awaySummaryEnabled = try c.decodeIfPresent(Bool.self, forKey: .awaySummaryEnabled)
-        promptSuggestionEnabled = try c.decodeIfPresent(Bool.self, forKey: .promptSuggestionEnabled)
-        emojiCompletionEnabled = try c.decodeIfPresent(Bool.self, forKey: .emojiCompletionEnabled)
-        fileCheckpointingEnabled = try c.decodeIfPresent(Bool.self, forKey: .fileCheckpointingEnabled)
-        feedbackSurveyRate = try c.decodeIfPresent(Double.self, forKey: .feedbackSurveyRate)
+        skipWebFetchPreflight = try? c.decodeIfPresent(Bool.self, forKey: .skipWebFetchPreflight)
+        alwaysThinkingEnabled = try? c.decodeIfPresent(Bool.self, forKey: .alwaysThinkingEnabled)
+        thinkingBudgetTokens = try? c.decodeIfPresent(Int.self, forKey: .thinkingBudgetTokens)
+        mainBranch = try? c.decodeIfPresent(String.self, forKey: .mainBranch)
+        preferredGitApp = try? c.decodeIfPresent(GitAppPreference.self, forKey: .preferredGitApp)
+        customGitAppPath = try? c.decodeIfPresent(String.self, forKey: .customGitAppPath)
+        theme = try? c.decodeIfPresent(String.self, forKey: .theme)
+        language = try? c.decodeIfPresent(String.self, forKey: .language)
+        effortLevel = try? c.decodeIfPresent(String.self, forKey: .effortLevel)
+        disableWorkflows = try? c.decodeIfPresent(Bool.self, forKey: .disableWorkflows)
+        workflowKeywordTriggerEnabled = try? c.decodeIfPresent(Bool.self, forKey: .workflowKeywordTriggerEnabled)
+        outputStyle = try? c.decodeIfPresent(String.self, forKey: .outputStyle)
+        verbose = try? c.decodeIfPresent(Bool.self, forKey: .verbose)
+        prefersReducedMotion = try? c.decodeIfPresent(Bool.self, forKey: .prefersReducedMotion)
+        skillOverrides = try? c.decodeIfPresent([String: String].self, forKey: .skillOverrides)
+        disableBundledSkills = try? c.decodeIfPresent(Bool.self, forKey: .disableBundledSkills)
+        workflowSizeGuideline = try? c.decodeIfPresent(String.self, forKey: .workflowSizeGuideline)
+        showTurnDuration = try? c.decodeIfPresent(Bool.self, forKey: .showTurnDuration)
+        respectGitignore = try? c.decodeIfPresent(Bool.self, forKey: .respectGitignore)
+        autoCompact = try? c.decodeIfPresent(AutoCompactConfig.self, forKey: .autoCompact)
+        plansDirectory = try? c.decodeIfPresent(String.self, forKey: .plansDirectory)
+        includeGitInstructions = try? c.decodeIfPresent(Bool.self, forKey: .includeGitInstructions)
+        showThinkingSummaries = try? c.decodeIfPresent(Bool.self, forKey: .showThinkingSummaries)
+        showClearContextOnPlanAccept = try? c.decodeIfPresent(Bool.self, forKey: .showClearContextOnPlanAccept)
+        defaultShell = try? c.decodeIfPresent(String.self, forKey: .defaultShell)
+        autoCompactWindow = try? c.decodeIfPresent(Int.self, forKey: .autoCompactWindow)
+        precomputeCompactionEnabled = try? c.decodeIfPresent(Bool.self, forKey: .precomputeCompactionEnabled)
+        todoFeatureEnabled = try? c.decodeIfPresent(Bool.self, forKey: .todoFeatureEnabled)
+        askUserQuestionTimeout = try? c.decodeIfPresent(String.self, forKey: .askUserQuestionTimeout)
+        awaySummaryEnabled = try? c.decodeIfPresent(Bool.self, forKey: .awaySummaryEnabled)
+        promptSuggestionEnabled = try? c.decodeIfPresent(Bool.self, forKey: .promptSuggestionEnabled)
+        emojiCompletionEnabled = try? c.decodeIfPresent(Bool.self, forKey: .emojiCompletionEnabled)
+        fileCheckpointingEnabled = try? c.decodeIfPresent(Bool.self, forKey: .fileCheckpointingEnabled)
+        feedbackSurveyRate = try? c.decodeIfPresent(Double.self, forKey: .feedbackSurveyRate)
         fileSuggestion = try? c.decodeIfPresent(CommandScriptConfig.self, forKey: .fileSuggestion)
-        autoContinueAtUsageLimit = try c.decodeIfPresent(Bool.self, forKey: .autoContinueAtUsageLimit)
-        bashOutputMaxChars = try c.decodeIfPresent(Int.self, forKey: .bashOutputMaxChars)
-        taskOutputMaxChars = try c.decodeIfPresent(Int.self, forKey: .taskOutputMaxChars)
-        timeFormat = try c.decodeIfPresent(String.self, forKey: .timeFormat)
-        timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone)
-        axScreenReader = try c.decodeIfPresent(Bool.self, forKey: .axScreenReader)
-        autoScrollEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoScrollEnabled)
-        wheelScrollAccelerationEnabled = try c.decodeIfPresent(Bool.self, forKey: .wheelScrollAccelerationEnabled)
-        terminalProgressBarEnabled = try c.decodeIfPresent(Bool.self, forKey: .terminalProgressBarEnabled)
-        showMessageTimestamps = try c.decodeIfPresent(Bool.self, forKey: .showMessageTimestamps)
-        syntaxHighlightingDisabled = try c.decodeIfPresent(Bool.self, forKey: .syntaxHighlightingDisabled)
-        hideVimModeIndicator = try c.decodeIfPresent(Bool.self, forKey: .hideVimModeIndicator)
+        autoContinueAtUsageLimit = try? c.decodeIfPresent(Bool.self, forKey: .autoContinueAtUsageLimit)
+        bashOutputMaxChars = try? c.decodeIfPresent(Int.self, forKey: .bashOutputMaxChars)
+        taskOutputMaxChars = try? c.decodeIfPresent(Int.self, forKey: .taskOutputMaxChars)
+        timeFormat = try? c.decodeIfPresent(String.self, forKey: .timeFormat)
+        timeZone = try? c.decodeIfPresent(String.self, forKey: .timeZone)
+        axScreenReader = try? c.decodeIfPresent(Bool.self, forKey: .axScreenReader)
+        autoScrollEnabled = try? c.decodeIfPresent(Bool.self, forKey: .autoScrollEnabled)
+        wheelScrollAccelerationEnabled = try? c.decodeIfPresent(Bool.self, forKey: .wheelScrollAccelerationEnabled)
+        terminalProgressBarEnabled = try? c.decodeIfPresent(Bool.self, forKey: .terminalProgressBarEnabled)
+        showMessageTimestamps = try? c.decodeIfPresent(Bool.self, forKey: .showMessageTimestamps)
+        syntaxHighlightingDisabled = try? c.decodeIfPresent(Bool.self, forKey: .syntaxHighlightingDisabled)
+        hideVimModeIndicator = try? c.decodeIfPresent(Bool.self, forKey: .hideVimModeIndicator)
         // Claude Code types the values as `unknown`; only "<Esc>" is a supported target,
         // so drop any non-string values rather than failing the whole settings decode.
         vimInsertModeRemaps = try? c.decodeIfPresent([String: String].self, forKey: .vimInsertModeRemaps)
         spellcheck = try? c.decodeIfPresent(SpellcheckConfig.self, forKey: .spellcheck)
-        fastMode = try c.decodeIfPresent(Bool.self, forKey: .fastMode)
-        fastModePerSessionOptIn = try c.decodeIfPresent(Bool.self, forKey: .fastModePerSessionOptIn)
-        availableModels = try c.decodeIfPresent([String].self, forKey: .availableModels)
-        enforceAvailableModels = try c.decodeIfPresent(Bool.self, forKey: .enforceAvailableModels)
-        advisorModel = try c.decodeIfPresent(String.self, forKey: .advisorModel)
+        fastMode = try? c.decodeIfPresent(Bool.self, forKey: .fastMode)
+        fastModePerSessionOptIn = try? c.decodeIfPresent(Bool.self, forKey: .fastModePerSessionOptIn)
+        availableModels = try? c.decodeIfPresent([String].self, forKey: .availableModels)
+        enforceAvailableModels = try? c.decodeIfPresent(Bool.self, forKey: .enforceAvailableModels)
+        advisorModel = try? c.decodeIfPresent(String.self, forKey: .advisorModel)
         // Accept both the array form and the legacy single-string form
         if let chain = ((try? c.decodeIfPresent([String].self, forKey: .fallbackModel)) ?? nil) {
             fallbackModel = chain
         } else if let single = ((try? c.decodeIfPresent(String.self, forKey: .fallbackModel)) ?? nil) {
             fallbackModel = [single]
         }
-        promptCacheTtl = try c.decodeIfPresent(String.self, forKey: .promptCacheTtl)
-        autoMemoryEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoMemoryEnabled)
-        autoMemoryDirectory = try c.decodeIfPresent(String.self, forKey: .autoMemoryDirectory)
-        voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)
-        autoUpdates = try c.decodeIfPresent(Bool.self, forKey: .autoUpdates)
-        autoUpdatesChannel = try c.decodeIfPresent(String.self, forKey: .autoUpdatesChannel)
-        preferredNotifChannel = try c.decodeIfPresent(String.self, forKey: .preferredNotifChannel)
-        cleanupPeriodDays = try c.decodeIfPresent(Int.self, forKey: .cleanupPeriodDays)
-        attribution = try c.decodeIfPresent(AttributionConfig.self, forKey: .attribution)
-        prUrlTemplate = try c.decodeIfPresent(String.self, forKey: .prUrlTemplate)
-        teammateMode = try c.decodeIfPresent(String.self, forKey: .teammateMode)
-        disableAgentView = try c.decodeIfPresent(Bool.self, forKey: .disableAgentView)
+        promptCacheTtl = try? c.decodeIfPresent(String.self, forKey: .promptCacheTtl)
+        autoMemoryEnabled = try? c.decodeIfPresent(Bool.self, forKey: .autoMemoryEnabled)
+        autoMemoryDirectory = try? c.decodeIfPresent(String.self, forKey: .autoMemoryDirectory)
+        voiceEnabled = try? c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)
+        autoUpdates = try? c.decodeIfPresent(Bool.self, forKey: .autoUpdates)
+        autoUpdatesChannel = try? c.decodeIfPresent(String.self, forKey: .autoUpdatesChannel)
+        preferredNotifChannel = try? c.decodeIfPresent(String.self, forKey: .preferredNotifChannel)
+        cleanupPeriodDays = try? c.decodeIfPresent(Int.self, forKey: .cleanupPeriodDays)
+        attribution = try? c.decodeIfPresent(AttributionConfig.self, forKey: .attribution)
+        prUrlTemplate = try? c.decodeIfPresent(String.self, forKey: .prUrlTemplate)
+        teammateMode = try? c.decodeIfPresent(String.self, forKey: .teammateMode)
+        disableAgentView = try? c.decodeIfPresent(Bool.self, forKey: .disableAgentView)
         subagentStatusLine = try? c.decodeIfPresent(CommandScriptConfig.self, forKey: .subagentStatusLine)
-        disableRemoteControl = try c.decodeIfPresent(Bool.self, forKey: .disableRemoteControl)
-        remoteControlAtStartup = try c.decodeIfPresent(Bool.self, forKey: .remoteControlAtStartup)
-        agentPushNotifEnabled = try c.decodeIfPresent(Bool.self, forKey: .agentPushNotifEnabled)
-        crossSessionInbound = try c.decodeIfPresent(String.self, forKey: .crossSessionInbound)
-        dialogExpiry = try c.decodeIfPresent(String.self, forKey: .dialogExpiry)
-        enableArtifact = try c.decodeIfPresent(Bool.self, forKey: .enableArtifact)
-        disableArtifact = try c.decodeIfPresent(Bool.self, forKey: .disableArtifact)
-        pluginSuggestionMarketplaces = try c.decodeIfPresent([String].self, forKey: .pluginSuggestionMarketplaces)
-        allowAllClaudeAiMcps = try c.decodeIfPresent(Bool.self, forKey: .allowAllClaudeAiMcps)
-        disableClaudeAiConnectors = try c.decodeIfPresent(Bool.self, forKey: .disableClaudeAiConnectors)
-        channelsEnabled = try c.decodeIfPresent(Bool.self, forKey: .channelsEnabled)
+        disableRemoteControl = try? c.decodeIfPresent(Bool.self, forKey: .disableRemoteControl)
+        remoteControlAtStartup = try? c.decodeIfPresent(Bool.self, forKey: .remoteControlAtStartup)
+        agentPushNotifEnabled = try? c.decodeIfPresent(Bool.self, forKey: .agentPushNotifEnabled)
+        crossSessionInbound = try? c.decodeIfPresent(String.self, forKey: .crossSessionInbound)
+        dialogExpiry = try? c.decodeIfPresent(String.self, forKey: .dialogExpiry)
+        enableArtifact = try? c.decodeIfPresent(Bool.self, forKey: .enableArtifact)
+        disableArtifact = try? c.decodeIfPresent(Bool.self, forKey: .disableArtifact)
+        pluginSuggestionMarketplaces = try? c.decodeIfPresent([String].self, forKey: .pluginSuggestionMarketplaces)
+        allowAllClaudeAiMcps = try? c.decodeIfPresent(Bool.self, forKey: .allowAllClaudeAiMcps)
+        disableClaudeAiConnectors = try? c.decodeIfPresent(Bool.self, forKey: .disableClaudeAiConnectors)
+        channelsEnabled = try? c.decodeIfPresent(Bool.self, forKey: .channelsEnabled)
         allowedMcpServers = try? c.decodeIfPresent([String].self, forKey: .allowedMcpServers)
         strictKnownMarketplaces = try? c.decodeIfPresent([String].self, forKey: .strictKnownMarketplaces)
         blockedMarketplaces = try? c.decodeIfPresent([String].self, forKey: .blockedMarketplaces)
-        disableSideloadFlags = try c.decodeIfPresent(Bool.self, forKey: .disableSideloadFlags)
-        disableSkillShellExecution = try c.decodeIfPresent(Bool.self, forKey: .disableSkillShellExecution)
-        disableDeepLinkRegistration = try c.decodeIfPresent(String.self, forKey: .disableDeepLinkRegistration)
-        disableAutoMode = try c.decodeIfPresent(String.self, forKey: .disableAutoMode)
-        autoMode = try c.decodeIfPresent(AutoModeConfig.self, forKey: .autoMode)
-        disableAllHooks = try c.decodeIfPresent(Bool.self, forKey: .disableAllHooks)
-        claudeMdExcludes = try c.decodeIfPresent([String].self, forKey: .claudeMdExcludes)
-        sandbox = try c.decodeIfPresent(SandboxConfig.self, forKey: .sandbox)
-        worktree = try c.decodeIfPresent(WorktreeConfig.self, forKey: .worktree)
-        enableWeakerSandbox = try c.decodeIfPresent(Bool.self, forKey: .enableWeakerSandbox)
-        unsandboxedCommands = try c.decodeIfPresent([String].self, forKey: .unsandboxedCommands)
-        allowLocalBinding = try c.decodeIfPresent(Bool.self, forKey: .allowLocalBinding)
-        allowAllUnixSockets = try c.decodeIfPresent(Bool.self, forKey: .allowAllUnixSockets)
-        allowedDomains = try c.decodeIfPresent([String].self, forKey: .allowedDomains)
-        spinnerTipsEnabled = try c.decodeIfPresent(Bool.self, forKey: .spinnerTipsEnabled)
-        spinnerVerbsMode = try c.decodeIfPresent(String.self, forKey: .spinnerVerbsMode)
-        spinnerVerbs = try c.decodeIfPresent([String].self, forKey: .spinnerVerbs)
-        customTips = try c.decodeIfPresent([String].self, forKey: .customTips)
-        excludeDefaultTips = try c.decodeIfPresent(Bool.self, forKey: .excludeDefaultTips)
-        spinnerTipsOverride = try c.decodeIfPresent(SpinnerTipsOverride.self, forKey: .spinnerTipsOverride)
-        statusLine = try c.decodeIfPresent(StatusLineConfig.self, forKey: .statusLine)
-        statusLineCommand = try c.decodeIfPresent(String.self, forKey: .statusLineCommand)
+        disableSideloadFlags = try? c.decodeIfPresent(Bool.self, forKey: .disableSideloadFlags)
+        disableSkillShellExecution = try? c.decodeIfPresent(Bool.self, forKey: .disableSkillShellExecution)
+        disableDeepLinkRegistration = try? c.decodeIfPresent(String.self, forKey: .disableDeepLinkRegistration)
+        disableAutoMode = try? c.decodeIfPresent(String.self, forKey: .disableAutoMode)
+        autoMode = try? c.decodeIfPresent(AutoModeConfig.self, forKey: .autoMode)
+        disableAllHooks = try? c.decodeIfPresent(Bool.self, forKey: .disableAllHooks)
+        claudeMdExcludes = try? c.decodeIfPresent([String].self, forKey: .claudeMdExcludes)
+        sandbox = try? c.decodeIfPresent(SandboxConfig.self, forKey: .sandbox)
+        worktree = try? c.decodeIfPresent(WorktreeConfig.self, forKey: .worktree)
+        enableWeakerSandbox = try? c.decodeIfPresent(Bool.self, forKey: .enableWeakerSandbox)
+        unsandboxedCommands = try? c.decodeIfPresent([String].self, forKey: .unsandboxedCommands)
+        allowLocalBinding = try? c.decodeIfPresent(Bool.self, forKey: .allowLocalBinding)
+        allowAllUnixSockets = try? c.decodeIfPresent(Bool.self, forKey: .allowAllUnixSockets)
+        allowedDomains = try? c.decodeIfPresent([String].self, forKey: .allowedDomains)
+        spinnerTipsEnabled = try? c.decodeIfPresent(Bool.self, forKey: .spinnerTipsEnabled)
+        spinnerVerbsMode = try? c.decodeIfPresent(String.self, forKey: .spinnerVerbsMode)
+        // Claude Code stores `spinnerVerbs` as `{ "mode": "append"|"replace", "verbs": [...] }`;
+        // older builds of this app wrote a bare array plus a flat `spinnerVerbsMode`.
+        if let flat = (try? c.decodeIfPresent([String].self, forKey: .spinnerVerbs)) ?? nil {
+            spinnerVerbs = flat
+        } else if let object = (try? c.decodeIfPresent(SpinnerVerbsObject.self, forKey: .spinnerVerbs)) ?? nil {
+            spinnerVerbs = object.verbs
+            if spinnerVerbsMode == nil { spinnerVerbsMode = object.mode }
+        }
+        customTips = try? c.decodeIfPresent([String].self, forKey: .customTips)
+        excludeDefaultTips = try? c.decodeIfPresent(Bool.self, forKey: .excludeDefaultTips)
+        spinnerTipsOverride = try? c.decodeIfPresent(SpinnerTipsOverride.self, forKey: .spinnerTipsOverride)
+        statusLine = try? c.decodeIfPresent(StatusLineConfig.self, forKey: .statusLine)
+        statusLineCommand = try? c.decodeIfPresent(String.self, forKey: .statusLineCommand)
     }
 }
 
@@ -379,7 +402,45 @@ struct StatusLineConfig: Codable, Equatable {
 
 struct SpinnerTipsOverride: Codable, Equatable {
     var excludeDefault: Bool?
+    /// Claude Code accepts plain strings or `{ "id": "...", "text": "..." }` objects.
+    /// Objects are flattened to their text for display; writes use dotted paths and only
+    /// touch `tips` when the user edits it, so the original objects are never rewritten.
     var tips: [String]?
+
+    enum CodingKeys: String, CodingKey { case excludeDefault, tips }
+
+    init(excludeDefault: Bool? = nil, tips: [String]? = nil) {
+        self.excludeDefault = excludeDefault
+        self.tips = tips
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        excludeDefault = try? c.decodeIfPresent(Bool.self, forKey: .excludeDefault)
+        if let items = (try? c.decodeIfPresent([JSONValue].self, forKey: .tips)) ?? nil {
+            tips = items.compactMap { item in
+                switch item {
+                case .string(let text): return text
+                case .object(let obj): return obj["text"]?.stringValue
+                default: return nil
+                }
+            }
+        }
+    }
+}
+
+/// `spinnerVerbs` object form: `{ "mode": "append" | "replace", "verbs": ["Pondering"] }`.
+struct SpinnerVerbsObject: Decodable, Equatable {
+    var mode: String?
+    var verbs: [String]?
+
+    enum CodingKeys: String, CodingKey { case mode, verbs }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try? c.decodeIfPresent(String.self, forKey: .mode)
+        verbs = try? c.decodeIfPresent([String].self, forKey: .verbs)
+    }
 }
 
 // MARK: - Spellcheck
@@ -495,12 +556,46 @@ struct AutoModeConfig: Codable, Equatable {
 // MARK: - Attribution
 
 struct AttributionConfig: Codable, Equatable {
+    /// Claude Code also accepts a bare Bool (`"attribution": false`); that form lands here
+    /// and is re-encoded as a Bool as long as no other field is set.
+    var enabled: Bool?
     var commit: String?
     var pr: String?
     /// Whether to append the claude.ai session link to commits and PRs created from
     /// web or Remote Control sessions. Default unset == true; `false` omits the
     /// `Claude-Session` trailer and the PR-body link.
     var sessionUrl: Bool?
+
+    enum CodingKeys: String, CodingKey { case commit, pr, sessionUrl }
+
+    init(commit: String? = nil, pr: String? = nil, sessionUrl: Bool? = nil) {
+        self.commit = commit
+        self.pr = pr
+        self.sessionUrl = sessionUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        if let flag = try? decoder.singleValueContainer().decode(Bool.self) {
+            enabled = flag
+            return
+        }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        commit = try? c.decodeIfPresent(String.self, forKey: .commit)
+        pr = try? c.decodeIfPresent(String.self, forKey: .pr)
+        sessionUrl = try? c.decodeIfPresent(Bool.self, forKey: .sessionUrl)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        if let enabled, commit == nil, pr == nil, sessionUrl == nil {
+            var single = encoder.singleValueContainer()
+            try single.encode(enabled)
+            return
+        }
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(commit, forKey: .commit)
+        try c.encodeIfPresent(pr, forKey: .pr)
+        try c.encodeIfPresent(sessionUrl, forKey: .sessionUrl)
+    }
 }
 
 // MARK: - Permissions
@@ -610,41 +705,70 @@ private struct DynamicCodingKey: CodingKey {
 
 struct HookGroup: Codable, Equatable, Identifiable {
     var id = UUID()
-    var matcher: HookMatcher?
+    /// The CLI schema is `matcher: string` (a tool-name regex such as "Bash|Edit").
+    var matcherString: String?
     var hooks: [HookDefinition]
+    /// Group-level keys this app does not model, kept verbatim.
+    var extra: [String: JSONValue] = [:]
 
-    enum CodingKeys: String, CodingKey {
-        case matcher, hooks
+    /// UI-facing view of `matcherString`. A `{tool, pattern}` pair is folded into one
+    /// string on write: tool alone, pattern alone, or `tool(pattern)` for both.
+    var matcher: HookMatcher? {
+        get { matcherString.map { HookMatcher(tool: $0, pattern: nil) } }
+        set { matcherString = newValue?.combined }
     }
 
     init(matcher: HookMatcher? = nil, hooks: [HookDefinition] = []) {
-        self.matcher = matcher
+        self.matcherString = matcher?.combined
+        self.hooks = hooks
+    }
+
+    init(matcherString: String?, hooks: [HookDefinition] = []) {
+        self.matcherString = matcherString
         self.hooks = hooks
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        // matcher can be a string ("*") or an object ({"tool": ..., "pattern": ...})
-        if let matcherObj = try? container.decodeIfPresent(HookMatcher.self, forKey: .matcher) {
-            matcher = matcherObj
-        } else if let matcherStr = try? container.decodeIfPresent(String.self, forKey: .matcher) {
-            matcher = HookMatcher(tool: matcherStr, pattern: nil)
-        } else {
-            matcher = nil
+        let all = try decoder.singleValueContainer().decode([String: JSONValue].self)
+        if let str = all["matcher"]?.stringValue {
+            matcherString = str
+        } else if case .object(let legacy)? = all["matcher"] {
+            // Older builds of this app wrote {"tool": ..., "pattern": ...}, which the CLI rejects.
+            matcherString = HookMatcher(tool: legacy["tool"]?.stringValue, pattern: legacy["pattern"]?.stringValue).combined
         }
-        hooks = (try? container.decode([HookDefinition].self, forKey: .hooks)) ?? []
+        if case .array(let items)? = all["hooks"] {
+            hooks = items.compactMap { item in
+                guard let data = try? JSONEncoder().encode(item) else { return nil }
+                return try? JSONDecoder().decode(HookDefinition.self, from: data)
+            }
+        } else {
+            hooks = []
+        }
+        extra = all.filter { $0.key != "matcher" && $0.key != "hooks" }
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(matcher, forKey: .matcher)
-        try container.encode(hooks, forKey: .hooks)
+        var container = encoder.container(keyedBy: JSONValue.DynamicKey.self)
+        for (key, value) in extra {
+            try container.encode(value, forKey: JSONValue.DynamicKey(key))
+        }
+        try container.encodeIfPresent(matcherString, forKey: JSONValue.DynamicKey("matcher"))
+        try container.encode(hooks, forKey: JSONValue.DynamicKey("hooks"))
     }
 }
 
 struct HookMatcher: Codable, Equatable {
     var tool: String?
     var pattern: String?
+
+    var combined: String? {
+        switch (tool, pattern) {
+        case let (t?, p?): return "\(t)(\(p))"
+        case let (t?, nil): return t
+        case let (nil, p?): return p
+        default: return nil
+        }
+    }
 }
 
 struct HookDefinition: Codable, Equatable, Identifiable {
@@ -656,15 +780,21 @@ struct HookDefinition: Codable, Equatable, Identifiable {
     var agent: String?
     var url: String?
     var ifCondition: String?
-    var timeout: Int?
+    /// Seconds. The CLI accepts fractional values (1.5), so this is a Double; whole
+    /// numbers are written back as integers.
+    var timeout: Double?
     var continueOnBlock: Bool?
+    /// Every key this app does not model (async, once, shell, headers, model, onFailure,
+    /// statusMessage, asyncRewake, cloud, and for `mcp_tool`: server/tool/input), plus any
+    /// modeled key whose value had an unexpected type. Written back untouched.
+    var extra: [String: JSONValue] = [:]
 
     enum CodingKeys: String, CodingKey {
         case type, command, args, prompt, agent, url, timeout, continueOnBlock
         case ifCondition = "if"
     }
 
-    init(type: String = "command", command: String? = nil, args: [String]? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil, timeout: Int? = nil, continueOnBlock: Bool? = nil) {
+    init(type: String = "command", command: String? = nil, args: [String]? = nil, prompt: String? = nil, agent: String? = nil, url: String? = nil, ifCondition: String? = nil, timeout: Double? = nil, continueOnBlock: Bool? = nil) {
         self.type = type
         self.command = command
         self.args = args
@@ -678,28 +808,45 @@ struct HookDefinition: Codable, Equatable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        type = try container.decode(String.self, forKey: .type)
-        command = try container.decodeIfPresent(String.self, forKey: .command)
-        args = try container.decodeIfPresent([String].self, forKey: .args)
-        prompt = try container.decodeIfPresent(String.self, forKey: .prompt)
-        agent = try container.decodeIfPresent(String.self, forKey: .agent)
-        url = try container.decodeIfPresent(String.self, forKey: .url)
-        ifCondition = try container.decodeIfPresent(String.self, forKey: .ifCondition)
-        timeout = try container.decodeIfPresent(Int.self, forKey: .timeout)
-        continueOnBlock = try container.decodeIfPresent(Bool.self, forKey: .continueOnBlock)
+        var leftovers = try decoder.singleValueContainer().decode([String: JSONValue].self)
+
+        func take<T: Decodable>(_ key: CodingKeys, as _: T.Type) -> T? {
+            guard let value = (try? container.decodeIfPresent(T.self, forKey: key)) ?? nil else { return nil }
+            leftovers.removeValue(forKey: key.stringValue)
+            return value
+        }
+        type = take(.type, as: String.self) ?? "command"
+        command = take(.command, as: String.self)
+        args = take(.args, as: [String].self)
+        prompt = take(.prompt, as: String.self)
+        agent = take(.agent, as: String.self)
+        url = take(.url, as: String.self)
+        ifCondition = take(.ifCondition, as: String.self)
+        timeout = take(.timeout, as: Double.self)
+        continueOnBlock = take(.continueOnBlock, as: Bool.self)
+        extra = leftovers
     }
 
     func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(type, forKey: .type)
-        try container.encodeIfPresent(command, forKey: .command)
-        try container.encodeIfPresent(args, forKey: .args)
-        try container.encodeIfPresent(prompt, forKey: .prompt)
-        try container.encodeIfPresent(agent, forKey: .agent)
-        try container.encodeIfPresent(url, forKey: .url)
-        try container.encodeIfPresent(ifCondition, forKey: .ifCondition)
-        try container.encodeIfPresent(timeout, forKey: .timeout)
-        try container.encodeIfPresent(continueOnBlock, forKey: .continueOnBlock)
+        var container = encoder.container(keyedBy: JSONValue.DynamicKey.self)
+        for (key, value) in extra {
+            try container.encode(value, forKey: JSONValue.DynamicKey(key))
+        }
+        try container.encode(type, forKey: JSONValue.DynamicKey("type"))
+        try container.encodeIfPresent(command, forKey: JSONValue.DynamicKey("command"))
+        try container.encodeIfPresent(args, forKey: JSONValue.DynamicKey("args"))
+        try container.encodeIfPresent(prompt, forKey: JSONValue.DynamicKey("prompt"))
+        try container.encodeIfPresent(agent, forKey: JSONValue.DynamicKey("agent"))
+        try container.encodeIfPresent(url, forKey: JSONValue.DynamicKey("url"))
+        try container.encodeIfPresent(ifCondition, forKey: JSONValue.DynamicKey("if"))
+        if let timeout {
+            if timeout == timeout.rounded(), abs(timeout) < 1e15 {
+                try container.encode(Int(timeout), forKey: JSONValue.DynamicKey("timeout"))
+            } else {
+                try container.encode(timeout, forKey: JSONValue.DynamicKey("timeout"))
+            }
+        }
+        try container.encodeIfPresent(continueOnBlock, forKey: JSONValue.DynamicKey("continueOnBlock"))
     }
 }
 

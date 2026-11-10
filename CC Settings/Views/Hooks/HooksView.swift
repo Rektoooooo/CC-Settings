@@ -276,6 +276,8 @@ struct HookGroupModel: Identifiable, Equatable {
     /// NOT expose (type, prompt, agent, url, ifCondition, timeout) are preserved on
     /// save instead of being dropped. Empty entries (new rows) become command hooks.
     var originalDefinitions: [HookDefinition] = []
+    /// Group-level keys the editor does not model, carried through to the saved group.
+    var groupExtra: [String: JSONValue] = [:]
 
     init() {}
 
@@ -286,6 +288,7 @@ struct HookGroupModel: Identifiable, Equatable {
         self.argsList = group.hooks.map { ($0.args ?? []).joined(separator: ", ") }
         self.continueOnBlockList = group.hooks.map { $0.continueOnBlock ?? false }
         self.originalDefinitions = group.hooks
+        self.groupExtra = group.extra
         if self.commands.isEmpty {
             self.commands = [""]
             self.argsList = [""]
@@ -352,7 +355,9 @@ struct HookGroupModel: Identifiable, Equatable {
             return def
         }
 
-        return HookGroup(matcher: matcher, hooks: hooks)
+        var group = HookGroup(matcher: matcher, hooks: hooks)
+        group.extra = groupExtra
+        return group
     }
 
     var hasValidCommands: Bool {
@@ -830,141 +835,21 @@ struct HooksView: View {
         setGroups(groups, for: type, scope: scope)
     }
 
+    /// Writes only `hooks.<EventName>` in ~/.claude/settings.json (read-modify-write), so every
+    /// other event and any hook field this app does not model stays exactly as on disk.
     private func setGlobalGroups(_ groups: [HookGroup], for type: HookType) {
-        guard !isSyncing else { return }
-        if configManager.settings.hooks == nil {
-            configManager.settings.hooks = HooksConfig()
-        }
-        let value = groups.isEmpty ? nil : groups
-        switch type {
-        case .preToolUse: configManager.settings.hooks?.PreToolUse = value
-        case .postToolUse: configManager.settings.hooks?.PostToolUse = value
-        case .postToolUseFailure: configManager.settings.hooks?.PostToolUseFailure = value
-        case .prePromptSubmit: configManager.settings.hooks?.PrePromptSubmit = value
-        case .postPromptSubmit: configManager.settings.hooks?.PostPromptSubmit = value
-        case .messageDisplay: configManager.settings.hooks?.MessageDisplay = value
-        case .permissionRequest: configManager.settings.hooks?.PermissionRequest = value
-        case .notification: configManager.settings.hooks?.Notification = value
-        case .stop: configManager.settings.hooks?.Stop = value
-        case .subagentStart: configManager.settings.hooks?.SubagentStart = value
-        case .subagentStop: configManager.settings.hooks?.SubagentStop = value
-        case .preCompact: configManager.settings.hooks?.PreCompact = value
-        case .postCompact: configManager.settings.hooks?.PostCompact = value
-        case .elicitation: configManager.settings.hooks?.Elicitation = value
-        case .elicitationResult: configManager.settings.hooks?.ElicitationResult = value
-        case .teammateIdle: configManager.settings.hooks?.TeammateIdle = value
-        case .taskCompleted: configManager.settings.hooks?.TaskCompleted = value
-        case .setup: configManager.settings.hooks?.Setup = value
-        case .instructionsLoaded: configManager.settings.hooks?.InstructionsLoaded = value
-        case .configChange: configManager.settings.hooks?.ConfigChange = value
-        case .worktreeCreate: configManager.settings.hooks?.WorktreeCreate = value
-        case .worktreeRemove: configManager.settings.hooks?.WorktreeRemove = value
-        case .sessionStart: configManager.settings.hooks?.SessionStart = value
-        case .sessionEnd: configManager.settings.hooks?.SessionEnd = value
-        case .userPromptSubmit: configManager.settings.hooks?.UserPromptSubmit = value
-        case .userPromptExpansion: configManager.settings.hooks?.UserPromptExpansion = value
-        case .permissionDenied: configManager.settings.hooks?.PermissionDenied = value
-        case .postToolBatch: configManager.settings.hooks?.PostToolBatch = value
-        case .stopFailure: configManager.settings.hooks?.StopFailure = value
-        case .taskCreated: configManager.settings.hooks?.TaskCreated = value
-        case .cwdChanged: configManager.settings.hooks?.CwdChanged = value
-        case .fileChanged: configManager.settings.hooks?.FileChanged = value
-        case .directoryAdded: configManager.settings.hooks?.DirectoryAdded = value
-        case .preModelSwitch: configManager.settings.hooks?.PreModelSwitch = value
-        case .postModelSwitch: configManager.settings.hooks?.PostModelSwitch = value
-        }
-        if let hooks = configManager.settings.hooks,
-           hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
-           hooks.PostToolUseFailure == nil &&
-           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
-           hooks.MessageDisplay == nil &&
-           hooks.PermissionRequest == nil && hooks.Notification == nil &&
-           hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
-           hooks.PreCompact == nil && hooks.PostCompact == nil &&
-           hooks.Elicitation == nil && hooks.ElicitationResult == nil &&
-           hooks.TeammateIdle == nil && hooks.TaskCompleted == nil &&
-           hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
-           hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
-           hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
-           hooks.SessionEnd == nil &&
-           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil &&
-           hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
-           hooks.StopFailure == nil && hooks.TaskCreated == nil &&
-           hooks.CwdChanged == nil && hooks.FileChanged == nil &&
-           hooks.DirectoryAdded == nil &&
-           hooks.PreModelSwitch == nil && hooks.PostModelSwitch == nil {
-            configManager.settings.hooks = nil
-        }
-        configManager.saveEncodedField("hooks", value: configManager.settings.hooks)
+        configManager.saveHookGroups(groups, event: type.rawValue)
     }
 
     private func setProjectGroups(_ groups: [HookGroup], for type: HookType, projectPath: String) {
-        var settings = projectSettingsCache[projectPath] ?? ClaudeSettings()
-        if settings.hooks == nil {
-            settings.hooks = HooksConfig()
+        configManager.saveHookGroups(
+            groups,
+            event: type.rawValue,
+            to: configManager.projectSettingsURL(projectPath: projectPath)
+        )
+        if let reloaded = configManager.loadProjectSettings(projectPath: projectPath) {
+            projectSettingsCache[projectPath] = reloaded
         }
-        let value = groups.isEmpty ? nil : groups
-        switch type {
-        case .preToolUse: settings.hooks?.PreToolUse = value
-        case .postToolUse: settings.hooks?.PostToolUse = value
-        case .postToolUseFailure: settings.hooks?.PostToolUseFailure = value
-        case .prePromptSubmit: settings.hooks?.PrePromptSubmit = value
-        case .postPromptSubmit: settings.hooks?.PostPromptSubmit = value
-        case .messageDisplay: settings.hooks?.MessageDisplay = value
-        case .permissionRequest: settings.hooks?.PermissionRequest = value
-        case .notification: settings.hooks?.Notification = value
-        case .stop: settings.hooks?.Stop = value
-        case .subagentStart: settings.hooks?.SubagentStart = value
-        case .subagentStop: settings.hooks?.SubagentStop = value
-        case .preCompact: settings.hooks?.PreCompact = value
-        case .postCompact: settings.hooks?.PostCompact = value
-        case .elicitation: settings.hooks?.Elicitation = value
-        case .elicitationResult: settings.hooks?.ElicitationResult = value
-        case .teammateIdle: settings.hooks?.TeammateIdle = value
-        case .taskCompleted: settings.hooks?.TaskCompleted = value
-        case .setup: settings.hooks?.Setup = value
-        case .instructionsLoaded: settings.hooks?.InstructionsLoaded = value
-        case .configChange: settings.hooks?.ConfigChange = value
-        case .worktreeCreate: settings.hooks?.WorktreeCreate = value
-        case .worktreeRemove: settings.hooks?.WorktreeRemove = value
-        case .sessionStart: settings.hooks?.SessionStart = value
-        case .sessionEnd: settings.hooks?.SessionEnd = value
-        case .userPromptSubmit: settings.hooks?.UserPromptSubmit = value
-        case .userPromptExpansion: settings.hooks?.UserPromptExpansion = value
-        case .permissionDenied: settings.hooks?.PermissionDenied = value
-        case .postToolBatch: settings.hooks?.PostToolBatch = value
-        case .stopFailure: settings.hooks?.StopFailure = value
-        case .taskCreated: settings.hooks?.TaskCreated = value
-        case .cwdChanged: settings.hooks?.CwdChanged = value
-        case .fileChanged: settings.hooks?.FileChanged = value
-        case .directoryAdded: settings.hooks?.DirectoryAdded = value
-        case .preModelSwitch: settings.hooks?.PreModelSwitch = value
-        case .postModelSwitch: settings.hooks?.PostModelSwitch = value
-        }
-        if let hooks = settings.hooks,
-           hooks.PreToolUse == nil && hooks.PostToolUse == nil &&
-           hooks.PostToolUseFailure == nil &&
-           hooks.PrePromptSubmit == nil && hooks.PostPromptSubmit == nil &&
-           hooks.MessageDisplay == nil &&
-           hooks.PermissionRequest == nil && hooks.Notification == nil &&
-           hooks.Stop == nil && hooks.SubagentStart == nil && hooks.SubagentStop == nil &&
-           hooks.PreCompact == nil && hooks.PostCompact == nil &&
-           hooks.Elicitation == nil && hooks.ElicitationResult == nil &&
-           hooks.TeammateIdle == nil && hooks.TaskCompleted == nil &&
-           hooks.Setup == nil && hooks.InstructionsLoaded == nil &&
-           hooks.ConfigChange == nil && hooks.WorktreeCreate == nil &&
-           hooks.WorktreeRemove == nil && hooks.SessionStart == nil &&
-           hooks.SessionEnd == nil &&
-           hooks.UserPromptSubmit == nil && hooks.PermissionDenied == nil &&
-           hooks.UserPromptExpansion == nil && hooks.PostToolBatch == nil &&
-           hooks.StopFailure == nil && hooks.TaskCreated == nil &&
-           hooks.CwdChanged == nil && hooks.FileChanged == nil &&
-           hooks.DirectoryAdded == nil &&
-           hooks.PreModelSwitch == nil && hooks.PostModelSwitch == nil {
-            settings.hooks = nil
-        }
-        configManager.saveProjectSettings(settings, projectPath: projectPath)
-        projectSettingsCache[projectPath] = settings
     }
 }
 
