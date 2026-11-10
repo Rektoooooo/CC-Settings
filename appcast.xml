@@ -3,6 +3,32 @@
     <channel>
         <title>CC Settings</title>
         <item>
+            <title>Version 1.7.0</title>
+            <sparkle:version>25</sparkle:version>
+            <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+                <p>Catch-up with Claude Code 2.1.264&ndash;2.1.322, plus a full audit of how every setting is saved.</p>
+                <ul>
+                    <li><strong>New models</strong> &mdash; Fable 5.2, Sonnet 5.5 and Haiku 5.5 (Opus 5.5 was already in)</li>
+                    <li><strong>Per-model effort</strong> &mdash; saved the same way as <code>/effort</code>, plus a Max Effort Cap</li>
+                    <li>New settings: idle compaction, prose width, Bash edit diffs, AGENTS.md instruction files, strict read/write permission flags, Claude.ai skill/plugin sync and more, plus about 25 new environment variables</li>
+                    <li><strong>Fixed:</strong> a config file with a typo could be overwritten with almost nothing on the next change. The app now refuses to write and shows an error.</li>
+                    <li><strong>Fixed:</strong> saving hooks wrote a matcher format Claude Code rejects, which disabled the whole settings file</li>
+                    <li><strong>Fixed:</strong> editing an MCP server deleted its headers; extra server fields and command frontmatter are now kept</li>
+                    <li><strong>Fixed:</strong> turning off thinking, auto memory and auto-compact had no effect; custom themes, permission modes, notification channels and sandbox options are now written where Claude Code reads them</li>
+                    <li><strong>Safer:</strong> MCP servers no longer run when selected, Cleanup uses the Trash and keeps memory, and Git init never commits secrets</li>
+                </ul>
+            ]]></description>
+            <pubDate>Tue, 10 Nov 2026 10:30:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/Rektoooooo/CC-Settings/releases/download/v1.7.0/CC-Settings-1.7.0.dmg"
+                type="application/octet-stream"
+                sparkle:edSignature="ADN/2Ew1vZ6IJDuMW9eMuLtqf9+A7c2rH55pVqK706ViIAxKumCeLXKN023xQdPZTekV2I4vWbYW0RQ7oDDjAw=="
+                length="10511547"
+            />
+        </item>
+        <item>
             <title>Version 1.6.0</title>
             <sparkle:version>24</sparkle:version>
             <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
