@@ -112,10 +112,19 @@ struct MCPServersView: View {
                 existingServer: editingServer?.config,
                 existingNames: existingNamesForScope(editorTargetScope),
                 targetScope: editorTargetScope,
-                availableScopes: allAvailableScopes
+                availableScopes: allAvailableScopes,
+                rawJSON: rawJSON(for: editingServer)
             ) { savedServer, scope in
                 saveServer(savedServer, replacing: editingServer?.config.id, targetScope: scope, original: editingServer)
             }
+        }
+        .alert("MCP Config Not Changed", isPresented: Binding(
+            get: { configManager.lastMCPError != nil },
+            set: { if !$0 { configManager.lastMCPError = nil } }
+        )) {
+            Button("OK", role: .cancel) { configManager.lastMCPError = nil }
+        } message: {
+            Text(configManager.lastMCPError ?? "")
         }
         .alert("Delete Server", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
@@ -314,6 +323,14 @@ struct MCPServersView: View {
         return scopes
     }
 
+    private func rawJSON(for server: ScopedMCPServer?) -> String? {
+        guard let server,
+              let raw = configManager.rawMCPServer(named: server.config.id, in: server.storage),
+              let data = try? JSONSerialization.data(withJSONObject: [server.config.id: raw],
+                                                      options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
     private func existingNamesForScope(_ scope: ConfigScope) -> Set<String> {
         Set(servers.filter { $0.scope == scope }.map(\.config.id))
     }
@@ -350,17 +367,12 @@ struct MCPServersView: View {
             targetStorage = storage(for: targetScope)
         }
 
-        // If storage changed, remove from the original location first.
-        if let original, original.storage != targetStorage {
-            var src = configManager.loadMCPServers(for: original.storage)
-            src.removeValue(forKey: oldName ?? server.id)
-            configManager.saveMCPServers(src, for: original.storage)
+        // Read-modify-write on the targeted server only: the full raw dict is carried over
+        // (unknown keys survive rename/move), the target is written first, then the source.
+        guard configManager.saveMCPServer(server, replacing: oldName, from: original?.storage, to: targetStorage) else {
+            loadServers()
+            return
         }
-
-        var dict = configManager.loadMCPServers(for: targetStorage)
-        if let oldName, oldName != server.id { dict.removeValue(forKey: oldName) }
-        dict[server.id] = server
-        configManager.saveMCPServers(dict, for: targetStorage)
 
         loadServers()
         selectedServer = servers.first(where: { $0.config.id == server.id && $0.storage == targetStorage })
@@ -376,9 +388,7 @@ struct MCPServersView: View {
     }
 
     private func deleteServer(_ server: ScopedMCPServer) {
-        var dict = configManager.loadMCPServers(for: server.storage)
-        dict.removeValue(forKey: server.config.id)
-        configManager.saveMCPServers(dict, for: server.storage)
+        guard configManager.deleteMCPServer(named: server.config.id, from: server.storage) else { return }
 
         if selectedServer?.id == server.id {
             selectedServer = nil

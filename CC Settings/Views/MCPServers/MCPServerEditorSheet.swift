@@ -7,6 +7,8 @@ struct MCPServerEditorSheet: View {
     let existingNames: Set<String>
     let targetScope: ConfigScope
     let availableScopes: [ConfigScope]
+    /// Full on-disk JSON of the server being edited (shown read-only for unsupported types).
+    var rawJSON: String?
     let onSave: (MCPServerConfig, ConfigScope) -> Void
 
     @State private var name: String = ""
@@ -15,23 +17,27 @@ struct MCPServerEditorSheet: View {
     @State private var args: [ArgEntry] = [ArgEntry()]
     @State private var url: String = ""
     @State private var envVars: [EnvEntry] = [EnvEntry()]
+    @State private var headerEntries: [EnvEntry] = [EnvEntry()]
     @State private var alwaysLoad: Bool = false
     @State private var nameError: String?
     @State private var selectedScope: ConfigScope
 
     private var isEditing: Bool { existingServer != nil }
+    private var isReadOnly: Bool { existingServer?.hasUnsupportedType ?? false }
 
     init(
         existingServer: MCPServerConfig? = nil,
         existingNames: Set<String> = [],
         targetScope: ConfigScope = .global,
         availableScopes: [ConfigScope] = [.global],
+        rawJSON: String? = nil,
         onSave: @escaping (MCPServerConfig, ConfigScope) -> Void
     ) {
         self.existingServer = existingServer
         self.existingNames = existingNames
         self.targetScope = targetScope
         self.availableScopes = availableScopes
+        self.rawJSON = rawJSON
         self.onSave = onSave
         _selectedScope = State(initialValue: targetScope)
 
@@ -46,6 +52,10 @@ struct MCPServerEditorSheet: View {
             _url = State(initialValue: server.url ?? "")
             _envVars = State(initialValue: {
                 let entries = (server.env ?? [:]).sorted(by: { $0.key < $1.key }).map { EnvEntry(key: $0.key, value: $0.value) }
+                return entries.isEmpty ? [EnvEntry()] : entries
+            }())
+            _headerEntries = State(initialValue: {
+                let entries = (server.headers ?? [:]).sorted(by: { $0.key < $1.key }).map { EnvEntry(key: $0.key, value: $0.value) }
                 return entries.isEmpty ? [EnvEntry()] : entries
             }())
             _alwaysLoad = State(initialValue: server.alwaysLoad ?? false)
@@ -75,31 +85,41 @@ struct MCPServerEditorSheet: View {
             }
         }
 
+        var headerDict: [String: String] = [:]
+        for entry in headerEntries {
+            let key = entry.key.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !key.isEmpty {
+                headerDict[key] = entry.value
+            }
+        }
+
+        // Keep the file's own `type` (or lack of one) unless the user changed the transport.
+        let typeValue: String? = {
+            if let existing = existingServer, existing.transportType == transportType {
+                return existing.type
+            }
+            return transportType.rawValue
+        }()
+        let alwaysLoadValue: Bool? = alwaysLoad ? true : (existingServer?.alwaysLoad == false ? false : nil)
+
         switch transportType {
         case .stdio:
             return MCPServerConfig(
                 id: name,
-                type: "stdio",
+                type: typeValue,
                 command: command.trimmingCharacters(in: .whitespacesAndNewlines),
                 args: trimmedArgs.isEmpty ? nil : trimmedArgs,
                 env: envDict.isEmpty ? nil : envDict,
-                alwaysLoad: alwaysLoad ? true : nil
+                alwaysLoad: alwaysLoadValue
             )
-        case .sse:
+        case .sse, .http:
             return MCPServerConfig(
                 id: name,
-                type: "sse",
+                type: typeValue,
                 env: envDict.isEmpty ? nil : envDict,
                 url: url.trimmingCharacters(in: .whitespacesAndNewlines),
-                alwaysLoad: alwaysLoad ? true : nil
-            )
-        case .http:
-            return MCPServerConfig(
-                id: name,
-                type: "http",
-                env: envDict.isEmpty ? nil : envDict,
-                url: url.trimmingCharacters(in: .whitespacesAndNewlines),
-                alwaysLoad: alwaysLoad ? true : nil
+                headers: headerDict.isEmpty ? nil : headerDict,
+                alwaysLoad: alwaysLoadValue
             )
         }
     }
@@ -140,6 +160,9 @@ struct MCPServerEditorSheet: View {
 
             Divider()
 
+            if isReadOnly {
+                readOnlyBody
+            } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Scope picker
@@ -210,6 +233,11 @@ struct MCPServerEditorSheet: View {
                     // Environment variables
                     envVarsFields
 
+                    if transportType != .stdio {
+                        Divider()
+                        headersFields
+                    }
+
                     Divider()
 
                     // Tool loading behavior
@@ -244,6 +272,7 @@ struct MCPServerEditorSheet: View {
                 }
                 .padding()
             }
+            }
 
             Divider()
 
@@ -258,12 +287,14 @@ struct MCPServerEditorSheet: View {
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button(isEditing ? "Save Changes" : "Add Server") {
-                    onSave(builtServer, selectedScope)
-                    dismiss()
+                if !isReadOnly {
+                    Button(isEditing ? "Save Changes" : "Add Server") {
+                        onSave(builtServer, selectedScope)
+                        dismiss()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!isValid)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!isValid)
             }
             .padding()
         }
@@ -386,6 +417,76 @@ struct MCPServerEditorSheet: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Headers (SSE / HTTP)
+
+    @ViewBuilder
+    private var headersFields: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Headers")
+                    .font(.subheadline.bold())
+                Text("(Optional)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button {
+                    headerEntries.append(EnvEntry())
+                } label: {
+                    Label("Add", systemImage: "plus.circle.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+            }
+
+            ForEach(Array(headerEntries.enumerated()), id: \.element.id) { index, _ in
+                HStack(spacing: 8) {
+                    TextField("Header-Name", text: $headerEntries[index].key)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body.monospaced())
+                        .frame(maxWidth: 200)
+                    Text(":")
+                        .font(.body.monospaced())
+                        .foregroundColor(.secondary)
+                    TextField("value", text: $headerEntries[index].value)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body.monospaced())
+                    if headerEntries.count > 1 {
+                        Button {
+                            headerEntries.remove(at: index)
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Read-only (unsupported transport types)
+
+    @ViewBuilder
+    private var readOnlyBody: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("This server uses the \"\(existingServer?.type ?? "")\" transport, which CC Settings can't edit without changing it. It is shown read-only so nothing is lost; edit ~/.claude.json or .mcp.json directly, or use `claude mcp`.")
+                    .font(.callout)
+                    .foregroundColor(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(rawJSON ?? jsonPreview)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                        .padding(10)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassContainer()
+            }
+            .padding()
         }
     }
 

@@ -14,6 +14,12 @@ struct SlashCommand: Identifiable, Hashable {
     let isSymlink: Bool
     let fileSize: Int64
     var scope: ConfigScope
+    /// Raw frontmatter lines (between the `---` fences, CR stripped). Only modeled keys the
+    /// user changes are rewritten on save; everything else passes through unchanged.
+    var rawFrontmatter: [String] = []
+    var hasFrontmatter = false
+    var blankAfterFrontmatter = true
+    var lineEnding = "\n"
 
     var symlinkTarget: String? {
         guard isSymlink else { return nil }
@@ -42,15 +48,15 @@ struct SlashCommand: Identifiable, Hashable {
 
         let name = nameOverride ?? url.deletingPathExtension().lastPathComponent
 
-        var description = ""
-        var argumentHint = ""
-        var allowedTools: [String] = []
-        var disallowedTools: [String] = []
+        var rawFrontmatter: [String] = []
+        var hasFrontmatter = false
+        var blankAfterFrontmatter = true
         var bodyContent = content
+        let lineEnding = content.contains("\r\n") ? "\r\n" : "\n"
 
-        // Parse frontmatter between --- delimiters
-        if content.hasPrefix("---") {
-            let lines = content.components(separatedBy: "\n")
+        // Parse frontmatter between --- delimiters (CRLF tolerant)
+        let lines = content.components(separatedBy: "\n").map { $0.hasSuffix("\r") ? String($0.dropLast()) : $0 }
+        if lines.count > 1, lines[0].trimmingCharacters(in: .whitespaces) == "---" {
             var endIndex = -1
             for i in 1..<lines.count {
                 if lines[i].trimmingCharacters(in: .whitespaces) == "---" {
@@ -59,68 +65,59 @@ struct SlashCommand: Identifiable, Hashable {
                 }
             }
             if endIndex > 0 {
-                let frontmatterLines = Array(lines[1..<endIndex])
-                for line in frontmatterLines {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed.hasPrefix("description:") {
-                        description = String(trimmed.dropFirst("description:".count)).trimmingCharacters(in: .whitespaces)
-                    } else if trimmed.hasPrefix("argument-hint:") {
-                        argumentHint = String(trimmed.dropFirst("argument-hint:".count)).trimmingCharacters(in: .whitespaces)
-                    } else if trimmed.hasPrefix("disallowed-tools:") {
-                        let toolsStr = String(trimmed.dropFirst("disallowed-tools:".count)).trimmingCharacters(in: .whitespaces)
-                        disallowedTools = toolsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                    } else if trimmed.hasPrefix("allowed-tools:") {
-                        let toolsStr = String(trimmed.dropFirst("allowed-tools:".count)).trimmingCharacters(in: .whitespaces)
-                        allowedTools = toolsStr.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-                    }
+                hasFrontmatter = true
+                rawFrontmatter = Array(lines[1..<endIndex])
+                var bodyLines = Array(lines[(endIndex + 1)...])
+                if bodyLines.first?.isEmpty == true {
+                    bodyLines.removeFirst()
+                } else {
+                    blankAfterFrontmatter = false
                 }
-                let bodyLines = Array(lines[(endIndex + 1)...])
                 bodyContent = bodyLines.joined(separator: "\n")
-                if bodyContent.hasPrefix("\n") {
-                    bodyContent = String(bodyContent.dropFirst())
-                }
             }
         }
+
+        let modeled = CommandFrontmatter.modeledValues(rawFrontmatter)
 
         return SlashCommand(
             id: url.path,
             name: name,
-            description: description,
-            argumentHint: argumentHint,
-            allowedTools: allowedTools,
-            disallowedTools: disallowedTools,
+            description: modeled.description,
+            argumentHint: modeled.argumentHint,
+            allowedTools: modeled.allowed,
+            disallowedTools: modeled.disallowed,
             body: bodyContent,
             fileURL: url,
             isSymlink: isSymlink,
             fileSize: fileSize,
-            scope: scope
+            scope: scope,
+            rawFrontmatter: rawFrontmatter,
+            hasFrontmatter: hasFrontmatter,
+            blankAfterFrontmatter: blankAfterFrontmatter,
+            lineEnding: lineEnding
         )
     }
 
-    /// Serialize back to markdown with frontmatter
+    /// Serialize back to markdown. Only the modeled frontmatter keys the user changed are
+    /// rewritten; every other frontmatter line, the body and the line endings are preserved.
     func toMarkdown() -> String {
-        var parts: [String] = []
+        let frontmatter = CommandFrontmatter.apply(
+            to: rawFrontmatter,
+            description: description,
+            argumentHint: argumentHint,
+            allowedTools: allowedTools,
+            disallowedTools: disallowedTools
+        )
 
-        if !description.isEmpty || !argumentHint.isEmpty || !allowedTools.isEmpty || !disallowedTools.isEmpty {
-            parts.append("---")
-            if !description.isEmpty {
-                parts.append("description: \(description)")
-            }
-            if !argumentHint.isEmpty {
-                parts.append("argument-hint: \(argumentHint)")
-            }
-            if !allowedTools.isEmpty {
-                parts.append("allowed-tools: \(allowedTools.joined(separator: ", "))")
-            }
-            if !disallowedTools.isEmpty {
-                parts.append("disallowed-tools: \(disallowedTools.joined(separator: ", "))")
-            }
-            parts.append("---")
-            parts.append("")
+        var out: [String] = []
+        if !frontmatter.isEmpty || (hasFrontmatter && rawFrontmatter.isEmpty) {
+            out.append("---")
+            out.append(contentsOf: frontmatter)
+            out.append("---")
+            if blankAfterFrontmatter || !hasFrontmatter { out.append("") }
         }
-
-        parts.append(body)
-        return parts.joined(separator: "\n")
+        out.append(contentsOf: body.components(separatedBy: "\n"))
+        return out.joined(separator: lineEnding)
     }
 
     /// Known Claude Code tools for the allowed-tools picker
@@ -143,6 +140,7 @@ struct CommandsView: View {
     @State private var scopeFilter: ScopeFilter = .all
     @State private var projects: [Project] = []
     @State private var editorTargetScope: ConfigScope = .global
+    @State private var fileErrorMessage: String?
 
     private var globalCommandsURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -234,6 +232,14 @@ struct CommandsView: View {
             loadCommands()
         }
         .onChange(of: configManager.externalChangeToken) { loadCommands() }
+        .alert("Command Not Changed", isPresented: Binding(
+            get: { fileErrorMessage != nil },
+            set: { if !$0 { fileErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { fileErrorMessage = nil }
+        } message: {
+            Text(fileErrorMessage ?? "")
+        }
         .sheet(isPresented: $showNewCommandSheet) {
             CommandEditorSheet(
                 commandsURL: commandsURLForScope(editorTargetScope),
@@ -466,7 +472,7 @@ struct CommandsView: View {
             loadCommands()
             selectedCommand = commands.first(where: { $0.id == command.id })
         } catch {
-            // Error handling
+            fileErrorMessage = "Could not save \(command.name): \(error.localizedDescription)"
         }
     }
 
@@ -478,7 +484,7 @@ struct CommandsView: View {
             }
             loadCommands()
         } catch {
-            // Error handling
+            fileErrorMessage = "Could not delete \(command.name): \(error.localizedDescription)"
         }
     }
 
@@ -488,12 +494,16 @@ struct CommandsView: View {
         let fm = FileManager.default
         do {
             try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
+            if fm.fileExists(atPath: targetURL.path) {
+                fileErrorMessage = "A command named \(targetURL.lastPathComponent) already exists in the target scope."
+                return
+            }
             let markdown = command.toMarkdown()
             try markdown.write(to: targetURL, atomically: true, encoding: .utf8)
             try fm.removeItem(at: command.fileURL)
             loadCommands()
         } catch {
-            // Error handling
+            fileErrorMessage = "Could not move \(command.name): \(error.localizedDescription)"
         }
     }
 }
@@ -970,6 +980,7 @@ struct CommandEditorSheet: View {
     @State private var description = ""
     @State private var nameError: String?
     @State private var existsError = false
+    @State private var createError: String?
     @State private var selectedScope: ConfigScope
 
     private let namePattern = "^[a-z][a-z0-9-]*$"
@@ -1097,6 +1108,14 @@ struct CommandEditorSheet: View {
             .padding()
         }
         .frame(width: 450, height: 380)
+        .alert("Command Not Created", isPresented: Binding(
+            get: { createError != nil },
+            set: { if !$0 { createError = nil } }
+        )) {
+            Button("OK", role: .cancel) { createError = nil }
+        } message: {
+            Text(createError ?? "")
+        }
     }
 
     private func validateName(_ value: String) {
@@ -1119,7 +1138,6 @@ struct CommandEditorSheet: View {
     private func createCommand() {
         let fm = FileManager.default
         let targetDir = effectiveCommandsURL
-        try? fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
 
         let fileURL = targetDir.appendingPathComponent("\(name).md")
 
@@ -1140,11 +1158,12 @@ struct CommandEditorSheet: View {
         let markdown = command.toMarkdown()
 
         do {
+            try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
             try markdown.write(to: fileURL, atomically: true, encoding: .utf8)
             onCreate?(command)
             dismiss()
         } catch {
-            // Error handling
+            createError = "Could not create \(name): \(error.localizedDescription)"
         }
     }
 }

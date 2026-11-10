@@ -22,6 +22,8 @@ class ConfigurationManager: ObservableObject {
     }
     @Published var isLoading: Bool = false
     @Published var lastError: Error?
+    /// Message from the last failed MCP read/write, shown by the MCP view. Nil when the last one succeeded.
+    @Published var lastMCPError: String?
 
     /// Bumped by FileWatcher whenever an external change is detected on disk.
     /// Views that hold their own @State (MCP, sessions, stats, git, themes,
@@ -458,85 +460,85 @@ class ConfigurationManager: ObservableObject {
 
     // MARK: - MCP Servers
 
-    func loadMCPServers() -> [String: MCPServerConfig] {
-        guard let data = try? Data(contentsOf: mcpConfigURL) else {
-            return [:]
+    /// Store for one MCP location. All MCP reads/writes go through `MCPConfigStore`, which
+    /// re-reads the file on every write, refuses to touch a file it can't parse, and only
+    /// changes the servers it is asked to.
+    private func mcpStore(for storage: MCPStorage) -> MCPConfigStore {
+        switch storage {
+        case .userGlobal:
+            return MCPConfigStore(fileURL: mcpConfigURL)
+        case .projectShared(let path):
+            return MCPConfigStore(fileURL: URL(fileURLWithPath: path).appendingPathComponent(".mcp.json"),
+                                  deleteFileWhenEmpty: true)
+        case .projectLocal(let key):
+            return MCPConfigStore(fileURL: mcpConfigURL, projectKey: key)
         }
-        let fixed = validateAndFix(jsonData: data)
-        guard let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any],
-              let serversDict = json["mcpServers"] as? [String: [String: Any]] else {
-            return [:]
-        }
-
-        var result: [String: MCPServerConfig] = [:]
-        for (key, serverJSON) in serversDict {
-            if let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
-               var config = try? decoder.decode(MCPServerConfig.self, from: serverData) {
-                config.id = key
-                result[key] = config
-            } else {
-                // Fallback: build config manually from raw JSON for maximum resilience
-                var config = MCPServerConfig(id: key)
-                config.type = serverJSON["type"] as? String
-                config.command = serverJSON["command"] as? String
-                config.url = serverJSON["url"] as? String
-                if let args = serverJSON["args"] as? [Any] {
-                    config.args = args.map { "\($0)" }
-                }
-                if let env = serverJSON["env"] as? [String: Any] {
-                    config.env = env.mapValues { "\($0)" }
-                }
-                if let headers = serverJSON["headers"] as? [String: Any] {
-                    config.headers = headers.mapValues { "\($0)" }
-                }
-                result[key] = config
-            }
-        }
-        return result
     }
 
-    func saveMCPServers(_ servers: [String: MCPServerConfig]) {
+    /// Runs a throwing MCP write. On failure nothing is written, `lastError` is set and
+    /// `lastMCPError` carries a message the MCP view shows to the user.
+    @discardableResult
+    private func performMCPWrite(touching storages: [MCPStorage], _ body: () throws -> Void) -> Bool {
         do {
-            try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
-
-            // Load existing config to preserve other keys
-            var existingJSON: [String: Any] = [:]
-            if let data = try? Data(contentsOf: mcpConfigURL) {
-                let fixed = validateAndFix(jsonData: data)
-                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
-                    existingJSON = json
-                }
-            }
-
-            // Merge per-server instead of replacing the whole mcpServers object, so
-            // per-server keys this model doesn't map (e.g. "oauth" tokens written by
-            // Claude Code) survive a save. Encoding MCPServerConfig only emits the
-            // modeled keys; we overlay those onto each server's existing dict.
-            var existingServers = existingJSON["mcpServers"] as? [String: Any] ?? [:]
-            let serversData = try encoder.encode(servers)
-            let encodedServers = (try JSONSerialization.jsonObject(with: serversData) as? [String: Any]) ?? [:]
-            let modeledKeys = ["type", "command", "args", "env", "url", "headers", "alwaysLoad"]
-
-            // Drop servers the user removed.
-            for name in existingServers.keys where servers[name] == nil {
-                existingServers.removeValue(forKey: name)
-            }
-            // Overlay modeled fields, preserving every other key on the existing server.
-            for (name, encoded) in encodedServers {
-                guard let encodedDict = encoded as? [String: Any] else { continue }
-                var merged = existingServers[name] as? [String: Any] ?? [:]
-                for k in modeledKeys { merged.removeValue(forKey: k) }
-                for (k, v) in encodedDict { merged[k] = v }
-                existingServers[name] = merged
-            }
-            existingJSON["mcpServers"] = existingServers
-
-            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
-            try outputData.write(to: mcpConfigURL, options: .atomic)
+            try body()
             lastSaveTime = Date()
+            FileWatcher.shared.updateFileTracking(for: storages.map { mcpStore(for: $0).fileURL })
+            lastMCPError = nil
+            return true
         } catch {
             lastError = error
+            lastMCPError = error.localizedDescription
+            return false
         }
+    }
+
+    private func loadMCPServersReporting(_ storage: MCPStorage) -> [String: MCPServerConfig] {
+        do {
+            return try mcpStore(for: storage).loadServers()
+        } catch {
+            lastError = error
+            lastMCPError = error.localizedDescription
+            return [:]
+        }
+    }
+
+    func loadMCPServers() -> [String: MCPServerConfig] {
+        loadMCPServersReporting(.userGlobal)
+    }
+
+    @discardableResult
+    func saveMCPServers(_ servers: [String: MCPServerConfig]) -> Bool {
+        saveMCPServers(servers, for: .userGlobal)
+    }
+
+    // MARK: - Targeted MCP operations (read-modify-write)
+
+    /// The server's full raw JSON object as stored on disk (every key, modeled or not).
+    func rawMCPServer(named name: String, in storage: MCPStorage) -> [String: Any]? {
+        try? mcpStore(for: storage).rawServer(named: name)
+    }
+
+    /// Adds or edits one server. When the server moves between locations or is renamed, the
+    /// full raw dict is carried over (so unknown keys survive), the target is written first,
+    /// and only then is the original removed.
+    @discardableResult
+    func saveMCPServer(_ server: MCPServerConfig, replacing oldName: String?, from original: MCPStorage?, to target: MCPStorage) -> Bool {
+        performMCPWrite(touching: [target] + (original.map { [$0] } ?? [])) {
+            let targetStore = mcpStore(for: target)
+            if let oldName, let original {
+                try MCPConfigStore.transfer(name: oldName, from: mcpStore(for: original), to: targetStore,
+                                            as: server.id, edited: server)
+            } else {
+                try targetStore.update { servers in
+                    servers[server.id] = MCPConfigStore.merge(existing: servers[server.id], with: server, name: server.id)
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    func deleteMCPServer(named name: String, from storage: MCPStorage) -> Bool {
+        performMCPWrite(touching: [storage]) { try mcpStore(for: storage).remove([name]) }
     }
 
     // MARK: - Project Settings (hooks, permissions, etc.)
@@ -603,77 +605,13 @@ class ConfigurationManager: ObservableObject {
 
     /// Loads MCP servers from a project's `.mcp.json` file.
     func loadProjectMCPServers(projectPath: String) -> [String: MCPServerConfig] {
-        let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
-        guard let data = try? Data(contentsOf: mcpURL) else {
-            return [:]
-        }
-        let fixed = validateAndFix(jsonData: data)
-        guard let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any],
-              let serversDict = json["mcpServers"] as? [String: [String: Any]] else {
-            return [:]
-        }
-
-        var result: [String: MCPServerConfig] = [:]
-        for (key, serverJSON) in serversDict {
-            if let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
-               var config = try? decoder.decode(MCPServerConfig.self, from: serverData) {
-                config.id = key
-                result[key] = config
-            } else {
-                var config = MCPServerConfig(id: key)
-                config.type = serverJSON["type"] as? String
-                config.command = serverJSON["command"] as? String
-                config.url = serverJSON["url"] as? String
-                if let args = serverJSON["args"] as? [Any] {
-                    config.args = args.map { "\($0)" }
-                }
-                if let env = serverJSON["env"] as? [String: Any] {
-                    config.env = env.mapValues { "\($0)" }
-                }
-                if let headers = serverJSON["headers"] as? [String: Any] {
-                    config.headers = headers.mapValues { "\($0)" }
-                }
-                result[key] = config
-            }
-        }
-        return result
+        loadMCPServersReporting(.projectShared(path: projectPath))
     }
 
-    /// Saves MCP servers to a project's `.mcp.json` file, preserving other keys.
-    func saveProjectMCPServers(_ servers: [String: MCPServerConfig], projectPath: String) {
-        let mcpURL = URL(fileURLWithPath: projectPath).appendingPathComponent(".mcp.json")
-        do {
-            var existingJSON: [String: Any] = [:]
-            if let data = try? Data(contentsOf: mcpURL) {
-                let fixed = validateAndFix(jsonData: data)
-                if let json = try? JSONSerialization.jsonObject(with: fixed) as? [String: Any] {
-                    existingJSON = json
-                }
-            }
-
-            let serversData = try encoder.encode(servers)
-            if let serversJSON = try JSONSerialization.jsonObject(with: serversData) as? [String: Any] {
-                existingJSON["mcpServers"] = serversJSON
-            }
-
-            // Remove mcpServers key entirely if empty
-            if servers.isEmpty {
-                existingJSON.removeValue(forKey: "mcpServers")
-            }
-
-            // If nothing left, delete the file
-            if existingJSON.isEmpty {
-                try? FileManager.default.removeItem(at: mcpURL)
-                lastSaveTime = Date()
-                return
-            }
-
-            let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
-            try outputData.write(to: mcpURL, options: .atomic)
-            lastSaveTime = Date()
-        } catch {
-            lastError = error
-        }
+    /// Saves MCP servers to a project's `.mcp.json` file, merging per server and preserving other keys.
+    @discardableResult
+    func saveProjectMCPServers(_ servers: [String: MCPServerConfig], projectPath: String) -> Bool {
+        saveMCPServers(servers, for: .projectShared(path: projectPath))
     }
 
     /// Loads all MCP servers from global config and all known project `.mcp.json` files.
@@ -728,126 +666,48 @@ class ConfigurationManager: ObservableObject {
 
     /// Parse a raw MCP server JSON object into a config (decode, with a resilient fallback).
     private func parseServerConfig(name: String, serverJSON: [String: Any]) -> MCPServerConfig {
-        if let serverData = try? JSONSerialization.data(withJSONObject: serverJSON),
-           var config = try? decoder.decode(MCPServerConfig.self, from: serverData) {
-            config.id = name
-            return config
-        }
-        var config = MCPServerConfig(id: name)
-        config.type = serverJSON["type"] as? String
-        config.command = serverJSON["command"] as? String
-        config.url = serverJSON["url"] as? String
-        if let args = serverJSON["args"] as? [Any] { config.args = args.map { "\($0)" } }
-        if let env = serverJSON["env"] as? [String: Any] { config.env = env.mapValues { "\($0)" } }
-        if let headers = serverJSON["headers"] as? [String: Any] { config.headers = headers.mapValues { "\($0)" } }
-        return config
+        MCPConfigStore.parseServerConfig(name: name, serverJSON: serverJSON)
     }
 
     /// Loads MCP servers for a given storage location.
     func loadMCPServers(for storage: MCPStorage) -> [String: MCPServerConfig] {
-        switch storage {
-        case .userGlobal: return loadMCPServers()
-        case .projectShared(let path): return loadProjectMCPServers(projectPath: path)
-        case .projectLocal(let key): return loadLocalMCPServers(projectKey: key)
-        }
+        loadMCPServersReporting(storage)
     }
 
-    /// Saves MCP servers to a given storage location.
-    func saveMCPServers(_ servers: [String: MCPServerConfig], for storage: MCPStorage) {
-        switch storage {
-        case .userGlobal: saveMCPServers(servers)
-        case .projectShared(let path): saveProjectMCPServers(servers, projectPath: path)
-        case .projectLocal(let key): saveLocalMCPServers(servers, projectKey: key)
-        }
+    /// Saves a full set of MCP servers to a storage location (per-server merge; servers
+    /// missing from `servers` are removed). Prefer `saveMCPServer`/`deleteMCPServer`.
+    @discardableResult
+    func saveMCPServers(_ servers: [String: MCPServerConfig], for storage: MCPStorage) -> Bool {
+        performMCPWrite(touching: [storage]) { try mcpStore(for: storage).save(servers) }
     }
 
     /// Loads local-scope servers from ~/.claude.json `projects[projectKey].mcpServers`.
     func loadLocalMCPServers(projectKey: String) -> [String: MCPServerConfig] {
-        guard let data = try? Data(contentsOf: mcpConfigURL),
-              let json = try? JSONSerialization.jsonObject(with: validateAndFix(jsonData: data)) as? [String: Any],
-              let projectsJSON = json["projects"] as? [String: Any],
-              let pdict = projectsJSON[projectKey] as? [String: Any],
-              let serversDict = pdict["mcpServers"] as? [String: [String: Any]] else {
-            return [:]
-        }
-        var result: [String: MCPServerConfig] = [:]
-        for (name, serverJSON) in serversDict {
-            result[name] = parseServerConfig(name: name, serverJSON: serverJSON)
-        }
-        return result
+        loadMCPServersReporting(.projectLocal(path: projectKey))
     }
 
-    /// Saves local-scope servers back to ~/.claude.json `projects[projectKey].mcpServers`,
-    /// merging per-server (preserving `oauth` and any other unknown per-server keys) and
-    /// preserving the rest of the (large) file and the project's other keys.
-    func saveLocalMCPServers(_ servers: [String: MCPServerConfig], projectKey: String) {
-        do {
-            var root: [String: Any] = [:]
-            if let data = try? Data(contentsOf: mcpConfigURL),
-               let json = try? JSONSerialization.jsonObject(with: validateAndFix(jsonData: data)) as? [String: Any] {
-                root = json
-            }
-            var projectsJSON = root["projects"] as? [String: Any] ?? [:]
-            var pdict = projectsJSON[projectKey] as? [String: Any] ?? [:]
-            var existingServers = pdict["mcpServers"] as? [String: Any] ?? [:]
-
-            let encoded = (try? JSONSerialization.jsonObject(with: encoder.encode(servers))) as? [String: Any] ?? [:]
-            let modeledKeys = ["type", "command", "args", "env", "url", "headers", "alwaysLoad"]
-
-            for name in existingServers.keys where servers[name] == nil {
-                existingServers.removeValue(forKey: name)
-            }
-            for (name, enc) in encoded {
-                guard let encDict = enc as? [String: Any] else { continue }
-                var merged = existingServers[name] as? [String: Any] ?? [:]
-                for k in modeledKeys { merged.removeValue(forKey: k) }
-                for (k, v) in encDict { merged[k] = v }
-                existingServers[name] = merged
-            }
-
-            if existingServers.isEmpty {
-                pdict.removeValue(forKey: "mcpServers")
-            } else {
-                pdict["mcpServers"] = existingServers
-            }
-            projectsJSON[projectKey] = pdict
-            root["projects"] = projectsJSON
-
-            let outputData = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
-            let fixedOutput = fixIntegerFormatting(outputData)
-            try fixedOutput.write(to: mcpConfigURL, options: .atomic)
-            lastSaveTime = Date()
-            FileWatcher.shared.updateFileTracking(for: [mcpConfigURL])
-        } catch {
-            lastError = error
-        }
+    /// Saves local-scope servers back to ~/.claude.json `projects[projectKey].mcpServers`.
+    @discardableResult
+    func saveLocalMCPServers(_ servers: [String: MCPServerConfig], projectKey: String) -> Bool {
+        saveMCPServers(servers, for: .projectLocal(path: projectKey))
     }
 
-    /// Moves an MCP server between storage locations (add to target, then remove from source).
-    /// Storage-based so it works correctly for local servers in ~/.claude.json (the old
-    /// scope-based version would have removed a local server from the wrong file).
-    func moveMCPServer(_ server: MCPServerConfig, from sourceStorage: MCPStorage, to targetStorage: MCPStorage) {
-        guard sourceStorage != targetStorage else { return }
-        var target = loadMCPServers(for: targetStorage)
-        target[server.id] = server
-        saveMCPServers(target, for: targetStorage)
-
-        var source = loadMCPServers(for: sourceStorage)
-        source.removeValue(forKey: server.id)
-        saveMCPServers(source, for: sourceStorage)
+    /// Moves an MCP server between storage locations: copies the full raw server dict to
+    /// the target (so unmodeled keys such as oauth survive), writes the target first, then
+    /// removes the source.
+    @discardableResult
+    func moveMCPServer(_ server: MCPServerConfig, from sourceStorage: MCPStorage, to targetStorage: MCPStorage) -> Bool {
+        guard sourceStorage != targetStorage else { return true }
+        return performMCPWrite(touching: [sourceStorage, targetStorage]) {
+            try MCPConfigStore.transfer(name: server.id, from: mcpStore(for: sourceStorage), to: mcpStore(for: targetStorage))
+        }
     }
 
     /// JSONSerialization converts Swift Int values to Double (e.g. 10000 becomes 10000.0).
     /// This post-processes the JSON text to restore whole-number doubles back to plain integers.
     private func fixIntegerFormatting(_ data: Data) -> Data {
-        guard var str = String(data: data, encoding: .utf8) else { return data }
-        // Match ": <digits>.0" patterns produced by JSONSerialization for integer values.
-        str = str.replacingOccurrences(
-            of: ":\\s*(-?\\d+)\\.0(\\s*[,\\]\\}\\n])",
-            with: ": $1$2",
-            options: .regularExpression
-        )
-        return str.data(using: .utf8) ?? data
+        // String-aware (see JSONTextFixer): number tokens only, never string contents.
+        JSONTextFixer.restoreIntegers(data)
     }
 
     func validateAndFix(jsonData: Data) -> Data {

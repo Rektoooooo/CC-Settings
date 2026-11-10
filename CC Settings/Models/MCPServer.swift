@@ -51,6 +51,17 @@ struct MCPServerConfig: Codable, Equatable, Identifiable, Hashable {
         return .stdio
     }
 
+    /// Transport types the editor can safely edit.
+    static let editableTypes: Set<String> = ["stdio", "sse", "http"]
+
+    /// True when `type` is something this app doesn't model (ws, sdk, claudeai-proxy,
+    /// streamable-http, ...). `transportType` still reports `.stdio` for display purposes,
+    /// but such servers must be shown read-only so an edit can't rewrite their type.
+    var hasUnsupportedType: Bool {
+        guard let type else { return false }
+        return !Self.editableTypes.contains(type)
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
