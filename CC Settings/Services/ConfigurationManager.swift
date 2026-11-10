@@ -942,6 +942,7 @@ class ConfigurationManager: ObservableObject {
         do {
             try content.writeAtomicallyFollowingSymlinks(to: target)
             lastSaveTime = Date()
+            FileWatcher.shared.updateFileTracking(for: [target])
             return true
         } catch {
             lastError = error
