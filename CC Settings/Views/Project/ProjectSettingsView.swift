@@ -612,33 +612,40 @@ struct ProjectSettingsView: View {
             let key = entry.key.trimmingCharacters(in: .whitespaces)
             if !key.isEmpty { dict[key] = entry.value }
         }
-        saveProjectField("env", value: dict.isEmpty ? nil : dict)
+        // Per-variable writes against what is on disk right now: only changed variables are
+        // set, only deleted ones are removed, and variables this view never loaded stay put.
+        let onDisk = (configManager.loadProjectRawJSON(projectPath: projectPath)["env"] as? [String: Any]) ?? [:]
+        let previous = onDisk.compactMapValues { $0 as? String }
+        let changed = dict.filter { previous[$0.key] != $0.value }
+        let removed = previous.keys.filter { dict[$0] == nil }
+        configManager.saveEnvChanges(set: changed, remove: Array(removed), to: projectSettingsURL)
     }
 
+    // The sub-key writers below use dotted paths so keys this screen does not manage
+    // (permissions.denyInsteadOfPrompting, sandbox.network, worktree.location, …) survive.
+
     private func saveProjectPermissions() {
-        var dict: [String: Any] = [:]
-        if permDefaultMode != "default" { dict["defaultMode"] = permDefaultMode }
-        if let allow = parseCSV(permAllow) { dict["allow"] = allow }
-        if let deny = parseCSV(permDeny) { dict["deny"] = deny }
-        if let ask = parseCSV(permAsk) { dict["ask"] = ask }
-        saveProjectField("permissions", value: dict.isEmpty ? nil : dict)
+        configManager.saveFields([
+            (keyPath: "permissions.defaultMode", value: permDefaultMode != "default" ? permDefaultMode : nil),
+            (keyPath: "permissions.allow", value: parseCSV(permAllow)),
+            (keyPath: "permissions.deny", value: parseCSV(permDeny)),
+            (keyPath: "permissions.ask", value: parseCSV(permAsk))
+        ], to: projectSettingsURL)
     }
 
     private func saveProjectSandbox() {
-        var dict: [String: Any] = [:]
-        if sandboxEnabled { dict["enabled"] = true }
-        var fs: [String: Any] = [:]
-        if let v = parseCSV(sandboxAllowWrite) { fs["allowWrite"] = v }
-        if let v = parseCSV(sandboxDenyWrite) { fs["denyWrite"] = v }
-        if !fs.isEmpty { dict["filesystem"] = fs }
-        saveProjectField("sandbox", value: dict.isEmpty ? nil : dict)
+        configManager.saveFields([
+            (keyPath: "sandbox.enabled", value: sandboxEnabled ? true : nil),
+            (keyPath: "sandbox.filesystem.allowWrite", value: parseCSV(sandboxAllowWrite)),
+            (keyPath: "sandbox.filesystem.denyWrite", value: parseCSV(sandboxDenyWrite))
+        ], to: projectSettingsURL)
     }
 
     private func saveProjectWorktree() {
-        var dict: [String: Any] = [:]
-        if let v = parseCSV(worktreeSparsePaths) { dict["sparsePaths"] = v }
-        if let v = parseCSV(worktreeSymlinkDirs) { dict["symlinkDirectories"] = v }
-        saveProjectField("worktree", value: dict.isEmpty ? nil : dict)
+        configManager.saveFields([
+            (keyPath: "worktree.sparsePaths", value: parseCSV(worktreeSparsePaths)),
+            (keyPath: "worktree.symlinkDirectories", value: parseCSV(worktreeSymlinkDirs))
+        ], to: projectSettingsURL)
     }
 }
 

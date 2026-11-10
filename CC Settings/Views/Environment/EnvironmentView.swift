@@ -876,17 +876,15 @@ struct EnvironmentView: View {
             }
         }
 
-        // Preserve any env vars not managed by this view (e.g. from ExperimentalFeaturesView)
-        // by reading the current env from disk, not from the in-memory struct
+        // Every unmanaged variable already on disk is listed in `customVars`, so a key that is
+        // missing from `env` here was deleted by the user. Compare against the loaded env.
         let currentEnv = configManager.settings.env
-        for (key, value) in currentEnv {
-            if !Self.managedKeys.contains(key) && env[key] == nil {
-                env[key] = value
-            }
-        }
 
-        // Write only the "env" key, preserving all other settings on disk
-        configManager.saveField("env", value: env.isEmpty ? nil : env)
+        // Write only the env variables that changed (`env.KEY`) and remove the ones that were
+        // deleted. Variables this view never touched stay exactly as they are on disk.
+        let changed = env.filter { currentEnv[$0.key] != $0.value }
+        let removed = currentEnv.keys.filter { env[$0] == nil }
+        configManager.saveEnvChanges(set: changed, remove: Array(removed))
     }
 }
 
