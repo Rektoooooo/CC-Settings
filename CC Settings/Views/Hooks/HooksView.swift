@@ -265,13 +265,15 @@ struct ScopedHookGroup: Identifiable {
 
 struct HookGroupModel: Identifiable, Equatable {
     let id = UUID()
-    var matcherTool: String = ""
-    var matcherPattern: String = ""
+    /// The group's `matcher`: a single regex over tool names ("Bash|Edit"), or "*" / empty for all.
+    var matcher: String = ""
     var commands: [String] = [""]
     /// Comma-separated args per command (parallel to `commands`). Empty string = shell form.
     var argsList: [String] = [""]
     /// Per-hook continueOnBlock (PostToolUse). Parallel to `commands`.
     var continueOnBlockList: [Bool] = [false]
+    /// Per-hook `if` filter in permission-rule syntax, e.g. "Bash(git *)". Parallel to `commands`.
+    var ifList: [String] = [""]
     /// The original definitions, parallel to `commands`, so fields this editor does
     /// NOT expose (type, prompt, agent, url, ifCondition, timeout) are preserved on
     /// save instead of being dropped. Empty entries (new rows) become command hooks.
@@ -282,17 +284,18 @@ struct HookGroupModel: Identifiable, Equatable {
     init() {}
 
     init(from group: HookGroup) {
-        self.matcherTool = group.matcher?.tool ?? ""
-        self.matcherPattern = group.matcher?.pattern ?? ""
+        self.matcher = group.matcherString ?? ""
         self.commands = group.hooks.map { $0.command ?? "" }
         self.argsList = group.hooks.map { ($0.args ?? []).joined(separator: ", ") }
         self.continueOnBlockList = group.hooks.map { $0.continueOnBlock ?? false }
+        self.ifList = group.hooks.map { $0.ifCondition ?? "" }
         self.originalDefinitions = group.hooks
         self.groupExtra = group.extra
         if self.commands.isEmpty {
             self.commands = [""]
             self.argsList = [""]
             self.continueOnBlockList = [false]
+            self.ifList = [""]
             self.originalDefinitions = []
         }
     }
@@ -301,6 +304,7 @@ struct HookGroupModel: Identifiable, Equatable {
         commands.append("")
         argsList.append("")
         continueOnBlockList.append(false)
+        ifList.append("")
         originalDefinitions.append(HookDefinition())
     }
 
@@ -308,22 +312,13 @@ struct HookGroupModel: Identifiable, Equatable {
         commands.remove(at: index)
         argsList.remove(at: index)
         continueOnBlockList.remove(at: index)
+        if ifList.indices.contains(index) { ifList.remove(at: index) }
         if originalDefinitions.indices.contains(index) { originalDefinitions.remove(at: index) }
     }
 
     func toHookGroup() -> HookGroup {
-        let matcher: HookMatcher?
-        let trimmedTool = matcherTool.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPattern = matcherPattern.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if trimmedTool.isEmpty && trimmedPattern.isEmpty {
-            matcher = nil
-        } else {
-            matcher = HookMatcher(
-                tool: trimmedTool.isEmpty ? nil : trimmedTool,
-                pattern: trimmedPattern.isEmpty ? nil : trimmedPattern
-            )
-        }
+        let trimmedMatcher = matcher.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matcherValue: String? = trimmedMatcher.isEmpty ? nil : trimmedMatcher
 
         let hooks: [HookDefinition] = commands.indices.compactMap { i in
             let cmd = commands[i].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -352,10 +347,12 @@ struct HookGroupModel: Identifiable, Equatable {
             def.command = cmd
             def.args = parsedArgs
             def.continueOnBlock = cob
+            let rawIf = ifList.indices.contains(i) ? ifList[i].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            def.ifCondition = rawIf.isEmpty ? nil : rawIf
             return def
         }
 
-        var group = HookGroup(matcher: matcher, hooks: hooks)
+        var group = HookGroup(matcherString: matcherValue, hooks: hooks)
         group.extra = groupExtra
         return group
     }
@@ -429,13 +426,8 @@ struct HooksView: View {
     }
 
     private func matcherSummary(for group: HookGroup) -> String {
-        guard let m = group.matcher else { return "All tools" }
-        let tool = m.tool ?? ""
-        let pattern = m.pattern ?? ""
-        if !tool.isEmpty && !pattern.isEmpty { return "\(tool) matching /\(pattern)/" }
-        if !tool.isEmpty { return "\(tool) only" }
-        if !pattern.isEmpty { return "Matching /\(pattern)/" }
-        return "All tools"
+        guard let m = group.matcherString, !m.isEmpty, m != "*" else { return "All tools" }
+        return "Matches /\(m)/"
     }
 
     /// One-line summary of a hook by its real type (command/prompt/agent/url).
@@ -550,11 +542,11 @@ struct HooksView: View {
                     mode: .edit,
                     hookType: hook.hookType,
                     scope: hook.scope,
-                    initialTool: hook.group.matcher?.tool ?? "",
-                    initialPattern: hook.group.matcher?.pattern ?? "",
+                    initialMatcher: hook.group.matcherString ?? "",
                     initialCommands: hook.group.hooks.map { $0.command ?? "" },
                     initialArgsList: hook.group.hooks.map { ($0.args ?? []).joined(separator: ", ") },
                     initialContinueOnBlockList: hook.group.hooks.map { $0.continueOnBlock ?? false },
+                    initialIfList: hook.group.hooks.map { $0.ifCondition ?? "" },
                     initialDefinitions: hook.group.hooks,
                     onSave: { model in
                         replaceGroup(at: hook.indexInScope, with: model.toHookGroup(), for: hook.hookType, scope: hook.scope)
@@ -868,22 +860,22 @@ struct HookEditorSheet: View {
     let mode: Mode
     let hookType: HookType
     let scope: ConfigScope
-    var initialTool: String = ""
-    var initialPattern: String = ""
+    var initialMatcher: String = ""
     var initialCommands: [String] = []
     var initialArgsList: [String] = []
     var initialContinueOnBlockList: [Bool] = []
+    var initialIfList: [String] = []
     /// Full original definitions (parallel to initialCommands) so non-exposed fields
     /// survive an edit. Empty for the add flow.
     var initialDefinitions: [HookDefinition] = []
     let onSave: (HookGroupModel) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var tool: String = ""
-    @State private var pattern: String = ""
+    @State private var matcher: String = ""
     @State private var commands: [String] = [""]
     @State private var argsList: [String] = [""]
     @State private var continueOnBlockList: [Bool] = [false]
+    @State private var ifList: [String] = [""]
     @State private var originalDefinitions: [HookDefinition] = []
 
     private var isValid: Bool {
@@ -924,23 +916,12 @@ struct HookEditorSheet: View {
                             .font(.headline)
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Tool Name")
+                            Text("Matcher")
                                 .font(.subheadline.bold())
-                            TextField("e.g. Bash, Read, Write, Edit", text: $tool)
+                            TextField("e.g. Bash|Edit|Write, mcp__.*, or *", text: $matcher)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(.body, design: .monospaced))
-                            Text("Only trigger for this specific tool. Leave empty to match all tools.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Pattern")
-                                .font(.subheadline.bold())
-                            TextField("e.g. git\\s+push.*", text: $pattern)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(.body, design: .monospaced))
-                            Text("Regex pattern to match against tool input. Optional.")
+                            Text("A regex over tool names. Use | to match several tools. Leave empty or * to match every tool. To filter on a command, use the per-hook \"if\" field below.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -971,6 +952,7 @@ struct HookEditorSheet: View {
                                             commands.remove(at: i)
                                             if argsList.indices.contains(i) { argsList.remove(at: i) }
                                             if continueOnBlockList.indices.contains(i) { continueOnBlockList.remove(at: i) }
+                                            if ifList.indices.contains(i) { ifList.remove(at: i) }
                                             if originalDefinitions.indices.contains(i) { originalDefinitions.remove(at: i) }
                                         } label: {
                                             Image(systemName: "minus.circle.fill")
@@ -990,6 +972,16 @@ struct HookEditorSheet: View {
                                         .font(.caption.monospaced())
                                 }
 
+                                HStack(spacing: 8) {
+                                    Text("if")
+                                        .font(.caption.monospaced())
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 40, alignment: .leading)
+                                    TextField("(optional) permission-rule filter, e.g. Bash(git *)", text: bindingForIf(at: i))
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.caption.monospaced())
+                                }
+
                                 if hookType == .postToolUse {
                                     Toggle("Continue turn if this hook rejects the tool result", isOn: bindingForContinueOnBlock(at: i))
                                         .font(.caption)
@@ -1003,6 +995,7 @@ struct HookEditorSheet: View {
                             commands.append("")
                             argsList.append("")
                             continueOnBlockList.append(false)
+                            ifList.append("")
                             originalDefinitions.append(HookDefinition())
                         } label: {
                             Label("Add Command", systemImage: "plus.circle")
@@ -1027,11 +1020,11 @@ struct HookEditorSheet: View {
                 .keyboardShortcut(.cancelAction)
                 Button(mode == .add ? "Add Hook" : "Save") {
                     var model = HookGroupModel()
-                    model.matcherTool = tool
-                    model.matcherPattern = pattern
+                    model.matcher = matcher
                     model.commands = commands
                     model.argsList = argsList
                     model.continueOnBlockList = continueOnBlockList
+                    model.ifList = ifList
                     model.originalDefinitions = originalDefinitions
                     onSave(model)
                     dismiss()
@@ -1045,8 +1038,7 @@ struct HookEditorSheet: View {
         .frame(minWidth: 500, idealWidth: 600, maxWidth: 700,
                minHeight: 400, idealHeight: 500, maxHeight: 650)
         .onAppear {
-            tool = initialTool
-            pattern = initialPattern
+            matcher = initialMatcher
             commands = initialCommands.isEmpty ? [""] : initialCommands
             // Pad parallel arrays to match commands length
             argsList = (0..<commands.count).map { i in
@@ -1054,6 +1046,9 @@ struct HookEditorSheet: View {
             }
             continueOnBlockList = (0..<commands.count).map { i in
                 initialContinueOnBlockList.indices.contains(i) ? initialContinueOnBlockList[i] : false
+            }
+            ifList = (0..<commands.count).map { i in
+                initialIfList.indices.contains(i) ? initialIfList[i] : ""
             }
             originalDefinitions = (0..<commands.count).map { i in
                 initialDefinitions.indices.contains(i) ? initialDefinitions[i] : HookDefinition()
@@ -1069,6 +1064,16 @@ struct HookEditorSheet: View {
             set: { newValue in
                 guard argsList.indices.contains(index) else { return }
                 argsList[index] = newValue
+            }
+        )
+    }
+
+    private func bindingForIf(at index: Int) -> Binding<String> {
+        Binding(
+            get: { ifList.indices.contains(index) ? ifList[index] : "" },
+            set: { newValue in
+                guard ifList.indices.contains(index) else { return }
+                ifList[index] = newValue
             }
         )
     }

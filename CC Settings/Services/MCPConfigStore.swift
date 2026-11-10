@@ -90,6 +90,23 @@ struct MCPConfigStore {
         try JSONTextFixer.restoreIntegers(data).writeAtomicallyFollowingSymlinks(to: fileURL)
     }
 
+    /// Reads one top-level key of the file (e.g. `autoUpdates` in `~/.claude.json`).
+    func readRootValue(_ key: String) throws -> Any? {
+        try readRoot()[key]
+    }
+
+    /// Sets (or, with nil, removes) a single top-level key, re-reading the file first and
+    /// leaving every other key untouched. Does nothing if the value is already that.
+    func setRootValue(_ key: String, to value: Any?) throws {
+        var root = try readRoot()
+        let before = root as NSDictionary
+        if let value { root[key] = value } else { root.removeValue(forKey: key) }
+        if before.isEqual(root as NSDictionary) { return }
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        try JSONTextFixer.restoreIntegers(data).write(to: fileURL, options: .atomic)
+    }
+
     /// Writes (or replaces) raw server dicts by name.
     func upsert(_ raw: [String: [String: Any]]) throws {
         try update { servers in

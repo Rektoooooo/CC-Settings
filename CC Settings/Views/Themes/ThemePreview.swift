@@ -1,171 +1,102 @@
 import SwiftUI
 
-/// A mock Claude Code "Edit file" panel that renders sample Swift code with
-/// diff markers and syntax highlighting, using the theme's colors. Modeled
-/// after how Claude Code renders code edits in the terminal.
+/// A mock Claude Code session rendered with a theme's resolved palette (base palette plus the
+/// theme's overrides), so edits show exactly which colour key paints what.
 struct ThemePreview: View {
     let theme: ThemeFile
 
-    /// ANSI-only themes don't paint background stripes across the diff line.
-    private var paintsDiffBackground: Bool {
-        !theme.id.contains("ansi")
+    private var isDark: Bool { theme.base.hasPrefix("dark") }
+    private var surface: Color { isDark ? Color(white: 0.09) : Color.white }
+
+    private func color(_ key: String) -> Color {
+        ThemeColorValue.color(theme.effectiveValue(for: key)) ?? (isDark ? .white : .black)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header — mimics Claude Code's file-edit header
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: "doc.text")
-                    .font(.caption)
-                    .foregroundColor(accent)
-                Text("theme-demo.swift")
-                    .foregroundColor(foreground)
-                    .font(.caption.monospaced())
+                Text("\u{273B}").foregroundColor(color("claude"))
+                Text("Claude Code").foregroundColor(color("text")).bold()
+                Text("v2.1").foregroundColor(color("inactive"))
             }
-            .padding(.bottom, 8)
 
-            // Code snippet with diff lines
+            promptBox
+
             VStack(alignment: .leading, spacing: 1) {
-                codeLine(1, kind: .normal, segments: [
-                    (.keyword, "import"), (.foreground, " "), (.type, "Foundation"),
-                ])
-                codeLine(2, kind: .normal, segments: [(.foreground, "")])
-
-                codeLine(3, kind: .removed, segments: [
-                    (.comment, "// ThemeDemo — VS Code-style colors"),
-                ])
-                codeLine(3, kind: .added, segments: [
-                    (.comment, "// ThemeDemo — palette preview"),
-                ])
-
-                codeLine(4, kind: .normal, segments: [
-                    (.keyword, "struct"), (.foreground, " "), (.type, "ThemeDemo"),
-                    (.foreground, " {"),
-                ])
-
-                codeLine(5, kind: .removed, segments: [
-                    (.foreground, "    "), (.keyword, "let"), (.foreground, " name: "),
-                    (.type, "String"), (.foreground, " = "), (.string, "\"solarized-light\""),
-                ])
-                codeLine(5, kind: .added, segments: [
-                    (.foreground, "    "), (.keyword, "let"), (.foreground, " name: "),
-                    (.type, "String"), (.foreground, " = "), (.string, "\"dracula-dark\""),
-                ])
-
-                codeLine(6, kind: .normal, segments: [
-                    (.foreground, "    "), (.keyword, "let"), (.foreground, " colorCount: "),
-                    (.type, "Int"), (.foreground, " = "), (.number, "256"),
-                ])
-
-                codeLine(7, kind: .normal, segments: [(.foreground, "}")])
+                diffLine(1, marker: " ", text: "func greet() {", kind: nil)
+                diffLine(2, marker: "-", text: "    print(\"hello\")", kind: .removed)
+                diffLine(2, marker: "+", text: "    print(\"hello, world\")", kind: .added)
+                diffLine(3, marker: " ", text: "}", kind: nil)
             }
 
-            // Status lines (success / warning / error)
+            HStack(spacing: 8) {
+                Text("! git status")
+                    .foregroundColor(color("text"))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(color("bashBorder"), lineWidth: 1))
+                Text("plan mode on").foregroundColor(color("planMode"))
+                Text("auto-accept edits").foregroundColor(color("autoAccept"))
+            }
+
             HStack(spacing: 14) {
-                Label("saved", systemImage: "checkmark.circle.fill")
-                    .foregroundColor(success)
-                Label("warning", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundColor(warning)
-                Label("permission denied", systemImage: "xmark.circle.fill")
-                    .foregroundColor(errorColor)
+                Label("saved", systemImage: "checkmark.circle.fill").foregroundColor(color("success"))
+                Label("careful", systemImage: "exclamationmark.triangle.fill").foregroundColor(color("warning"))
+                Label("denied", systemImage: "xmark.circle.fill").foregroundColor(color("error"))
+                Label("allow Bash?", systemImage: "lock.fill").foregroundColor(color("permission"))
             }
             .font(.caption2)
-            .padding(.top, 10)
+
+            HStack(spacing: 10) {
+                Text("tip: press / for commands").foregroundColor(color("subtle"))
+                Text("suggestion").foregroundColor(color("suggestion"))
+                Text("remember").foregroundColor(color("remember"))
+            }
+            .font(.caption2)
 
             Spacer(minLength: 0)
         }
         .font(.system(.caption, design: .monospaced))
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(background)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
+        .background(surface)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    // MARK: - Diff line rendering
-
-    private enum LineKind { case normal, added, removed }
-    private enum SegmentKind { case foreground, comment, keyword, string, number, function, type }
-
-    @ViewBuilder
-    private func codeLine(_ lineNumber: Int, kind: LineKind, segments: [(SegmentKind, String)]) -> some View {
-        let marker: String = {
-            switch kind {
-            case .normal: return " "
-            case .added: return "+"
-            case .removed: return "-"
-            }
-        }()
-        // Diff stripe — only paints for non-ANSI themes. Lower opacity than the
-        // text tint so the colored line content stays legible on top.
-        let stripeColor: Color = {
-            guard paintsDiffBackground else { return .clear }
-            switch kind {
-            case .normal: return .clear
-            case .added: return success.opacity(0.18)
-            case .removed: return errorColor.opacity(0.18)
-            }
-        }()
-        // On diff lines, Claude Code tints the WHOLE LINE (line number, marker,
-        // and every segment) with the diff color — syntax colors are dropped.
-        let diffTint: Color? = {
-            switch kind {
-            case .normal: return nil
-            case .added: return success
-            case .removed: return errorColor
-            }
-        }()
-        let lineNumberColor: Color = diffTint ?? muted
-        let markerColor: Color = diffTint ?? muted
-
-        HStack(spacing: 0) {
-            Text(String(format: "%2d", lineNumber))
-                .foregroundColor(lineNumberColor)
-                .frame(width: 22, alignment: .trailing)
-            Text(" \(marker) ")
-                .foregroundColor(markerColor)
-            ForEach(0..<segments.count, id: \.self) { i in
-                Text(segments[i].1)
-                    .foregroundColor(diffTint ?? color(for: segments[i].0))
-            }
+    private var promptBox: some View {
+        HStack(spacing: 6) {
+            Text(">").foregroundColor(color("promptBorder"))
+            Text("fix the greeting").foregroundColor(color("text"))
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(stripeColor)
+        .padding(.horizontal, 8).padding(.vertical, 5)
+        .background(color("userMessageBackground").opacity(isDark ? 0.25 : 1))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(color("promptBorder"), lineWidth: 1))
     }
 
-    // MARK: - Color resolution
+    private enum DiffKind { case added, removed }
 
-    // Background / foreground come from the theme so the preview reflects the
-    // theme's actual surface colors (white for light themes, dark for dark ones).
-    // Themes that don't specify them — e.g. Auto — fall back to the macOS appearance.
-    private var background: Color { resolved(\.background, fallback: Color(NSColor.textBackgroundColor)) }
-    private var foreground: Color { resolved(\.foreground, fallback: Color(NSColor.labelColor)) }
-    private var accent: Color { resolved(\.accent, fallback: foreground) }
-    private var success: Color { resolved(\.success, fallback: .green) }
-    private var errorColor: Color { resolved(\.error, fallback: .red) }
-    private var warning: Color { resolved(\.warning, fallback: .orange) }
-    private var muted: Color { resolved(\.muted, fallback: .secondary) }
-
-    private func resolved(_ path: WritableKeyPath<ThemeColors, String?>, fallback: Color) -> Color {
-        guard let hex = theme.colors[keyPath: path], Color.isValidHex(hex) else {
-            return fallback
+    private func diffLine(_ number: Int, marker: String, text: String, kind: DiffKind?) -> some View {
+        let background: Color = {
+            switch kind {
+            case .added: return color("diffAddedDimmed")
+            case .removed: return color("diffRemovedDimmed")
+            case nil: return .clear
+            }
+        }()
+        let foreground: Color = {
+            switch kind {
+            case .added: return color("diffAddedWord")
+            case .removed: return color("diffRemovedWord")
+            case nil: return color("text")
+            }
+        }()
+        return HStack(spacing: 0) {
+            Text(String(format: "%2d", number)).foregroundColor(color("inactive")).frame(width: 22, alignment: .trailing)
+            Text(" \(marker) ").foregroundColor(foreground)
+            Text(text).foregroundColor(foreground)
+            Spacer(minLength: 0)
         }
-        return Color(hex: hex)
-    }
-
-    private func color(for kind: SegmentKind) -> Color {
-        switch kind {
-        case .foreground: return foreground
-        case .comment:    return resolved(\.comment, fallback: muted)
-        case .keyword:    return resolved(\.keyword, fallback: foreground)
-        case .string:     return resolved(\.string, fallback: foreground)
-        case .number:     return resolved(\.number, fallback: foreground)
-        case .function:   return resolved(\.function, fallback: foreground)
-        case .type:       return resolved(\.type, fallback: foreground)
-        }
+        .background(background.opacity(kind == nil ? 0 : (isDark ? 0.5 : 1)))
     }
 }

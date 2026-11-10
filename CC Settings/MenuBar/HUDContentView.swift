@@ -12,7 +12,6 @@ final class HUDState: ObservableObject {
 struct HUDContentView: View {
     @ObservedObject var configManager = ConfigurationManager.shared
     @ObservedObject var hudState: HUDState
-    @State private var localBudget: Double = 10000
 
     var body: some View {
         Group {
@@ -39,7 +38,7 @@ struct HUDContentView: View {
 
             Spacer(minLength: 4)
 
-            if configManager.settings.alwaysThinkingEnabled == true {
+            if configManager.settings.alwaysThinkingEnabled ?? true {
                 thinkingIndicator
             }
 
@@ -89,33 +88,6 @@ struct HUDContentView: View {
                 }
                 .toggleStyle(.switch)
                 .controlSize(.small)
-
-                if configManager.settings.alwaysThinkingEnabled == true {
-                    HStack(spacing: 6) {
-                        Text("Budget:")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-
-                        Slider(
-                            value: $localBudget,
-                            in: 1024...32768,
-                            step: 1024
-                        ) { editing in
-                            if !editing {
-                                configManager.saveField("thinkingBudgetTokens", value: Int(localBudget))
-                            }
-                        }
-                        .controlSize(.small)
-
-                        Text("\(Int(localBudget))")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 40, alignment: .trailing)
-                    }
-                    .onAppear {
-                        localBudget = Double(configManager.settings.thinkingBudgetTokens ?? 10000)
-                    }
-                }
             }
 
             Divider()
@@ -180,18 +152,10 @@ struct HUDContentView: View {
 
     private var thinkingBinding: Binding<Bool> {
         Binding(
-            get: { configManager.settings.alwaysThinkingEnabled == true },
+            get: { configManager.settings.alwaysThinkingEnabled ?? true },
             set: { newValue in
-                var fields: [(keyPath: String, value: Any?)] = [
-                    (keyPath: "alwaysThinkingEnabled", value: newValue ? true : nil)
-                ]
-                if newValue && configManager.settings.thinkingBudgetTokens == nil {
-                    fields.append((keyPath: "thinkingBudgetTokens", value: 10000))
-                }
-                if !newValue {
-                    fields.append((keyPath: "thinkingBudgetTokens", value: nil))
-                }
-                configManager.saveFields(fields)
+                // Absent == on in Claude Code; only "off" is written.
+                configManager.saveThinkingEnabled(newValue)
             }
         )
     }

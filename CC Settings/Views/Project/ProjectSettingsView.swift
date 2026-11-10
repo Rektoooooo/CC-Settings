@@ -19,13 +19,12 @@ struct ProjectSettingsView: View {
     @State private var respectGitignore: Bool = true
     @State private var includeGitInstructions: Bool = true
     @State private var defaultShell: String = "bash"
-    @State private var autoCompactEnabled: Bool = true
-    @State private var autoCompactInstructions: String = ""
     @State private var plansDirectory: String = ""
 
     // Memory
-    @State private var autoMemoryEnabled: Bool = false
+    @State private var autoMemoryEnabled: Bool = true
     @State private var autoMemoryDirectory: String = ""
+    @State private var localProjectJSON: [String: Any] = [:]
 
     // Environment
     @State private var envVars: [ProjectEnvEntry] = []
@@ -210,7 +209,7 @@ struct ProjectSettingsView: View {
             ) {
                 TextField("Output style", text: $outputStyle)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit {
+                    .commitOnFocusLoss(of: outputStyle) {
                         guard isOverridden("outputStyle") else { return }
                         let trimmed = outputStyle.trimmingCharacters(in: .whitespacesAndNewlines)
                         saveProjectField("outputStyle", value: trimmed.isEmpty ? nil : trimmed)
@@ -310,7 +309,7 @@ struct ProjectSettingsView: View {
             ) {
                 TextField("Plans directory path", text: $plansDirectory)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit {
+                    .commitOnFocusLoss(of: plansDirectory) {
                         guard isOverridden("plansDirectory") else { return }
                         let trimmed = plansDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
                         saveProjectField("plansDirectory", value: trimmed.isEmpty ? nil : trimmed)
@@ -326,12 +325,13 @@ struct ProjectSettingsView: View {
         Section("Memory") {
             OverridableSettingRow(
                 title: "Auto Memory",
-                globalSummary: (configManager.settings.autoMemoryEnabled ?? false) ? "Enabled" : "Disabled",
+                globalSummary: (configManager.settings.autoMemoryEnabled ?? true) ? "Enabled" : "Disabled",
                 isOverridden: isOverridden("autoMemoryEnabled"),
                 onToggleOverride: { enabled in
                     if enabled {
-                        autoMemoryEnabled = configManager.settings.autoMemoryEnabled ?? false
-                        saveProjectField("autoMemoryEnabled", value: autoMemoryEnabled ? true : nil)
+                        autoMemoryEnabled = configManager.settings.autoMemoryEnabled ?? true
+                        // An override stores the explicit value, true or false.
+                        saveProjectField("autoMemoryEnabled", value: autoMemoryEnabled)
                     } else {
                         saveProjectField("autoMemoryEnabled", value: nil)
                     }
@@ -342,30 +342,48 @@ struct ProjectSettingsView: View {
                     .labelsHidden()
                     .onChange(of: autoMemoryEnabled) {
                         guard isLoaded, isOverridden("autoMemoryEnabled") else { return }
-                        saveProjectField("autoMemoryEnabled", value: autoMemoryEnabled ? true : nil)
+                        saveProjectField("autoMemoryEnabled", value: autoMemoryEnabled)
                     }
             }
 
+            // Claude Code ignores autoMemoryDirectory in checked-in .claude/settings.json (it
+            // could redirect memory writes anywhere), so a project override lives in the
+            // personal settings.local.json instead.
+            if isOverridden("autoMemoryDirectory") {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Ignored in checked-in settings.json")
+                            .font(.caption.bold())
+                        Text("Claude Code only honours autoMemoryDirectory from user or local settings. Move it to settings.local.json for it to take effect.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Move to settings.local.json") { moveAutoMemoryDirectoryToLocal() }
+                            .controlSize(.small)
+                    }
+                }
+            }
+
             OverridableSettingRow(
-                title: "Memory Directory",
+                title: "Memory Directory (local)",
                 globalSummary: configManager.settings.autoMemoryDirectory ?? "Not set",
-                isOverridden: isOverridden("autoMemoryDirectory"),
+                isOverridden: localProjectJSON.keys.contains("autoMemoryDirectory"),
                 onToggleOverride: { enabled in
                     if enabled {
                         autoMemoryDirectory = configManager.settings.autoMemoryDirectory ?? ""
-                        saveProjectField("autoMemoryDirectory", value: autoMemoryDirectory.isEmpty ? nil : autoMemoryDirectory)
+                        saveLocalProjectField("autoMemoryDirectory", value: autoMemoryDirectory.isEmpty ? nil : autoMemoryDirectory)
                     } else {
-                        saveProjectField("autoMemoryDirectory", value: nil)
+                        saveLocalProjectField("autoMemoryDirectory", value: nil)
                     }
                     reloadRawJSON()
                 }
             ) {
                 TextField("Memory directory", text: $autoMemoryDirectory)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit {
-                        guard isOverridden("autoMemoryDirectory") else { return }
+                    .commitOnFocusLoss(of: autoMemoryDirectory) {
+                        guard localProjectJSON.keys.contains("autoMemoryDirectory") else { return }
                         let trimmed = autoMemoryDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-                        saveProjectField("autoMemoryDirectory", value: trimmed.isEmpty ? nil : trimmed)
+                        saveLocalProjectField("autoMemoryDirectory", value: trimmed.isEmpty ? nil : trimmed)
                     }
             }
         }
@@ -449,9 +467,11 @@ struct ProjectSettingsView: View {
             ) {
                 VStack(alignment: .leading, spacing: 12) {
                     Picker("Default Mode", selection: $permDefaultMode) {
-                        Text("Default").tag("default")
-                        Text("Allow All").tag("allowAll")
-                        Text("Deny All").tag("denyAll")
+                        // `auto` can't be granted from checked-in repo settings; only offer it
+                        // when a value is already stored so it still loads.
+                        ForEach(DefaultPermissionMode.allCases.filter { $0 != .auto || permDefaultMode == "auto" }) { mode in
+                            Text(mode.displayName).tag(mode.rawValue)
+                        }
                     }
                     .onChange(of: permDefaultMode) {
                         guard isLoaded, isOverridden("permissions") else { return }
@@ -463,7 +483,7 @@ struct ProjectSettingsView: View {
                         TextField("Bash, Read, Write", text: $permAllow)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .onSubmit { saveProjectPermissions() }
+                            .commitOnFocusLoss(of: permAllow) { saveProjectPermissions() }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -471,7 +491,7 @@ struct ProjectSettingsView: View {
                         TextField("Edit, Bash(rm *)", text: $permDeny)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .onSubmit { saveProjectPermissions() }
+                            .commitOnFocusLoss(of: permDeny) { saveProjectPermissions() }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -479,7 +499,7 @@ struct ProjectSettingsView: View {
                         TextField("Edit, Write", text: $permAsk)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .onSubmit { saveProjectPermissions() }
+                            .commitOnFocusLoss(of: permAsk) { saveProjectPermissions() }
                     }
                 }
             }
@@ -517,12 +537,12 @@ struct ProjectSettingsView: View {
                     TextField("Allow Write (comma-separated)", text: $sandboxAllowWrite)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
-                        .onSubmit { saveProjectSandbox() }
+                        .commitOnFocusLoss(of: sandboxAllowWrite) { saveProjectSandbox() }
 
                     TextField("Deny Write (comma-separated)", text: $sandboxDenyWrite)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
-                        .onSubmit { saveProjectSandbox() }
+                        .commitOnFocusLoss(of: sandboxDenyWrite) { saveProjectSandbox() }
                 }
             }
         }
@@ -554,7 +574,7 @@ struct ProjectSettingsView: View {
                         TextField("src, docs, tests", text: $worktreeSparsePaths)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .onSubmit { saveProjectWorktree() }
+                            .commitOnFocusLoss(of: worktreeSparsePaths) { saveProjectWorktree() }
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -562,7 +582,7 @@ struct ProjectSettingsView: View {
                         TextField("node_modules, .venv", text: $worktreeSymlinkDirs)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
-                            .onSubmit { saveProjectWorktree() }
+                            .commitOnFocusLoss(of: worktreeSymlinkDirs) { saveProjectWorktree() }
                     }
                 }
             }
@@ -590,8 +610,11 @@ struct ProjectSettingsView: View {
         plansDirectory = rawProjectJSON.keys.contains("plansDirectory") ? (ps.plansDirectory ?? "") : (configManager.settings.plansDirectory ?? "")
 
         // Memory
-        autoMemoryEnabled = rawProjectJSON.keys.contains("autoMemoryEnabled") ? (ps.autoMemoryEnabled ?? false) : (configManager.settings.autoMemoryEnabled ?? false)
-        autoMemoryDirectory = rawProjectJSON.keys.contains("autoMemoryDirectory") ? (ps.autoMemoryDirectory ?? "") : (configManager.settings.autoMemoryDirectory ?? "")
+        autoMemoryEnabled = rawProjectJSON.keys.contains("autoMemoryEnabled") ? (ps.autoMemoryEnabled ?? true) : (configManager.settings.autoMemoryEnabled ?? true)
+        localProjectJSON = configManager.loadProjectLocalRawJSON(projectPath: projectPath)
+        autoMemoryDirectory = (localProjectJSON["autoMemoryDirectory"] as? String)
+            ?? (rawProjectJSON["autoMemoryDirectory"] as? String)
+            ?? configManager.settings.autoMemoryDirectory ?? ""
 
         // Environment
         if let envDict = rawProjectJSON["env"] as? [String: String] {
@@ -602,7 +625,7 @@ struct ProjectSettingsView: View {
 
         // Permissions
         if let permsDict = rawProjectJSON["permissions"] as? [String: Any] {
-            permDefaultMode = permsDict["defaultMode"] as? String ?? "default"
+            permDefaultMode = DefaultPermissionMode.parse(permsDict["defaultMode"] as? String)?.rawValue ?? (permsDict["defaultMode"] as? String) ?? "default"
             permAllow = (permsDict["allow"] as? [String])?.joined(separator: ", ") ?? ""
             permDeny = (permsDict["deny"] as? [String])?.joined(separator: ", ") ?? ""
             permAsk = (permsDict["ask"] as? [String])?.joined(separator: ", ") ?? ""
@@ -642,6 +665,19 @@ struct ProjectSettingsView: View {
 
     private func reloadRawJSON() {
         rawProjectJSON = configManager.loadProjectRawJSON(projectPath: projectPath)
+        localProjectJSON = configManager.loadProjectLocalRawJSON(projectPath: projectPath)
+    }
+
+    private func saveLocalProjectField(_ keyPath: String, value: Any?) {
+        configManager.saveField(keyPath, value: value, to: configManager.projectLocalSettingsURL(projectPath: projectPath))
+    }
+
+    private func moveAutoMemoryDirectoryToLocal() {
+        guard let dir = rawProjectJSON["autoMemoryDirectory"] as? String else { return }
+        saveLocalProjectField("autoMemoryDirectory", value: dir)
+        saveProjectField("autoMemoryDirectory", value: nil)
+        reloadRawJSON()
+        autoMemoryDirectory = dir
     }
 
     private func parseCSV(_ text: String) -> [String]? {

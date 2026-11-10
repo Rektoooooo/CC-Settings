@@ -1,73 +1,98 @@
 import SwiftUI
 
-/// Structured editor for a `ThemeFile.colors`. Fields the schema doesn't know
-/// about live in `ThemeFile.unknownFields` and are surfaced in the disclosure
-/// at the bottom (read-only — switch to JSON view to edit them).
+/// Structured editor for a custom theme's `name`, `base` and `overrides`. A row shows the
+/// base palette's colour until the user changes it; only changed colours are written to the
+/// file's `overrides`. Keys this app does not model are kept verbatim and listed read-only.
 struct ThemeColorsEditor: View {
     @Binding var theme: ThemeFile
     let onChange: () -> Void
+    let onConvertLegacy: () -> Void
+
+    /// Palette keys grouped for display. Anything not listed lands in "Other".
+    private static let groups: [(title: String, keys: [String])] = [
+        ("Text & Surfaces", ["text", "inverseText", "subtle", "inactive", "inactiveShimmer", "background",
+                              "userMessageBackground", "userMessageBackgroundHover", "composerSidebarBackground",
+                              "selectionBg", "bashMessageBackgroundColor", "memoryBackgroundColor"]),
+        ("Brand", ["claude", "claudeShimmer", "claudeBlue_FOR_SYSTEM_SPINNER", "claudeBlueShimmer_FOR_SYSTEM_SPINNER",
+                   "professionalBlue", "chromeYellow", "clawd_body", "clawd_background"]),
+        ("Borders & Modes", ["promptBorder", "promptBorderShimmer", "bashBorder", "planMode", "autoAccept",
+                             "autoAcceptShimmer", "permission", "permissionShimmer", "ide", "skill"]),
+        ("Status", ["success", "error", "warning", "warningShimmer", "merged", "suggestion", "remember",
+                    "fastMode", "fastModeShimmer", "effortUltra", "rate_limit_fill", "rate_limit_empty",
+                    "briefLabelYou", "briefLabelClaude"]),
+        ("Diff", ["diffAdded", "diffRemoved", "diffAddedDimmed", "diffRemovedDimmed", "diffAddedWord", "diffRemovedWord"]),
+        ("Subagents", ["red_FOR_SUBAGENTS_ONLY", "blue_FOR_SUBAGENTS_ONLY", "green_FOR_SUBAGENTS_ONLY",
+                       "yellow_FOR_SUBAGENTS_ONLY", "purple_FOR_SUBAGENTS_ONLY", "orange_FOR_SUBAGENTS_ONLY",
+                       "pink_FOR_SUBAGENTS_ONLY", "cyan_FOR_SUBAGENTS_ONLY"]),
+        ("Rainbow", ["rainbow_red", "rainbow_orange", "rainbow_yellow", "rainbow_green", "rainbow_blue",
+                     "rainbow_indigo", "rainbow_violet", "rainbow_red_shimmer", "rainbow_orange_shimmer",
+                     "rainbow_yellow_shimmer", "rainbow_green_shimmer", "rainbow_blue_shimmer",
+                     "rainbow_indigo_shimmer", "rainbow_violet_shimmer"]),
+    ]
+
+    private var groupsWithOther: [(title: String, keys: [String])] {
+        let listed = Set(Self.groups.flatMap { $0.keys })
+        let other = ClaudeThemePalette.keys.filter { !listed.contains($0) }
+        return other.isEmpty ? Self.groups : Self.groups + [("Other", other)]
+    }
 
     var body: some View {
         Form {
+            if theme.needsLegacyConversion {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Old flat format", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.subheadline.bold())
+                        Text("This file uses colour keys Claude Code never read (\(theme.legacyFlatColors.count) found). Convert it to the real {name, base, overrides} format. Colours with a clear counterpart become overrides, the rest stay in the file, and the original is kept as \(theme.id).json.bak.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Button("Convert to Claude Code format", action: onConvertLegacy)
+                    }
+                }
+            }
+
             Section("Identity") {
                 LabeledContent("Name") {
-                    TextField("untitled", text: stringBinding(\.name))
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(.body, design: .monospaced))
+                    TextField(theme.id, text: Binding(
+                        get: { theme.name },
+                        set: { theme.name = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? theme.id : $0; onChange() }
+                    ))
+                    .textFieldStyle(.roundedBorder)
                 }
-                LabeledContent("Description") {
-                    TextField("optional", text: stringBinding(\.description))
-                        .textFieldStyle(.roundedBorder)
+                Picker("Base", selection: Binding(
+                    get: { theme.base },
+                    set: { theme.base = $0; onChange() }
+                )) {
+                    ForEach(ClaudeThemePalette.baseNames, id: \.self) { Text($0).tag($0) }
+                }
+                Text("Colours you don't override come from this built-in palette. Only keys that exist in the base are honoured.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            ForEach(groupsWithOther, id: \.title) { group in
+                Section(group.title) {
+                    ForEach(group.keys, id: \.self) { key in
+                        colorRow(key)
+                    }
                 }
             }
 
-            Section("Brand") {
-                colorRow("Accent", path: \.accent)
-                colorRow("Primary", path: \.primary)
-            }
-
-            Section("Status") {
-                colorRow("Error", path: \.error)
-                colorRow("Warning", path: \.warning)
-                colorRow("Success", path: \.success)
-                colorRow("Info", path: \.info)
-            }
-
-            Section("Text Variations") {
-                colorRow("Muted", path: \.muted)
-                colorRow("Secondary", path: \.secondary)
-            }
-
-            Section("Syntax") {
-                colorRow("Keyword", path: \.keyword)
-                colorRow("String", path: \.string)
-                colorRow("Comment", path: \.comment)
-                colorRow("Number", path: \.number)
-                colorRow("Function", path: \.function)
-                colorRow("Type", path: \.type)
-            }
-
-            Section("ANSI Palette") {
-                ansiGrid
-            }
-
-            if !theme.unknownFields.isEmpty {
+            let extras = theme.extraOverrides.keys.sorted()
+            if !extras.isEmpty || !theme.unknownFields.isEmpty || !theme.legacyFlatColors.isEmpty {
                 Section {
-                    DisclosureGroup("Custom Fields (\(theme.unknownFields.count))") {
-                        ForEach(theme.unknownFields.keys.sorted(), id: \.self) { key in
-                            HStack {
-                                Text(key)
-                                    .font(.caption.monospaced())
-                                Spacer()
-                                Text(stringPreview(of: theme.unknownFields[key]))
-                                    .font(.caption.monospaced())
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
+                    DisclosureGroup("Preserved fields (\(extras.count + theme.unknownFields.count + theme.legacyFlatColors.count))") {
+                        ForEach(extras, id: \.self) { key in
+                            preservedRow("overrides.\(key)", theme.extraOverrides[key])
                         }
-
-                        Text("Edit in JSON view to modify these fields. They're preserved through every save.")
+                        ForEach(theme.unknownFields.keys.sorted(), id: \.self) { key in
+                            preservedRow(key, theme.unknownFields[key])
+                        }
+                        ForEach(theme.legacyFlatColors.keys.sorted(), id: \.self) { key in
+                            preservedRow(key, theme.legacyFlatColors[key])
+                        }
+                        Text("Claude Code ignores these. They are kept through every save; edit in JSON view to change them.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
@@ -78,83 +103,56 @@ struct ThemeColorsEditor: View {
         .formStyle(.grouped)
     }
 
-    // MARK: - ANSI Palette grid
+    // MARK: - Rows
 
     @ViewBuilder
-    private var ansiGrid: some View {
-        let rows: [[(String, WritableKeyPath<ThemeColors, String?>)]] = [
-            [("Black", \.ansiBlack), ("Red", \.ansiRed), ("Green", \.ansiGreen), ("Yellow", \.ansiYellow)],
-            [("Blue", \.ansiBlue), ("Magenta", \.ansiMagenta), ("Cyan", \.ansiCyan), ("White", \.ansiWhite)],
-            [("Bright Black", \.ansiBrightBlack), ("Bright Red", \.ansiBrightRed), ("Bright Green", \.ansiBrightGreen), ("Bright Yellow", \.ansiBrightYellow)],
-            [("Bright Blue", \.ansiBrightBlue), ("Bright Magenta", \.ansiBrightMagenta), ("Bright Cyan", \.ansiBrightCyan), ("Bright White", \.ansiBrightWhite)],
-        ]
-        VStack(spacing: 6) {
-            ForEach(0..<rows.count, id: \.self) { rowIndex in
-                HStack(spacing: 12) {
-                    ForEach(0..<rows[rowIndex].count, id: \.self) { colIndex in
-                        let cell = rows[rowIndex][colIndex]
-                        compactColorCell(label: cell.0, path: cell.1)
-                    }
+    private func colorRow(_ key: String) -> some View {
+        let isOverridden = theme.overrides[key] != nil
+        LabeledContent {
+            HStack(spacing: 8) {
+                Text(theme.effectiveValue(for: key) ?? "—")
+                    .font(.caption.monospaced())
+                    .foregroundColor(isOverridden ? .primary : .secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(width: 110, alignment: .trailing)
+                ColorPicker("", selection: colorBinding(for: key), supportsOpacity: false)
+                    .labelsHidden()
+                Button {
+                    theme.overrides.removeValue(forKey: key)
+                    onChange()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
                 }
+                .buttonStyle(.borderless)
+                .help("Reset to the base palette's colour")
+                .opacity(isOverridden ? 1 : 0)
+                .disabled(!isOverridden)
             }
+        } label: {
+            Text(key)
+                .font(.callout.monospaced())
+                .fontWeight(isOverridden ? .semibold : .regular)
         }
-        .padding(.vertical, 4)
     }
 
-    @ViewBuilder
-    private func compactColorCell(label: String, path: WritableKeyPath<ThemeColors, String?>) -> some View {
-        VStack(spacing: 4) {
-            ColorPicker("", selection: colorBinding(for: path), supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 36, height: 28)
-            Text(label)
-                .font(.caption2)
+    private func preservedRow(_ key: String, _ value: Any?) -> some View {
+        HStack {
+            Text(key).font(.caption.monospaced())
+            Spacer()
+            Text(stringPreview(of: value))
+                .font(.caption.monospaced())
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Standard color row
-
-    @ViewBuilder
-    private func colorRow(_ label: String, path: WritableKeyPath<ThemeColors, String?>) -> some View {
-        LabeledContent(label) {
-            HStack(spacing: 8) {
-                Text(theme.colors[keyPath: path] ?? "—")
-                    .font(.caption.monospaced())
-                    .foregroundColor(.secondary)
-                    .frame(width: 70, alignment: .trailing)
-                ColorPicker("", selection: colorBinding(for: path), supportsOpacity: false)
-                    .labelsHidden()
-            }
+                .truncationMode(.middle)
         }
     }
 
-    // MARK: - Bindings
-
-    private func colorBinding(for path: WritableKeyPath<ThemeColors, String?>) -> Binding<Color> {
+    private func colorBinding(for key: String) -> Binding<Color> {
         Binding<Color>(
-            get: {
-                guard let hex = theme.colors[keyPath: path], Color.isValidHex(hex) else {
-                    return Color.gray.opacity(0.25)
-                }
-                return Color(hex: hex)
-            },
+            get: { ThemeColorValue.color(theme.effectiveValue(for: key)) ?? Color.gray.opacity(0.25) },
             set: { newColor in
-                let hex = newColor.hexString ?? "#000000"
-                theme.colors[keyPath: path] = hex
-                onChange()
-            }
-        )
-    }
-
-    private func stringBinding(_ path: WritableKeyPath<ThemeColors, String?>) -> Binding<String> {
-        Binding<String>(
-            get: { theme.colors[keyPath: path] ?? "" },
-            set: { newValue in
-                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                theme.colors[keyPath: path] = trimmed.isEmpty ? nil : trimmed
+                theme.overrides[key] = newColor.hexString ?? "#000000"
                 onChange()
             }
         )

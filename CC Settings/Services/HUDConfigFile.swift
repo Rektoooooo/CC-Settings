@@ -26,39 +26,72 @@ enum HUDConfigFile {
         return json
     }
 
-    /// Merges the app's encoded config onto the file's current contents and writes it.
-    /// Nested objects (display, colors, gitStatus, ...) are merged key by key, so unknown
-    /// nested keys written by the plugin survive; unknown top-level keys survive too.
+    typealias Edit = (path: [String], value: Any?)
+
+    /// Writes the app's whole encoded config. Only meant for creating a file; screens that
+    /// edit an existing config use `diff` + `saveEdits` so they never write keys the user
+    /// did not change.
     static func save(encodedConfig: Data, to url: URL) throws {
-        var existing = try readExisting(at: url)
-        guard let configJSON = try JSONSerialization.jsonObject(with: encodedConfig) as? [String: Any] else { return }
+        let configJSON = try JSONSerialization.jsonObject(with: encodedConfig) as? [String: Any] ?? [:]
+        try saveEdits(diff(from: [:], to: configJSON), to: url)
+    }
 
-        merge(configJSON, into: &existing)
-
-        // Strip empty/whitespace-only strings from display that the plugin would misinterpret as overrides
-        if var display = existing["display"] as? [String: Any] {
-            for key in ["modelOverride", "customLine"] {
-                if let v = display[key] as? String, v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    display.removeValue(forKey: key)
-                }
+    /// Leaf key paths of a JSON object (arrays and scalars are leaves).
+    static func flatten(_ json: [String: Any], prefix: [String] = []) -> [[String]: Any] {
+        var result: [[String]: Any] = [:]
+        for (key, value) in json {
+            if let nested = value as? [String: Any] {
+                result.merge(flatten(nested, prefix: prefix + [key])) { $1 }
+            } else {
+                result[prefix + [key]] = value
             }
-            existing["display"] = display
         }
+        return result
+    }
 
+    /// Key paths whose value differs between `old` and `new` (removed paths get a nil value).
+    static func diff(from old: [String: Any], to new: [String: Any]) -> [Edit] {
+        let before = flatten(old)
+        let after = flatten(new)
+        var edits: [Edit] = []
+        for (path, value) in after {
+            if let previous = before[path], (previous as AnyObject).isEqual(value) { continue }
+            edits.append((path: path, value: value))
+        }
+        for path in before.keys where after[path] == nil {
+            edits.append((path: path, value: nil))
+        }
+        return edits.sorted { $0.path.joined(separator: "\u{1F}") < $1.path.joined(separator: "\u{1F}") }
+    }
+
+    /// Re-reads the file now, applies only `edits`, and writes it back. Every other key, known
+    /// or not, keeps whatever value is on disk at this moment (so an edit made by the plugin
+    /// or by hand after this screen loaded is not clobbered).
+    static func saveEdits(_ edits: [Edit], to url: URL) throws {
+        var existing = try readExisting(at: url)
+        for edit in edits {
+            // Blank overrides would be read by the plugin as real (empty) overrides.
+            var value = edit.value
+            if edit.path == ["display", "modelOverride"] || edit.path == ["display", "customLine"],
+               let s = value as? String, s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                value = nil
+            }
+            set(&existing, path: edit.path[...], value: value)
+        }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let output = try JSONSerialization.data(withJSONObject: existing, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try output.writeAtomicallyFollowingSymlinks(to: url)
     }
 
-    private static func merge(_ new: [String: Any], into target: inout [String: Any]) {
-        for (key, value) in new {
-            if let newDict = value as? [String: Any], var existingDict = target[key] as? [String: Any],
-               key != "customColors" {
-                merge(newDict, into: &existingDict)
-                target[key] = existingDict
-            } else {
-                target[key] = value
-            }
+    private static func set(_ dict: inout [String: Any], path: ArraySlice<String>, value: Any?) {
+        guard let first = path.first else { return }
+        if path.count == 1 {
+            if let value { dict[first] = value } else { dict.removeValue(forKey: first) }
+            return
         }
+        var nested = dict[first] as? [String: Any] ?? [:]
+        if value == nil, dict[first] as? [String: Any] == nil { return }
+        set(&nested, path: path.dropFirst(), value: value)
+        dict[first] = nested
     }
 }
