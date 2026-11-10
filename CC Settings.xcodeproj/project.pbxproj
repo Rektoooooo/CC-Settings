@@ -74,6 +74,7 @@
 		5004D6CC26182337E9A6803D /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415B9C3F116F9588DC3951D /* AgentsView.swift */; };
 		50355C988643D4BE705F7DAC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 565151DA5397228F2DFF6E9B /* Assets.xcassets */; };
 		52AB97F3B9AC96359DA3F965 /* ThemePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8600336C40FA467DC344DA7A /* ThemePreview.swift */; };
+		55AC3982F8DB98633E3973C6 /* SessionCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F73D5383713DD99791104ED /* SessionCleanup.swift */; };
 		55D6C6C6CF244ABE4AD9F635 /* ScopedMCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD522B7FE5253FC7C02F1E8 /* ScopedMCPServer.swift */; };
 		572255832D502EEC217CC314 /* SparkleEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679F9C1915DBDD90D15B5F6A /* SparkleEnvironment.swift */; };
 		59BC7FD2552397D1532DBC26 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDFE7E75A356B827773CAD8 /* SettingsSection.swift */; };
@@ -137,6 +138,7 @@
 		9ED890FA5B3009131B706894 /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415B9C3F116F9588DC3951D /* AgentsView.swift */; };
 		9F3A52D27C92610920772CB8 /* MarkdownFileViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE421C46595E05D4FA8F3499 /* MarkdownFileViewer.swift */; };
 		9F6295B031DCE2E3427AD347 /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133F6F5721C5CA8BD101BF1C /* MCPServer.swift */; };
+		A087A4A0758655EEDBBDAC8C /* SessionCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F73D5383713DD99791104ED /* SessionCleanup.swift */; };
 		A2802CE957FDAE66F69FDE98 /* ProfileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F40DCEF56F05F22F46FB1C8 /* ProfileRowView.swift */; };
 		A3EF1824A0E83812970C713B /* FileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */; };
 		A55190A5F540D398A98E5825 /* ThemeColorsEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB11AF781C112FC55BC2948A /* ThemeColorsEditor.swift */; };
@@ -235,6 +237,7 @@
 		3415B9C3F116F9588DC3951D /* AgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsView.swift; sourceTree = "<group>"; };
 		37EEB10BE53ECE84E30DD551 /* MarkdownPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPreview.swift; sourceTree = "<group>"; };
 		3A7612910340BC2299919E89 /* SettingsProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfile.swift; sourceTree = "<group>"; };
+		3F73D5383713DD99791104ED /* SessionCleanup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCleanup.swift; sourceTree = "<group>"; };
 		43F808FFEE1F9EC98E3C42DC /* ExperimentalFeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExperimentalFeaturesView.swift; sourceTree = "<group>"; };
 		4699D0B613DDB636D7573411 /* HUDPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDPanel.swift; sourceTree = "<group>"; };
 		47072A3C88A36BF1F684809C /* SessionParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionParser.swift; sourceTree = "<group>"; };
@@ -394,6 +397,7 @@
 				5C31368E98A4BDE1A3DE6FEC /* MCPConfigStore.swift */,
 				7BEFCED7828F1FC7F068EA07 /* MCPDiscoveryService.swift */,
 				75FD32E0843EE91FBE088CCB /* ProfileManager.swift */,
+				3F73D5383713DD99791104ED /* SessionCleanup.swift */,
 				47072A3C88A36BF1F684809C /* SessionParser.swift */,
 				49548B495707E7309C0AFE1D /* StatsService.swift */,
 				1272144BB3458BCC276CEF2A /* ThemeManager.swift */,
@@ -926,6 +930,7 @@
 				6115AFA2AB5D0673DDB40002 /* SaveProfileSheet.swift in Sources */,
 				757BED7459E1EBE0F54F6E11 /* ScopedMCPServer.swift in Sources */,
 				050CD697089C9A8087BC1A1B /* SessionBrowserView.swift in Sources */,
+				A087A4A0758655EEDBBDAC8C /* SessionCleanup.swift in Sources */,
 				C4CF6339CB907B182EA1A065 /* SessionMessage.swift in Sources */,
 				2532ACF2F4DA74C41092ADB3 /* SessionParser.swift in Sources */,
 				1188F714981ED41A94AE7738 /* SessionSearchView.swift in Sources */,
@@ -1034,6 +1039,7 @@
 				1AF49A774CB5D83CA59C89D3 /* SaveProfileSheet.swift in Sources */,
 				55D6C6C6CF244ABE4AD9F635 /* ScopedMCPServer.swift in Sources */,
 				9B485F71BEDFF40F96E6E3D4 /* SessionBrowserView.swift in Sources */,
+				55AC3982F8DB98633E3973C6 /* SessionCleanup.swift in Sources */,
 				36163B07AB196B8DE3B45591 /* SessionMessage.swift in Sources */,
 				D60D44B8B4BA2A8D847C6996 /* SessionParser.swift in Sources */,
 				F144192964A1AA01C6D603F4 /* SessionSearchView.swift in Sources */,

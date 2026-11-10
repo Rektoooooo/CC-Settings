@@ -832,6 +832,10 @@ class ConfigurationManager: ObservableObject {
             var totalSize: Int64 = 0
             var lastAccessed: Date?
 
+            // Cleanable size covers transcripts plus per-session directories
+            // (subagents, tool results), never memory/.
+            totalSize = SessionCleanup.size(of: SessionCleanup.sessionItems(in: dir).filter { $0.pathExtension != "jsonl" })
+
             // Load sessions (.jsonl files)
             if let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]) {
                 for file in files where file.pathExtension == "jsonl" {
