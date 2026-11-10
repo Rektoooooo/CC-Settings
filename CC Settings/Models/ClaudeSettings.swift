@@ -691,18 +691,6 @@ struct HookGroup: Codable, Equatable, Identifiable {
     /// Group-level keys this app does not model, kept verbatim.
     var extra: [String: JSONValue] = [:]
 
-    /// UI-facing view of `matcherString`. A `{tool, pattern}` pair is folded into one
-    /// string on write: tool alone, pattern alone, or `tool(pattern)` for both.
-    var matcher: HookMatcher? {
-        get { matcherString.map { HookMatcher(tool: $0, pattern: nil) } }
-        set { matcherString = newValue?.combined }
-    }
-
-    init(matcher: HookMatcher? = nil, hooks: [HookDefinition] = []) {
-        self.matcherString = matcher?.combined
-        self.hooks = hooks
-    }
-
     init(matcherString: String?, hooks: [HookDefinition] = []) {
         self.matcherString = matcherString
         self.hooks = hooks
@@ -714,7 +702,9 @@ struct HookGroup: Codable, Equatable, Identifiable {
             matcherString = str
         } else if case .object(let legacy)? = all["matcher"] {
             // Older builds of this app wrote {"tool": ..., "pattern": ...}, which the CLI rejects.
-            matcherString = HookMatcher(tool: legacy["tool"]?.stringValue, pattern: legacy["pattern"]?.stringValue).combined
+            // The matcher is a tool-name regex, so only the tool survives; `tool(pattern)` is
+            // permission-rule syntax and belongs in a hook's `if` field instead.
+            matcherString = legacy["tool"]?.stringValue
         }
         if case .array(let items)? = all["hooks"] {
             hooks = items.compactMap { item in
@@ -734,20 +724,6 @@ struct HookGroup: Codable, Equatable, Identifiable {
         }
         try container.encodeIfPresent(matcherString, forKey: JSONValue.DynamicKey("matcher"))
         try container.encode(hooks, forKey: JSONValue.DynamicKey("hooks"))
-    }
-}
-
-struct HookMatcher: Codable, Equatable {
-    var tool: String?
-    var pattern: String?
-
-    var combined: String? {
-        switch (tool, pattern) {
-        case let (t?, p?): return "\(t)(\(p))"
-        case let (t?, nil): return t
-        case let (nil, p?): return p
-        default: return nil
-        }
     }
 }
 

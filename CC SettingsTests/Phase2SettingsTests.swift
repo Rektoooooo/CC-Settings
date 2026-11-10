@@ -142,6 +142,31 @@ final class Phase2SettingsTests: XCTestCase {
         XCTAssertEqual(manager.settings.spinnerVerbs, ["Pondering"])
     }
 
+    // MARK: - Hooks
+
+    func testLegacyToolPatternMatcherLoadsAsToolOnly() throws {
+        let json = #"{"matcher":{"tool":"Bash","pattern":"git push.*"},"hooks":[{"type":"command","command":"x","if":"Bash(git *)"}]}"#
+        let group = try JSONDecoder().decode(HookGroup.self, from: Data(json.utf8))
+        XCTAssertEqual(group.matcherString, "Bash")
+        XCTAssertEqual(group.hooks.first?.ifCondition, "Bash(git *)")
+    }
+
+    func testHookGroupModelKeepsSingleMatcherAndIfFilter() throws {
+        let group = HookGroup(matcherString: "Bash|Edit", hooks: [HookDefinition(command: "echo hi", ifCondition: "Bash(git *)")])
+        var model = HookGroupModel(from: group)
+        XCTAssertEqual(model.matcher, "Bash|Edit")
+        XCTAssertEqual(model.ifList, ["Bash(git *)"])
+
+        model.matcher = "  mcp__.*  "
+        model.ifList = [""]
+        let saved = model.toHookGroup()
+        XCTAssertEqual(saved.matcherString, "mcp__.*")
+        XCTAssertNil(saved.hooks.first?.ifCondition)
+
+        model.matcher = ""
+        XCTAssertNil(model.toHookGroup().matcherString, "empty matcher matches everything and is omitted")
+    }
+
     // MARK: - Commit-on-focus-loss helper
 
     func testTempHomeNeverTouchesRealClaudeDir() {
