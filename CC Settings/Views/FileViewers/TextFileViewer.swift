@@ -6,6 +6,7 @@ struct TextFileViewer: View {
 
     @State private var content: String = ""
     @State private var originalContent: String = ""
+    @State private var editGuard = FileEditGuard()
 
     private var hasChanges: Bool {
         content != originalContent
@@ -26,7 +27,7 @@ struct TextFileViewer: View {
                 file: file,
                 readOnly: readOnly,
                 hasChanges: hasChanges,
-                onSave: save,
+                onSave: { save() },
                 onRevert: revert
             ) {
                 Text("\(lineCount) lines, \(wordCount) words")
@@ -35,6 +36,8 @@ struct TextFileViewer: View {
             }
 
             Divider()
+
+            FileConflictBanner(state: editGuard, onReload: loadContent, onOverwrite: { save(force: true) })
 
             if readOnly {
                 ReadOnlyBanner()
@@ -63,6 +66,7 @@ struct TextFileViewer: View {
     }
 
     private func loadContent() {
+        editGuard.markLoaded(file.path)
         if let text = try? String(contentsOf: file.path, encoding: .utf8) {
             content = text
             originalContent = text
@@ -72,12 +76,9 @@ struct TextFileViewer: View {
         }
     }
 
-    private func save() {
-        do {
-            try content.writeAtomicallyFollowingSymlinks(to: file.path)
+    private func save(force: Bool = false) {
+        if editGuard.save(content, to: file.path, force: force) {
             originalContent = content
-        } catch {
-            print("Failed to save file: \(error)")
         }
     }
 

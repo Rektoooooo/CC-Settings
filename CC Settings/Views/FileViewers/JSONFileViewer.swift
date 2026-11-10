@@ -6,6 +6,7 @@ struct JSONFileViewer: View {
 
     @State private var content: String = ""
     @State private var originalContent: String = ""
+    @State private var editGuard = FileEditGuard()
     @State private var validationError: String? = nil
     @State private var viewMode: JSONViewMode = .highlighted
 
@@ -23,7 +24,7 @@ struct JSONFileViewer: View {
                 file: file,
                 readOnly: readOnly,
                 hasChanges: hasChanges && isValidJSON,
-                onSave: save,
+                onSave: { save() },
                 onRevert: revert
             ) {
                 HStack(spacing: 6) {
@@ -64,6 +65,8 @@ struct JSONFileViewer: View {
             }
 
             Divider()
+
+            FileConflictBanner(state: editGuard, onReload: loadContent, onOverwrite: { save(force: true) })
 
             switch viewMode {
             case .highlighted:
@@ -123,6 +126,7 @@ struct JSONFileViewer: View {
     // MARK: - Data
 
     private func loadContent() {
+        editGuard.markLoaded(file.path)
         if let text = try? String(contentsOf: file.path, encoding: .utf8) {
             content = text
             originalContent = text
@@ -163,13 +167,10 @@ struct JSONFileViewer: View {
         content = prettyString
     }
 
-    private func save() {
+    private func save(force: Bool = false) {
         guard isValidJSON else { return }
-        do {
-            try content.writeAtomicallyFollowingSymlinks(to: file.path)
+        if editGuard.save(content, to: file.path, force: force) {
             originalContent = content
-        } catch {
-            print("Failed to save file: \(error)")
         }
     }
 
