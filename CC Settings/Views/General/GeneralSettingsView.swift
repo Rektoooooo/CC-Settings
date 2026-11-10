@@ -446,9 +446,12 @@ struct GeneralSettingsView: View {
                 Text("Xhigh").tag("xhigh")
             }
             .pickerStyle(.segmented)
+            .disabled(selectedModel.isEmpty)
             Text(selectedModel.isEmpty
-                 ? "Controls adaptive reasoning effort. No model is set, so this is saved as the top-level effortLevel, which the 5.5 models ignore — pick a model to set its effort."
-                 : "Saved per model (modelSettings.\(canonicalModelId(selectedModel)).effortLevel) for the 5.5 models, matching /effort; older models use the top-level effortLevel.")
+                 ? "Choose a model above to set effort — Claude Code stores effort per model."
+                 : (usesLegacyTopLevelEffort(canonicalId: canonicalModelId(selectedModel))
+                    ? "Saved as the top-level effortLevel, which applies to this model."
+                    : "Saved per model (modelSettings.\(canonicalModelId(selectedModel)).effortLevel), matching /effort."))
                 .font(.caption)
                 .foregroundColor(.secondary)
             Label("Applies to new Claude Code sessions.", systemImage: "info.circle")

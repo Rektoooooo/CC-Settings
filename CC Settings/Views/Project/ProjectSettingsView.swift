@@ -132,7 +132,8 @@ struct ProjectSettingsView: View {
                 isOverridden: isOverridden("effortLevel"),
                 onToggleOverride: { enabled in
                     if enabled {
-                        effortLevel = configManager.settings.effortLevel ?? ""
+                        let inherited = configManager.settings.effortLevel ?? ""
+                        effortLevel = EffortLevels.selectable.contains(inherited) ? inherited : ""
                         saveProjectField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
                     } else {
                         saveProjectField("effortLevel", value: nil)
@@ -151,6 +152,22 @@ struct ProjectSettingsView: View {
                 .onChange(of: effortLevel) {
                     guard isLoaded, isOverridden("effortLevel") else { return }
                     saveProjectField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
+                }
+                Label("Applies to new Claude Code sessions.", systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                if let bad = rawProjectJSON["effortLevel"] as? String,
+                   !EffortLevels.selectable.contains(bad) {
+                    HStack {
+                        Label("effortLevel \"\(bad)\" in this project is not valid — Claude Code ignores it.", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Button("Clear") {
+                            saveProjectField("effortLevel", value: nil)
+                            effortLevel = ""
+                            reloadRawJSON()
+                        }
+                    }
                 }
             }
 

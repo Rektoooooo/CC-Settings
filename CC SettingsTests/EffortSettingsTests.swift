@@ -44,14 +44,30 @@ final class EffortSettingsTests: XCTestCase {
         XCTAssertNil(try readJSON()["modelSettings"])
     }
 
-    func testLegacyModelAndUnsetModelUseTopLevel() throws {
+    func testAllowlistedModelsUseTopLevelOthersUseModelSettings() throws {
         try write("{}")
         let m = ConfigurationManager(homeDirectory: home)
         m.saveEffortLevel("high", forModel: "claude-opus-5")
         XCTAssertEqual(try readJSON()["effortLevel"] as? String, "high")
-        m.saveEffortLevel("low", forModel: "")
+        // Dated id canonicalizes to the allowlisted claude-sonnet-4-5.
+        m.saveEffortLevel("low", forModel: "claude-sonnet-4-5-20250929")
         XCTAssertEqual(try readJSON()["effortLevel"] as? String, "low")
         XCTAssertNil(try readJSON()["modelSettings"])
+        // Custom / unknown ids are not on the allowlist.
+        m.saveEffortLevel("medium", forModel: "my-proxy-model")
+        let ms = try XCTUnwrap(try readJSON()["modelSettings"] as? [String: Any])
+        XCTAssertEqual((ms["my-proxy-model"] as? [String: Any])?["effortLevel"] as? String, "medium")
+        XCTAssertEqual(try readJSON()["effortLevel"] as? String, "low")
+    }
+
+    func testUnsetModelWritesNothing() throws {
+        try write(#"{"keep":1}"#)
+        let m = ConfigurationManager(homeDirectory: home)
+        m.saveEffortLevel("high", forModel: "")
+        let json = try readJSON()
+        XCTAssertNil(json["effortLevel"])
+        XCTAssertNil(json["modelSettings"])
+        XCTAssertNil(ConfigurationManager.readEffort(in: ["effortLevel": "high"], model: "").value)
     }
 
     func testReadEffortRules() {

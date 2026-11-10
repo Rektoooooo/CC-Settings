@@ -38,7 +38,12 @@ extension ConfigurationManager {
         let invalid = (top != nil && !EffortLevels.selectable.contains(top!)) ? top : nil
         let validTop = (top != nil && invalid == nil) ? top : nil
 
-        if !canon.isEmpty {
+        if canon.isEmpty {
+            // No model set: the CLI resolves its default from org/account data that is not on
+            // disk, so no effort can be attributed (the UI disables the picker).
+            return EffortReading(value: nil, invalidTopLevel: invalid, isPerModel: false, modelIgnoresTopLevel: false)
+        }
+        do {
             let entry = (raw["modelSettings"] as? [String: Any])?[canon] as? [String: Any]
             if let level = entry?["effortLevel"] as? String {
                 return EffortReading(value: level, invalidTopLevel: invalid, isPerModel: true,
@@ -55,13 +60,13 @@ extension ConfigurationManager {
         Self.readEffort(in: rawSettingsObject(), model: model)
     }
 
-    /// Writes the effort for `model`. A 5.5-generation model (any model that
-    /// reads `modelSettings`) is written to
-    /// `modelSettings.<id>.effortLevel`; legacy models and an unset model use the top-level key.
-    /// nil removes the value.
+    /// Writes the effort for `model`. Models on the CLI's top-level allowlist use the
+    /// top-level key; every other model (custom ids included) is written to
+    /// `modelSettings.<id>.effortLevel`. An unset model writes nothing. nil removes the value.
     func saveEffortLevel(_ level: String?, forModel model: String) {
         let canon = canonicalModelId(model)
-        if canon.isEmpty || usesLegacyTopLevelEffort(canonicalId: canon) {
+        if canon.isEmpty { return }
+        if usesLegacyTopLevelEffort(canonicalId: canon) {
             applyEdits([(path: ["effortLevel"], value: level)])
         } else {
             applyEdits([(path: ["modelSettings", canon, "effortLevel"], value: level)])

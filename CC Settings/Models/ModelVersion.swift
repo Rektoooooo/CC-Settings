@@ -155,10 +155,18 @@ func canonicalModelId(_ raw: String) -> String {
     return id
 }
 
-/// True when the model still honours the legacy top-level `effortLevel` in user scope
-/// (Opus <=5, Sonnet <=5, Fable 5/5.1, Haiku 4.5 and older). The 5.5 generation
-/// (Opus/Sonnet/Haiku 5.5, Fable 5.2) reads `modelSettings.<id>.effortLevel` instead.
+/// Canonical ids for which the top-level `effortLevel` applies in user scope. This is the
+/// CLI's own explicit allowlist, copied from Claude Code 2.1.322. Every other id (the 5.5
+/// generation, new models, custom/unknown ids) reads `modelSettings.<id>.effortLevel`.
+private let topLevelEffortModelIds: Set<String> = [
+    "claude-3-5-haiku", "claude-3-5-sonnet", "claude-3-7-sonnet", "claude-haiku-4-5",
+    "claude-sonnet-4-0", "claude-sonnet-4-5", "claude-sonnet-4-6", "claude-sonnet-5",
+    "claude-opus-4-0", "claude-opus-4-1", "claude-opus-4-5", "claude-opus-4-6",
+    "claude-opus-4-7", "claude-opus-4-8", "claude-opus-5",
+    "claude-fable-5", "claude-fable-5-1", "claude-mythos-5", "claude-mythos-5-1",
+]
+
+/// True when the top-level `effortLevel` applies to this canonical id (user scope).
 func usesLegacyTopLevelEffort(canonicalId id: String) -> Bool {
-    let perModel: Set<String> = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"]
-    return !id.isEmpty && !perModel.contains(id)
+    topLevelEffortModelIds.contains(id)
 }
