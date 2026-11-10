@@ -137,6 +137,9 @@ struct HUDView: View {
     @State private var isInstalled = false
     @State private var installedVersion: String?
     @State private var hasLoadedOnce = false
+    /// The config as it was when last loaded or saved. Saves write only the key paths that
+    /// differ from it, onto a fresh read of the file.
+    @State private var savedBaseline: [String: Any] = [:]
     @State private var configError: String?
     @State private var allElements: [ElementItem] = []
     @State private var draggedElementID: String?
@@ -1662,10 +1665,18 @@ struct HUDView: View {
             // Try partial decode — merge whatever exists with defaults
             loadPartialConfig()
             hasLoadedOnce = true
+            savedBaseline = encodedConfigJSON()
             return
         }
         config = loaded
         hasLoadedOnce = true
+        savedBaseline = encodedConfigJSON()
+    }
+
+    private func encodedConfigJSON() -> [String: Any] {
+        guard let data = try? JSONEncoder().encode(config),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        return json
     }
 
     /// Handles partial JSON that may only contain some keys (e.g. {"display":{"showTools":true}})
@@ -1772,13 +1783,13 @@ struct HUDView: View {
     private func saveConfig() {
         guard hasLoadedOnce else { return }
 
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
-        guard let encodedData = try? encoder.encode(config) else { return }
+        let current = encodedConfigJSON()
+        let edits = HUDConfigFile.diff(from: savedBaseline, to: current)
+        guard !edits.isEmpty else { return }
 
         do {
-            try HUDConfigFile.save(encodedConfig: encodedData, to: configURL)
+            try HUDConfigFile.saveEdits(edits, to: configURL)
+            savedBaseline = current
         } catch {
             configError = error.localizedDescription
         }

@@ -47,4 +47,48 @@ final class HUDConfigFileTests: XCTestCase {
         XCTAssertNil(display["modelOverride"])
         XCTAssertNil(display["customLine"])
     }
+
+    // MARK: - Edit-only saves (Phase 2)
+
+    func testEditOnlySaveWritesOnlyChangedPathsAndKeepsExternalSiblingEdits() throws {
+        let url = dir.appendingPathComponent("config.json")
+        try #"{"language":"en","display":{"showTools":false,"showCost":false},"pluginKey":1}"#
+            .write(to: url, atomically: true, encoding: .utf8)
+        let baseline: [String: Any] = ["language": "en", "display": ["showTools": false, "showCost": false]]
+
+        // Someone else changes showCost on disk after the screen loaded.
+        try #"{"language":"en","display":{"showTools":false,"showCost":true},"pluginKey":1}"#
+            .write(to: url, atomically: true, encoding: .utf8)
+
+        // The user flips only showTools in the app (its in-memory showCost is still false).
+        let edited: [String: Any] = ["language": "en", "display": ["showTools": true, "showCost": false]]
+        let edits = HUDConfigFile.diff(from: baseline, to: edited)
+        XCTAssertEqual(edits.count, 1)
+        XCTAssertEqual(edits.first?.path, ["display", "showTools"])
+        try HUDConfigFile.saveEdits(edits, to: url)
+
+        let json = try HUDConfigFile.readExisting(at: url)
+        let display = try XCTUnwrap(json["display"] as? [String: Any])
+        XCTAssertEqual(display["showTools"] as? Bool, true)
+        XCTAssertEqual(display["showCost"] as? Bool, true, "externally changed sibling must survive")
+        XCTAssertEqual(json["pluginKey"] as? Int, 1)
+    }
+
+    func testEditOnlySaveRemovesDeletedCustomColorAndNothingElse() throws {
+        let url = dir.appendingPathComponent("config.json")
+        try ##"{"customColors":{"a":"#111111","b":"#222222"},"other":{"x":1}}"##
+            .write(to: url, atomically: true, encoding: .utf8)
+        let edits = HUDConfigFile.diff(
+            from: ["customColors": ["a": "#111111", "b": "#222222"]],
+            to: ["customColors": ["a": "#111111"]])
+        try HUDConfigFile.saveEdits(edits, to: url)
+        let json = try HUDConfigFile.readExisting(at: url)
+        XCTAssertEqual((json["customColors"] as? [String: Any])?.keys.sorted(), ["a"])
+        XCTAssertNotNil(json["other"])
+    }
+
+    func testNoChangesProducesNoEdits() {
+        let config: [String: Any] = ["display": ["showTools": true], "elementOrder": ["a", "b"]]
+        XCTAssertTrue(HUDConfigFile.diff(from: config, to: config).isEmpty)
+    }
 }
