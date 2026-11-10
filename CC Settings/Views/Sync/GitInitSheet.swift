@@ -161,7 +161,7 @@ struct GitInitSheet: View {
             if success {
                 initResult = .success
             } else {
-                initResult = .failure("Failed to initialize the repository. Check that git is installed and \(gitService.repoPath.path) is accessible.")
+                initResult = .failure(gitService.initError ?? "Failed to initialize the repository. Check that git is installed and \(gitService.repoPath.path) is accessible.")
             }
         }
     }
