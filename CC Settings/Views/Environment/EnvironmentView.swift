@@ -520,7 +520,7 @@ struct EnvironmentView: View {
                 TextField("Process Wrapper", text: $processWrapper, prompt: Text("/usr/local/bin/corp-launcher"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: processWrapper) { _, _ in save() }
+                    .commitOnFocusLoss(of: processWrapper) { save() }
                 Text("Corporate launcher that Claude Code re-executes itself through. Takes precedence over the processWrapper setting.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -528,7 +528,7 @@ struct EnvironmentView: View {
                 TextField("Client Presence File", text: $clientPresenceFile, prompt: Text("/path/to/presence"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: clientPresenceFile) { _, _ in save() }
+                    .commitOnFocusLoss(of: clientPresenceFile) { save() }
                 Text("File whose existence signals that an IDE or host client is attached.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -536,7 +536,7 @@ struct EnvironmentView: View {
                 TextField("OTel Content Max Length", text: $otelContentMaxLength, prompt: Text("e.g. 8192"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: otelContentMaxLength) { _, _ in save() }
+                    .commitOnFocusLoss(of: otelContentMaxLength) { save() }
                 Text("Character cap on prompt and response content in OpenTelemetry events.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -562,7 +562,7 @@ struct EnvironmentView: View {
                 TextField("Project Directory Name", text: $projectDirName, prompt: Text("short name"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: projectDirName) { _, _ in save() }
+                    .commitOnFocusLoss(of: projectDirName) { save() }
                 Text("For hosts that give each session its own config directory: a short name for the per-project transcript folder.")
                     .font(.caption)
                     .foregroundColor(.secondary)

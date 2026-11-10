@@ -166,6 +166,9 @@ struct PermissionsView: View {
     @State private var disableBypassPermissions: Bool = p.disableBypassPermissionsMode == "disable"
     @State private var skipDangerousModePrompt: Bool = ConfigurationManager.shared.settings.skipDangerousModePermissionPrompt ?? p.skipDangerousModePermissionPrompt ?? false
     @State private var additionalDirectories: [String] = p.additionalDirectories ?? []
+    @State private var denyInsteadOfPrompting: Bool = ConfigurationManager.shared.permissionFlag("denyInsteadOfPrompting")
+    @State private var blockReadsOutside: Bool = ConfigurationManager.shared.permissionFlag("blockReadsOutsideWorkingDirectories")
+    @State private var blockWritesOutside: Bool = ConfigurationManager.shared.permissionFlag("blockWritesOutsideWorkingDirectories")
     @State private var newDirectory: String = ""
     @State private var showingAddRule = false
     @State private var newRuleToolName: String = "Bash"
@@ -224,6 +227,8 @@ struct PermissionsView: View {
                 Text("Skips the confirmation prompt when entering dangerous mode.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+
+                strictPermissionRows
             } header: {
                 Text("Default Mode")
             }
@@ -496,6 +501,12 @@ struct PermissionsView: View {
         // Additional directories
         additionalDirectories = perms.additionalDirectories ?? []
 
+        // Strict flags are read raw: the permissions struct decodes all-or-nothing.
+        let rawPermissions = configManager.rawSettingsObject()
+        denyInsteadOfPrompting = configManager.permissionFlag("denyInsteadOfPrompting", in: rawPermissions)
+        blockReadsOutside = configManager.permissionFlag("blockReadsOutsideWorkingDirectories", in: rawPermissions)
+        blockWritesOutside = configManager.permissionFlag("blockWritesOutsideWorkingDirectories", in: rawPermissions)
+
         // Permission mode toggles
         disableBypassPermissions = perms.disableBypassPermissionsMode != nil
         skipDangerousModePrompt = configManager.settings.skipDangerousModePermissionPrompt ?? perms.skipDangerousModePermissionPrompt ?? false
@@ -546,6 +557,47 @@ struct PermissionsView: View {
             (keyPath: "permissions.additionalDirectories", value: additionalDirectories.isEmpty ? nil : additionalDirectories),
             (keyPath: "permissions.disableBypassPermissionsMode", value: disableBypassPermissions ? "disable" : nil)
         ])
+    }
+
+    // MARK: - Strict permission flags (Claude Code 2.1.322)
+
+    @ViewBuilder
+    private var strictPermissionRows: some View {
+        Toggle("Deny Instead of Prompting", isOn: Binding(
+            get: { denyInsteadOfPrompting },
+            set: { newValue in
+                denyInsteadOfPrompting = newValue
+                guard !isSyncing else { return }
+                configManager.saveDefaultOffFlag(["permissions", "denyInsteadOfPrompting"], enabled: newValue)
+            }
+        ))
+        Text("Never wait for a person to answer a permission prompt: a call that would prompt is denied at once and the turn carries on. Allow rules, the permission mode, auto mode and PermissionRequest hooks still decide first; it only ever denies. Read only from user settings, --settings and managed settings; project and local settings are ignored.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Toggle("Block Reads Outside Working Directories", isOn: Binding(
+            get: { blockReadsOutside },
+            set: { newValue in
+                blockReadsOutside = newValue
+                guard !isSyncing else { return }
+                configManager.saveDefaultOffFlag(["permissions", "blockReadsOutsideWorkingDirectories"], enabled: newValue)
+            }
+        ))
+        Text("Refuse Read, Grep, Glob and LSP outside the working directories in every permission mode. No allow rule lifts it; true in any settings source wins.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Toggle("Block Writes Outside Working Directories", isOn: Binding(
+            get: { blockWritesOutside },
+            set: { newValue in
+                blockWritesOutside = newValue
+                guard !isSyncing else { return }
+                configManager.saveDefaultOffFlag(["permissions", "blockWritesOutsideWorkingDirectories"], enabled: newValue)
+            }
+        ))
+        Text("Refuse Write, Edit and NotebookEdit outside the working directories in every permission mode, and also any write to Claude Code settings files. Does not limit shell commands or MCP tools. True in any settings source wins.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     // MARK: - Auto Mode helpers

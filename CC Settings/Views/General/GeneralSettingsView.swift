@@ -57,6 +57,15 @@ struct GeneralSettingsView: View {
     @State private var fileSuggestionCommand: String = s.fileSuggestion?.command ?? ""
     @State private var autoContinueAtUsageLimit: Bool = s.autoContinueAtUsageLimit ?? false
     @State private var bashOutputMaxChars: String = s.bashOutputMaxChars.map(String.init) ?? ""
+    @State private var idleCompaction: Bool = s.idleCompaction ?? true
+    @State private var switchModelsOnFlag: Bool = s.switchModelsOnFlag ?? true
+    @State private var bashEditDiff: String = s.bashEditDiffEnabled.map { $0 ? "on" : "off" } ?? ""
+    @State private var maxProseWidth: String = s.maxProseWidth.map(String.init) ?? ""
+    @State private var instructionFiles: InstructionFilesMode = ConfigurationManager.shared.readInstructionFiles()
+    @State private var attributionProject: String = s.attributionProject ?? ""
+    @State private var attributionProjectInvalid: Bool = false
+    @State private var syncClaudeAiSkills: Bool = s.syncClaudeAiSkills ?? true
+    @State private var syncClaudeAiPlugins: Bool = s.syncClaudeAiPlugins ?? true
 
     // Terminal & Accessibility
     @State private var axScreenReader: Bool = s.axScreenReader ?? false
@@ -361,6 +370,7 @@ struct GeneralSettingsView: View {
 
             TextField("Fallback Models", text: $fallbackModels, prompt: Text("e.g. opus, sonnet"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: fallbackModels) { commitFallbackModels() }
                 .font(.system(.body, design: .monospaced))
             Text("Comma-separated chain tried in order when the primary model is overloaded or unavailable (max 3). Accepts aliases or full model IDs.")
                 .font(.caption)
@@ -380,6 +390,7 @@ struct GeneralSettingsView: View {
 
             TextField("Advisor Model", text: $advisorModel, prompt: Text("e.g. sonnet"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: advisorModel) { commitAdvisorModel() }
                 .font(.system(.body, design: .monospaced))
             Text("Model backing the server-side advisor tool. Accepts an alias or a full model ID.")
                 .font(.caption)
@@ -675,6 +686,7 @@ struct GeneralSettingsView: View {
             HStack {
                 TextField("File Suggestion Script", text: $fileSuggestionCommand, prompt: Text("/path/to/suggest.sh"))
                     .textFieldStyle(.roundedBorder)
+                    .commitOnFocusLoss(of: fileSuggestionCommand) { commitFileSuggestionCommand() }
                     .font(.system(.body, design: .monospaced))
                 Button("Choose...") {
                     chooseFileSuggestionScript()
@@ -705,7 +717,129 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
+            behaviorRowsV2
         }
+    }
+
+    // Claude Code 2.1.322 additions. Kept in their own builder so the Behavior section
+    // stays under SwiftUI's type-check budget.
+    @ViewBuilder
+    private var behaviorRowsV2: some View {
+        Toggle("Idle Compaction", isOn: Binding(
+            get: { idleCompaction },
+            set: { newValue in
+                idleCompaction = newValue
+                guard isLoaded else { return }
+                configManager.saveDefaultOnFlag("idleCompaction", enabled: newValue)
+            }
+        ))
+        Text("Compact a long conversation while the session is idle, before the prompt cache expires. On by default; off writes idleCompaction: false.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Toggle("Switch Models When a Message Is Flagged", isOn: Binding(
+            get: { switchModelsOnFlag },
+            set: { newValue in
+                switchModelsOnFlag = newValue
+                guard isLoaded else { return }
+                configManager.saveDefaultOnFlag("switchModelsOnFlag", enabled: newValue)
+            }
+        ))
+        Text("When safeguards flag a message, automatically switch to a different model to keep chatting. When off, the session pauses instead.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Picker("Bash Edit Diff", selection: Binding(
+            get: { bashEditDiff },
+            set: { newValue in
+                bashEditDiff = newValue
+                guard isLoaded else { return }
+                configManager.saveTriStateFlag("bashEditDiffEnabled", value: newValue.isEmpty ? nil : newValue == "on")
+            }
+        )) {
+            Text("Default").tag("")
+            Text("On").tag("on")
+            Text("Off").tag("off")
+        }
+        .pickerStyle(.segmented)
+        Text("Show a diff of the files a Bash command changed. Default: off, except in auto and bypassPermissions modes. Claude Code honours \"on\" only from user, flag or policy settings (never project settings), so it is only offered here.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        HStack {
+            Text("Max Prose Width")
+            Spacer()
+            TextField("full width", text: $maxProseWidth)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+                .frame(width: 100)
+                .commitOnFocusLoss(of: maxProseWidth) { commitMaxProseWidth() }
+            Text("cols")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        Text("Maximum width, in terminal columns, of response prose; tables and code blocks keep the full width. Minimum 40. Empty uses the full terminal width.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Picker("Instruction Files", selection: Binding(
+            get: { instructionFiles },
+            set: { newValue in
+                instructionFiles = newValue
+                guard isLoaded else { return }
+                configManager.saveInstructionFiles(newValue)
+            }
+        )) {
+            ForEach(InstructionFilesMode.allCases) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        Text("Which project instruction files load. Default: a project without a CLAUDE.md gets its AGENTS.md instead. \"Managed instructions only\" drops project and personal instruction files and keeps the organization's. Stored in pluginConfigs for the built-in agents-md plugin.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var attributionProjectRow: some View {
+        TextField("Attribution Project", text: $attributionProject, prompt: Text("claude_proj_… or chan_…"))
+            .textFieldStyle(.roundedBorder)
+            .font(.system(.body, design: .monospaced))
+            .commitOnFocusLoss(of: attributionProject) { commitAttributionProject() }
+        if attributionProjectInvalid {
+            Text("Not saved: use a claude.ai Project ID starting with claude_proj_ or chan_, or the UUID of a claude_proj_ Project.")
+                .font(.caption)
+                .foregroundColor(.red)
+        }
+        Text("The claude.ai Project this session is named under in your organization's usage reports. Sent only with a claude.ai login on the direct Anthropic API; CLAUDE_CODE_ATTRIBUTION_PROJECT takes precedence. Project settings count only in trusted folders.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+    }
+
+    @ViewBuilder
+    private var claudeAiSyncRows: some View {
+        Toggle("Sync claude.ai Skills", isOn: Binding(
+            get: { syncClaudeAiSkills },
+            set: { newValue in
+                syncClaudeAiSkills = newValue
+                guard isLoaded else { return }
+                configManager.saveDefaultOnFlag("syncClaudeAiSkills", enabled: newValue)
+            }
+        ))
+        Text("Off writes syncClaudeAiSkills: false: no more downloads, and synced skills are hidden and moved to the trash folder at next launch. Only false is honoured, and it is not read from project settings.")
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+        Toggle("Sync claude.ai Plugins", isOn: Binding(
+            get: { syncClaudeAiPlugins },
+            set: { newValue in
+                syncClaudeAiPlugins = newValue
+                guard isLoaded else { return }
+                configManager.saveDefaultOnFlag("syncClaudeAiPlugins", enabled: newValue)
+            }
+        ))
+        Text("Off writes syncClaudeAiPlugins: false: no more downloads, and synced plugins are hidden and moved to the trash folder at next launch. Only false is honoured, and it is not read from project settings.")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
 
     // Default-on toggles: clear the key when enabled, write `false`/`true` only to
@@ -818,6 +952,7 @@ struct GeneralSettingsView: View {
 
             TextField("Vim Escape Sequences", text: $vimEscapeSequences, prompt: Text("jj, kk"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: vimEscapeSequences) { commitVimEscapeSequences() }
                 .font(.system(.body, design: .monospaced))
             Text("Comma-separated two-character INSERT-mode sequences that return to NORMAL mode. Requires Editor Mode set to vim; <Esc> is the only target Claude Code supports.")
                 .font(.caption)
@@ -835,6 +970,7 @@ struct GeneralSettingsView: View {
 
             TextField("Time Zone", text: $timeZoneName, prompt: Text("System default"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: timeZoneName) { commitTimeZoneName() }
                 .font(.system(.body, design: .monospaced))
             Text("IANA time zone for times shown in the UI, e.g. UTC or Europe/Prague. Leave empty to follow the system time zone; an unknown name falls back to it.")
                 .font(.caption)
@@ -855,6 +991,7 @@ struct GeneralSettingsView: View {
 
                 TextField("Dictionary", text: $spellcheckLanguage, prompt: Text("e.g. en_US"))
                     .textFieldStyle(.roundedBorder)
+                    .commitOnFocusLoss(of: spellcheckLanguage) { commitSpellcheckLanguage() }
                     .font(.system(.body, design: .monospaced))
                 Text("Passed to the checker as-is (aspell --lang, hunspell -d). Leave empty for the checker's default.")
                     .font(.caption)
@@ -1014,12 +1151,14 @@ struct GeneralSettingsView: View {
         Section("Attribution") {
             TextField("Commit Attribution", text: $commitAttribution, prompt: Text("Default co-authored-by"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: commitAttribution) { commitCommitAttribution() }
             Text("Text appended to git commits. Leave empty to use default, set to a space to hide.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             TextField("PR Attribution", text: $prAttribution, prompt: Text("Default PR text"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: prAttribution) { commitPrAttribution() }
             Text("Text appended to pull request descriptions.")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -1027,9 +1166,12 @@ struct GeneralSettingsView: View {
             TextField("PR URL Template", text: $prUrlTemplate, prompt: Text("https://github.com/{owner}/{repo}/pull/{number}"))
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
+                .commitOnFocusLoss(of: prUrlTemplate) { commitPrUrlTemplate() }
             Text("Custom code-review URL for the footer PR badge. Leave empty to use github.com.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            attributionProjectRow
 
             Toggle("Session Link", isOn: $attributionSessionUrl)
             Text("Append the claude.ai session link to commits and PRs created from web or Remote Control sessions. Off omits the Claude-Session trailer and the PR-body link.")
@@ -1061,6 +1203,7 @@ struct GeneralSettingsView: View {
             HStack {
                 TextField("Subagent Status Line", text: $subagentStatusLineCommand, prompt: Text("/path/to/subagent-status.sh"))
                     .textFieldStyle(.roundedBorder)
+                    .commitOnFocusLoss(of: subagentStatusLineCommand) { commitSubagentStatusLineCommand() }
                     .font(.system(.body, design: .monospaced))
                 Button("Choose...") {
                     chooseSubagentStatusLine()
@@ -1149,8 +1292,11 @@ struct GeneralSettingsView: View {
 
             claudeAiConnectorsRow
 
+            claudeAiSyncRows
+
             TextField("Plugin Suggestion Marketplaces", text: $pluginSuggestionMarketplaces, prompt: Text("org-marketplace, team-tools"), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: pluginSuggestionMarketplaces) { commitPluginSuggestionMarketplaces() }
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1...3)
             Text("Comma-separated allowlist of plugin marketplaces suggested to users. Typically a managed/org-admin setting.")
@@ -1159,6 +1305,7 @@ struct GeneralSettingsView: View {
 
             TextField("Strict Known Marketplaces", text: $strictKnownMarketplaces, prompt: Text("https://github.com/acme/plugins"), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: strictKnownMarketplaces) { commitStrictKnownMarketplaces() }
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1...3)
             Text("Comma-separated exhaustive allowlist. Set in managed settings, ONLY these exact sources may be added as marketplaces — checked before download, so blocked sources never touch disk.")
@@ -1167,6 +1314,7 @@ struct GeneralSettingsView: View {
 
             TextField("Blocked Marketplaces", text: $blockedMarketplaces, prompt: Text("https://github.com/untrusted/plugins"), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: blockedMarketplaces) { commitBlockedMarketplaces() }
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1...3)
             Text("Comma-separated blocklist of marketplace sources, also checked before download.")
@@ -1175,6 +1323,7 @@ struct GeneralSettingsView: View {
 
             TextField("Allowed MCP Servers", text: $allowedMcpServers, prompt: Text("github, sentry"), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: allowedMcpServers) { commitAllowedMcpServers() }
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1...3)
             Text("Comma-separated allowlist of usable MCP servers across all scopes. Leave empty to allow every server; the denylist wins on conflict.")
@@ -1292,6 +1441,7 @@ struct GeneralSettingsView: View {
                 TextField("Path to API key helper script", text: $apiKeyHelper)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
+                    .commitOnFocusLoss(of: apiKeyHelper) { commitApiKeyHelper() }
                 Button("Choose...") {
                     chooseApiKeyHelper()
                 }
@@ -1421,19 +1571,6 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("cleanupPeriodDays", value: Int(cleanupPeriodDays) == 30 ? nil : Int(cleanupPeriodDays))
             }
-            .onChange(of: commitAttribution) {
-                guard isLoaded else { return }
-                saveAttribution()
-            }
-            .onChange(of: prAttribution) {
-                guard isLoaded else { return }
-                saveAttribution()
-            }
-            .onChange(of: prUrlTemplate) {
-                guard isLoaded else { return }
-                let trimmed = prUrlTemplate.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("prUrlTemplate", value: trimmed.isEmpty ? nil : trimmed)
-            }
             .onChange(of: teammateMode) {
                 guard isLoaded else { return }
                 configManager.saveField("teammateMode", value: teammateMode == "auto" ? nil : teammateMode)
@@ -1442,28 +1579,7 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("allowAllClaudeAiMcps", value: allowAllClaudeAiMcps ? true : nil)
             }
-            .onChange(of: pluginSuggestionMarketplaces) {
-                guard isLoaded else { return }
-                let parts: [String] = pluginSuggestionMarketplaces.components(separatedBy: ",")
-                let list: [String] = parts
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-                configManager.saveField("pluginSuggestionMarketplaces", value: list.isEmpty ? nil : list)
-            }
-            .onChange(of: apiKeyHelper) {
-                guard isLoaded else { return }
-                let trimmed = apiKeyHelper.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("apiKeyHelper", value: trimmed.isEmpty ? nil : trimmed)
-            }
         Color.clear
-            .onChange(of: fallbackModels) {
-                guard isLoaded else { return }
-                saveFallbackModels()
-            }
-            .onChange(of: advisorModel) {
-                guard isLoaded else { return }
-                saveOptionalString("advisorModel", advisorModel)
-            }
             .onChange(of: enforceAvailableModels) {
                 guard isLoaded else { return }
                 saveFlag("enforceAvailableModels", enforceAvailableModels)
@@ -1480,10 +1596,6 @@ struct GeneralSettingsView: View {
             .onChange(of: precomputeCompactionEnabled) {
                 guard isLoaded else { return }
                 saveFlag("precomputeCompactionEnabled", precomputeCompactionEnabled)
-            }
-            .onChange(of: fileSuggestionCommand) {
-                guard isLoaded else { return }
-                saveCommandScript("fileSuggestion", command: fileSuggestionCommand)
             }
             .onChange(of: axScreenReader) {
                 guard isLoaded else { return }
@@ -1502,17 +1614,9 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("statusLine.hideVimModeIndicator", value: hideVimModeIndicator ? true : nil)
             }
-            .onChange(of: vimEscapeSequences) {
-                guard isLoaded else { return }
-                saveVimEscapeSequences()
-            }
             .onChange(of: attributionSessionUrl) {
                 guard isLoaded else { return }
                 saveAttribution()
-            }
-            .onChange(of: subagentStatusLineCommand) {
-                guard isLoaded else { return }
-                saveCommandScript("subagentStatusLine", command: subagentStatusLineCommand)
             }
             .onChange(of: remoteControlAtStartup) {
                 guard isLoaded else { return }
@@ -1526,18 +1630,6 @@ struct GeneralSettingsView: View {
             .onChange(of: channelsEnabled) {
                 guard isLoaded else { return }
                 saveFlag("channelsEnabled", channelsEnabled)
-            }
-            .onChange(of: allowedMcpServers) {
-                guard isLoaded else { return }
-                configManager.saveField("allowedMcpServers", value: commaList(allowedMcpServers))
-            }
-            .onChange(of: strictKnownMarketplaces) {
-                guard isLoaded else { return }
-                configManager.saveField("strictKnownMarketplaces", value: commaList(strictKnownMarketplaces))
-            }
-            .onChange(of: blockedMarketplaces) {
-                guard isLoaded else { return }
-                configManager.saveField("blockedMarketplaces", value: commaList(blockedMarketplaces))
             }
         // Claude Code 2.1.221 → 2.1.263. Kept in its own Color.clear block so the
         // chain stays under SwiftUI's type-check budget.
@@ -1554,10 +1646,6 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 saveOptionalString("timeFormat", timeFormat)
             }
-            .onChange(of: timeZoneName) {
-                guard isLoaded else { return }
-                saveOptionalString("timeZone", timeZoneName)
-            }
             .onChange(of: crossSessionInbound) {
                 guard isLoaded else { return }
                 saveOptionalString("crossSessionInbound", crossSessionInbound)
@@ -1572,10 +1660,6 @@ struct GeneralSettingsView: View {
                 saveSpellcheck()
             }
             .onChange(of: spellcheckChecker) {
-                guard isLoaded else { return }
-                saveSpellcheck()
-            }
-            .onChange(of: spellcheckLanguage) {
                 guard isLoaded else { return }
                 saveSpellcheck()
             }
@@ -1792,6 +1876,15 @@ struct GeneralSettingsView: View {
         skillShellExecutionEnabled = !(s.disableSkillShellExecution ?? false)
         deepLinkRegistrationEnabled = s.disableDeepLinkRegistration != "disable"
         feedbackSurveyRate = s.feedbackSurveyRate.map { String($0) } ?? ""
+        idleCompaction = s.idleCompaction ?? true
+        switchModelsOnFlag = s.switchModelsOnFlag ?? true
+        bashEditDiff = s.bashEditDiffEnabled.map { $0 ? "on" : "off" } ?? ""
+        maxProseWidth = s.maxProseWidth.map(String.init) ?? ""
+        instructionFiles = configManager.readInstructionFiles()
+        attributionProject = s.attributionProject ?? ""
+        attributionProjectInvalid = false
+        syncClaudeAiSkills = s.syncClaudeAiSkills ?? true
+        syncClaudeAiPlugins = s.syncClaudeAiPlugins ?? true
 
         // API Key Helper
         apiKeyHelper = s.apiKeyHelper ?? ""
@@ -1906,6 +1999,98 @@ struct GeneralSettingsView: View {
         saveOptionalString("autoMemoryDirectory", autoMemoryDirectory)
     }
 
+    private func commitFallbackModels() {
+        guard isLoaded else { return }
+        saveFallbackModels()
+    }
+
+    private func commitAdvisorModel() {
+        guard isLoaded else { return }
+        saveOptionalString("advisorModel", advisorModel)
+    }
+
+    private func commitFileSuggestionCommand() {
+        guard isLoaded else { return }
+        saveCommandScript("fileSuggestion", command: fileSuggestionCommand)
+    }
+
+    private func commitVimEscapeSequences() {
+        guard isLoaded else { return }
+        saveVimEscapeSequences()
+    }
+
+    private func commitTimeZoneName() {
+        guard isLoaded else { return }
+        saveOptionalString("timeZone", timeZoneName)
+    }
+
+    private func commitSpellcheckLanguage() {
+        guard isLoaded else { return }
+        saveSpellcheck()
+    }
+
+    private func commitCommitAttribution() {
+        guard isLoaded else { return }
+        saveAttribution()
+    }
+
+    private func commitPrAttribution() {
+        guard isLoaded else { return }
+        saveAttribution()
+    }
+
+    private func commitSubagentStatusLineCommand() {
+        guard isLoaded else { return }
+        saveCommandScript("subagentStatusLine", command: subagentStatusLineCommand)
+    }
+
+    private func commitPluginSuggestionMarketplaces() {
+        guard isLoaded else { return }
+        let parts: [String] = pluginSuggestionMarketplaces.components(separatedBy: ",")
+        let list: [String] = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        configManager.saveField("pluginSuggestionMarketplaces", value: list.isEmpty ? nil : list)
+    }
+
+    private func commitStrictKnownMarketplaces() {
+        guard isLoaded else { return }
+        configManager.saveField("strictKnownMarketplaces", value: commaList(strictKnownMarketplaces))
+    }
+
+    private func commitBlockedMarketplaces() {
+        guard isLoaded else { return }
+        configManager.saveField("blockedMarketplaces", value: commaList(blockedMarketplaces))
+    }
+
+    private func commitAllowedMcpServers() {
+        guard isLoaded else { return }
+        configManager.saveField("allowedMcpServers", value: commaList(allowedMcpServers))
+    }
+
+    /// Claude Code requires an integer >= 40. An invalid entry snaps back to what is stored.
+    private func commitMaxProseWidth() {
+        guard isLoaded else { return }
+        if !configManager.saveMaxProseWidth(maxProseWidth) {
+            maxProseWidth = configManager.settings.maxProseWidth.map(String.init) ?? ""
+        }
+    }
+
+    private func commitAttributionProject() {
+        guard isLoaded else { return }
+        attributionProjectInvalid = !configManager.saveAttributionProject(attributionProject)
+    }
+
+    private func commitPrUrlTemplate() {
+        guard isLoaded else { return }
+        saveOptionalString("prUrlTemplate", prUrlTemplate)
+    }
+
+    private func commitApiKeyHelper() {
+        guard isLoaded else { return }
+        saveOptionalString("apiKeyHelper", apiKeyHelper)
+    }
+
     private func commitBashOutputMaxChars() {
         guard isLoaded else { return }
         saveClampedInt("bashOutputMaxChars", bashOutputMaxChars, min: 4000, max: 128000)
@@ -1974,6 +2159,7 @@ struct GeneralSettingsView: View {
         panel.allowedContentTypes = [.shellScript, .executable]
         if panel.runModal() == .OK, let url = panel.url {
             apiKeyHelper = url.path
+            commitApiKeyHelper()
         }
     }
 
@@ -2009,6 +2195,7 @@ struct GeneralSettingsView: View {
         panel.allowedContentTypes = [.shellScript, .executable]
         if panel.runModal() == .OK, let url = panel.url {
             fileSuggestionCommand = url.path
+            commitFileSuggestionCommand()
         }
     }
 
@@ -2021,6 +2208,7 @@ struct GeneralSettingsView: View {
         panel.allowedContentTypes = [.shellScript, .executable]
         if panel.runModal() == .OK, let url = panel.url {
             subagentStatusLineCommand = url.path
+            commitSubagentStatusLineCommand()
         }
     }
 }
