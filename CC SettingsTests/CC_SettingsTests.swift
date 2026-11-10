@@ -246,65 +246,75 @@ final class CC_SettingsTests: XCTestCase {
 
     // MARK: - Model catalog
 
-    func testOpusFiveAndSonnetFiveArePickable() {
+    func testCurrentAndPreviousVersionsArePickable() {
         let opus = versions(for: .opus).map(\.modelId)
         XCTAssertTrue(opus.contains("claude-opus-5-5"))
-        XCTAssertTrue(opus.contains("claude-opus-5-5[1m]"))
         XCTAssertTrue(opus.contains("claude-opus-5"))
-        XCTAssertTrue(opus.contains("claude-opus-5[1m]"))
+        XCTAssertFalse(opus.contains("claude-opus-5-5[1m]"))
+        XCTAssertFalse(opus.contains("claude-opus-5[1m]"))
 
         let sonnet = versions(for: .sonnet).map(\.modelId)
+        XCTAssertTrue(sonnet.contains("claude-sonnet-5-5"))
         XCTAssertTrue(sonnet.contains("claude-sonnet-5"))
-        XCTAssertTrue(sonnet.contains("claude-sonnet-5[1m]"))
+        XCTAssertFalse(sonnet.contains("claude-sonnet-5[1m]"))
+
+        let haiku = versions(for: .haiku).map(\.modelId)
+        XCTAssertTrue(haiku.contains("claude-haiku-5-5"))
+        XCTAssertTrue(haiku.contains("claude-haiku-4-5-20251001"))
     }
 
-    /// `/model` in the terminal writes these aliases to settings.json; the picker must
-    /// have a row for each or it renders a blank selection.
-    func testTerminalWrittenAliasesArePickable() {
+    /// `/model` still accepts these aliases; hidden rows must keep resolving to a name/family.
+    func testTerminalWrittenAliasesStillResolve() {
         let opus = versions(for: .opus).map(\.modelId)
-        XCTAssertTrue(opus.contains("opus[1m]"))
         XCTAssertTrue(opus.contains("opusplan"))
-        XCTAssertTrue(versions(for: .sonnet).map(\.modelId).contains("sonnet[1m]"))
+        XCTAssertFalse(opus.contains("opus[1m]"))
+        XCTAssertFalse(versions(for: .sonnet).map(\.modelId).contains("sonnet[1m]"))
         XCTAssertEqual(family(for: "opus[1m]"), .opus)
+        XCTAssertEqual(displayName(for: "sonnet[1m]"), "Sonnet (latest)")
+        XCTAssertEqual(displayName(for: "claude-opus-5-5[1m]"), "Opus 5.5")
     }
 
-    func testFableFiveOneIsTheCurrentFableAndIsPickable() {
+    func testFableFiveTwoIsTheCurrentFable() {
         let fable = versions(for: .fable).map(\.modelId)
-        XCTAssertTrue(fable.contains("claude-fable-5-1"))
-        // Fable 5 is superseded and hidden from the picker.
+        XCTAssertTrue(fable.contains("claude-fable-5-2"))
+        // Fable 5.1 is migrated to the `fable` alias and has no row; 5 is long gone.
+        XCTAssertFalse(fable.contains("claude-fable-5-1"))
         XCTAssertFalse(fable.contains("claude-fable-5"))
+        XCTAssertEqual(displayName(for: "claude-fable-5-1"), "Fable 5.1")
     }
 
-    /// Fable has no `[1m]` row: Claude Code 2.1.263 ships neither `claude-fable-5[1m]`
-    /// as a picker option nor any `claude-fable-5-1[1m]` string at all, so offering one
-    /// writes a model ID the CLI does not recognise as a distinct variant.
-    ///
-    /// Sonnet is NOT in this bucket, despite what v1.5.1 assumed: the 2.1.263 binary
-    /// carries `claude-sonnet-5[1m]` alongside the picker strings "Sonnet 5 (1M context)"
-    /// and "Sonnet 5 with 1M context window", exactly like the Opus 1M rows.
-    func testFableOffersNoOneMillionSuffixVariant() {
-        let offered = versions(for: .fable).map(\.modelId)
-        XCTAssertFalse(
-            offered.contains { $0.hasSuffix("[1m]") },
-            "Fable must not offer a [1m] variant, got \(offered)"
-        )
+    func testNoVisibleRowOffersOneMillionSuffix() {
+        for family in ModelFamily.allCases {
+            let offered = versions(for: family).map(\.modelId)
+            XCTAssertFalse(offered.contains { $0.hasSuffix("[1m]") }, "\(family) offers \(offered)")
+        }
     }
 
-    /// The bad `claude-fable-5[1m]` entry shipped in v1.5.0 stays in the catalog so
-    /// configs written by that build still render a readable name.
     func testLegacyFableSuffixStillResolves() {
         XCTAssertEqual(displayName(for: "claude-fable-5[1m]"), "Fable 5")
     }
 
     func testEachFamilyOffersExactlyOneCurrentVersion() {
         for family in ModelFamily.allCases {
-            let concrete = versions(for: family).filter { !$0.isLatest }
-            let base = concrete.filter { !$0.modelId.hasSuffix("[1m]") }
+            let current = versions(for: family).filter { $0.kind == .current }
             XCTAssertEqual(
-                base.count, 1,
-                "\(family.rawValue) should offer one current version, got \(base.map(\.modelId))"
+                current.count, 1,
+                "\(family.rawValue) should offer one current version, got \(current.map(\.modelId))"
             )
         }
+    }
+
+    func testCanonicalModelId() {
+        XCTAssertEqual(canonicalModelId("opus"), "claude-opus-5-5")
+        XCTAssertEqual(canonicalModelId("opus[1m]"), "claude-opus-5-5")
+        XCTAssertEqual(canonicalModelId("claude-opus-5-5[1m]"), "claude-opus-5-5")
+        XCTAssertEqual(canonicalModelId("claude-sonnet-4-5-20250929"), "claude-sonnet-4-5")
+        XCTAssertEqual(canonicalModelId("opusplan"), "claude-sonnet-5-5")
+        XCTAssertEqual(canonicalModelId("fable"), "claude-fable-5-2")
+        XCTAssertEqual(canonicalModelId("best"), "claude-opus-5-5")
+        XCTAssertEqual(canonicalModelId("us.anthropic.claude-sonnet-4-5-20250929-v1:0"), "claude-sonnet-4-5")
+        XCTAssertEqual(canonicalModelId("claude-sonnet-4-5@20250929"), "claude-sonnet-4-5")
+        XCTAssertEqual(canonicalModelId(""), "")
     }
 
     func testUnknownKeysDoNotBreakDecoding() throws {
