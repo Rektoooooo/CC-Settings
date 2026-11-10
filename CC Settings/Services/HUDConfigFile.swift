@@ -47,7 +47,7 @@ enum HUDConfigFile {
 
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let output = try JSONSerialization.data(withJSONObject: existing, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try output.write(to: url, options: .atomic)
+        try output.writeAtomicallyFollowingSymlinks(to: url)
     }
 
     private static func merge(_ new: [String: Any], into target: inout [String: Any]) {

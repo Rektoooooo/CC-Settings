@@ -242,7 +242,7 @@ class ConfigurationManager: ObservableObject {
             withJSONObject: object,
             options: [.prettyPrinted, .sortedKeys]
         )
-        try fixIntegerFormatting(outputData).write(to: url, options: .atomic)
+        try fixIntegerFormatting(outputData).writeAtomicallyFollowingSymlinks(to: url)
         lastSaveTime = Date()
         FileWatcher.shared.updateFileTracking(for: [url])
     }
@@ -327,7 +327,7 @@ class ConfigurationManager: ObservableObject {
     func writeRawSettingsAndReload(_ rawJSON: Data) {
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
-            try rawJSON.write(to: settingsURL, options: .atomic)
+            try rawJSON.writeAtomicallyFollowingSymlinks(to: settingsURL)
             lastSaveTime = Date()
             isDirty = false
             FileWatcher.shared.updateFileTracking(for: [settingsURL])
@@ -476,7 +476,7 @@ class ConfigurationManager: ObservableObject {
 
             let outputData = try JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys])
             let fixedOutput = fixIntegerFormatting(outputData)
-            try fixedOutput.write(to: localSettingsURL, options: .atomic)
+            try fixedOutput.writeAtomicallyFollowingSymlinks(to: localSettingsURL)
             lastSaveTime = Date()
             isLocalDirty = false
             FileWatcher.shared.updateFileTracking(for: [localSettingsURL])
@@ -488,7 +488,7 @@ class ConfigurationManager: ObservableObject {
     func saveClaudeMD() {
         do {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
-            try claudeMD.write(to: claudeMDURL, atomically: true, encoding: .utf8)
+            try claudeMD.writeAtomicallyFollowingSymlinks(to: claudeMDURL)
             lastSaveTime = Date()
             isMDDirty = false
             FileWatcher.shared.updateFileTracking(for: [claudeMDURL])
@@ -1195,7 +1195,7 @@ class ConfigurationManager: ObservableObject {
             withIntermediateDirectories: true
         )
         let data = try theme.serialize()
-        try data.write(to: theme.url, options: [.atomic])
+        try data.writeAtomicallyFollowingSymlinks(to: theme.url)
         FileWatcher.shared.updateFileTracking(for: [theme.url])
     }
 

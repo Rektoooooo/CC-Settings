@@ -80,7 +80,7 @@ struct MCPConfigStore {
         }
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try JSONTextFixer.restoreIntegers(data).write(to: fileURL, options: .atomic)
+        try JSONTextFixer.restoreIntegers(data).writeAtomicallyFollowingSymlinks(to: fileURL)
     }
 
     /// Writes (or replaces) raw server dicts by name.

@@ -130,6 +130,7 @@
 		95307B376948477FB8642E4A /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = F16E024358B9E4F5D6727065 /* Project.swift */; };
 		95A50C8D3ED832D3E790E987 /* MarkdownFileViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE421C46595E05D4FA8F3499 /* MarkdownFileViewer.swift */; };
 		973A9AF7C67E4054E07DA32B /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = F16E024358B9E4F5D6727065 /* Project.swift */; };
+		976AC4C189CBC3E672F75200 /* AtomicWrite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ADBF942B755968E26569FE /* AtomicWrite.swift */; };
 		9906C239BDE1308EE085E593 /* ClaudeSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66B2C43096D4BEC57C5024F9 /* ClaudeSettings.swift */; };
 		99DC87BADFF2757E3B71ACB7 /* ColorHexExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B501BFD8341A5759AD3C7978 /* ColorHexExtension.swift */; };
 		9B485F71BEDFF40F96E6E3D4 /* SessionBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328FF89B7FA04E0D158C45B1 /* SessionBrowserView.swift */; };
@@ -151,6 +152,7 @@
 		AD265160657F09CDB1890CA8 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251928B6A1254822B0EAFBE8 /* PermissionsView.swift */; };
 		AFC76AD94E046724E4BBCA2A /* ModelVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51FE8839C47A55D39017A981 /* ModelVersion.swift */; };
 		B2515A140D16B80C36B8C7CC /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A1F0B40DCCBCDD81881DED /* GlassModifiers.swift */; };
+		B372E01E0136EBA73782D1A8 /* AtomicWrite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ADBF942B755968E26569FE /* AtomicWrite.swift */; };
 		B4D8F0263447F54365E57B74 /* HUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F89D72994CF6047B9E456AA /* HUDView.swift */; };
 		B538EA1DF7F5A282C5884500 /* MCPServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6848B502FFF62D5E12171 /* MCPServerDetailView.swift */; };
 		B97B99802528BFC2AAD6568A /* ProfilesSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787331C74C55993C50570328 /* ProfilesSectionView.swift */; };
@@ -222,6 +224,7 @@
 		1189E528380743FB14D6A843 /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		1272144BB3458BCC276CEF2A /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		133F6F5721C5CA8BD101BF1C /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
+		14ADBF942B755968E26569FE /* AtomicWrite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicWrite.swift; sourceTree = "<group>"; };
 		15B1474031CF8BC28B64C214 /* MCPServerEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServerEditorSheet.swift; sourceTree = "<group>"; };
 		1B1F90F1677A78B70953916E /* GitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitModels.swift; sourceTree = "<group>"; };
 		2083FB2586763B44492FB7A4 /* ClaudeMDInsertMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMDInsertMenu.swift; sourceTree = "<group>"; };
@@ -389,6 +392,7 @@
 		2464E5044E4B608604A61F0C /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				14ADBF942B755968E26569FE /* AtomicWrite.swift */,
 				964E9CF99C0DD8CD2D1212C7 /* CommandFrontmatter.swift */,
 				5A0CF4CFAD380347450E02C7 /* ConfigurationManager.swift */,
 				8EDE1B0B71DACCEF2D028E02 /* FileWatcher.swift */,
@@ -862,6 +866,7 @@
 			files = (
 				5004D6CC26182337E9A6803D /* AgentsView.swift in Sources */,
 				1AC299B50E742FF9DF543806 /* AppDelegate.swift in Sources */,
+				976AC4C189CBC3E672F75200 /* AtomicWrite.swift in Sources */,
 				2AD80397C41063BA0B53C4D4 /* BinaryFileInfoView.swift in Sources */,
 				3D882FAE41F305B47C3A178A /* CCSettingsApp.swift in Sources */,
 				40F77CB072666FF1D4B61E6E /* ClaudeFile.swift in Sources */,
@@ -968,6 +973,7 @@
 			files = (
 				9ED890FA5B3009131B706894 /* AgentsView.swift in Sources */,
 				6704661D9AABEEBD9347A335 /* AppDelegate.swift in Sources */,
+				B372E01E0136EBA73782D1A8 /* AtomicWrite.swift in Sources */,
 				4EC3E80F0BD5CB3A216FC791 /* BinaryFileInfoView.swift in Sources */,
 				87C48C8C13DF1E96ABA055C6 /* CCSettingsApp.swift in Sources */,
 				5B668CD4985AEBD1FAB3E1E0 /* CC_SettingsTests.swift in Sources */,

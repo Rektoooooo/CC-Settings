@@ -74,7 +74,7 @@ struct TextFileViewer: View {
 
     private func save() {
         do {
-            try content.write(to: file.path, atomically: true, encoding: .utf8)
+            try content.writeAtomicallyFollowingSymlinks(to: file.path)
             originalContent = content
         } catch {
             print("Failed to save file: \(error)")
