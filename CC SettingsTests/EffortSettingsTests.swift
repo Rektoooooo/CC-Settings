@@ -53,11 +53,15 @@ final class EffortSettingsTests: XCTestCase {
         m.saveEffortLevel("low", forModel: "claude-sonnet-4-5-20250929")
         XCTAssertEqual(try readJSON()["effortLevel"] as? String, "low")
         XCTAssertNil(try readJSON()["modelSettings"])
-        // Custom / unknown ids are not on the allowlist.
+        // Custom / proxy ids are not parseable Claude ids: top-level applies.
         m.saveEffortLevel("medium", forModel: "my-proxy-model")
+        XCTAssertEqual(try readJSON()["effortLevel"] as? String, "medium")
+        XCTAssertNil(try readJSON()["modelSettings"])
+        // A cleanly parsed Claude id outside the allowlist uses modelSettings.
+        m.saveEffortLevel("xhigh", forModel: "claude-opus-6")
         let ms = try XCTUnwrap(try readJSON()["modelSettings"] as? [String: Any])
-        XCTAssertEqual((ms["my-proxy-model"] as? [String: Any])?["effortLevel"] as? String, "medium")
-        XCTAssertEqual(try readJSON()["effortLevel"] as? String, "low")
+        XCTAssertEqual((ms["claude-opus-6"] as? [String: Any])?["effortLevel"] as? String, "xhigh")
+        XCTAssertEqual(try readJSON()["effortLevel"] as? String, "medium")
     }
 
     func testUnsetModelWritesNothing() throws {

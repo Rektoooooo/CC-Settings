@@ -166,7 +166,17 @@ private let topLevelEffortModelIds: Set<String> = [
     "claude-fable-5", "claude-fable-5-1", "claude-mythos-5", "claude-mythos-5-1",
 ]
 
-/// True when the top-level `effortLevel` applies to this canonical id (user scope).
+/// A cleanly parsed `claude-<family>-<major>[-<minor>]` id with nothing after the base.
+/// Mirrors the CLI's `$C(Cd(e))` (parsed id with no "trailer").
+private func isCleanClaudeModelId(_ id: String) -> Bool {
+    id.range(of: "^claude-(haiku|sonnet|opus|fable|mythos)-[0-9]+(-[0-9]+)?$", options: .regularExpression) != nil
+}
+
+/// True when the top-level `effortLevel` applies to this canonical id (user scope). CLI 2.1.322:
+/// `allowlist.has(id) || !isCleanClaudeModelId(id)` — so custom/proxy ids and ids with a
+/// trailing remainder use the top-level key; only cleanly parsed Claude ids outside the
+/// allowlist (e.g. claude-opus-5-5, future claude-opus-6) use `modelSettings`.
 func usesLegacyTopLevelEffort(canonicalId id: String) -> Bool {
-    topLevelEffortModelIds.contains(id)
+    guard !id.isEmpty else { return false }
+    return topLevelEffortModelIds.contains(id) || !isCleanClaudeModelId(id)
 }
