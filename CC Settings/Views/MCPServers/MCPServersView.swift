@@ -317,7 +317,7 @@ struct MCPServersView: View {
         var scopes: [ConfigScope] = [.global]
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         for project in projects {
-            guard project.originalPath != home else { continue }
+            guard project.originalPath != home, project.isPathResolved else { continue }
             scopes.append(.project(id: project.id, path: project.originalPath))
         }
         return scopes

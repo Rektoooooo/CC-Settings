@@ -18,6 +18,22 @@ enum ProjectPathResolver {
     static func unresolvedPath(for id: String) -> String { unresolvedPrefix + id }
     static func isResolved(_ path: String) -> Bool { !path.hasPrefix(unresolvedPrefix) }
 
+    static let unresolvedLabel = "Unresolved path"
+
+    /// What the UI shows for a project's location: the real path, or (for the inert sentinel,
+    /// which must never be displayed) the encoded folder id.
+    static func displayPath(_ path: String, id: String) -> String {
+        isResolved(path) ? path : id
+    }
+
+    /// What the UI shows as a project's name.
+    static func displayName(path: String, id: String) -> String {
+        isResolved(path) ? (path as NSString).lastPathComponent : unresolvedLabel
+    }
+
+    /// Shown wherever write actions are disabled for an unresolved project.
+    static let unresolvedExplanation = "Claude Code's original folder for this project could not be determined, so settings, CLAUDE.md and other files cannot be edited safely. Sessions can still be browsed."
+
     private static let maxEncodedLength = 200
 
     /// Claude Code's encoding. JS regex replacement works on UTF-16 code units,

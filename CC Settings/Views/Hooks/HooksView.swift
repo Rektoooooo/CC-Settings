@@ -403,7 +403,7 @@ struct HooksView: View {
     private var filteredProjects: [Project] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return projects.filter { project in
-            guard project.originalPath != home else { return false }
+            guard project.originalPath != home, project.isPathResolved else { return false }
             return !project.sessions.isEmpty || project.settings != nil || project.claudeMD != nil
         }
     }
@@ -689,7 +689,7 @@ struct HooksView: View {
         // Project hooks
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         for project in filteredProjects {
-            guard project.originalPath != home else { continue }
+            guard project.originalPath != home, project.isPathResolved else { continue }
             let scope = ConfigScope.project(id: project.id, path: project.originalPath)
             if let settings = configManager.loadProjectSettings(projectPath: project.originalPath) {
                 projectSettingsCache[project.originalPath] = settings

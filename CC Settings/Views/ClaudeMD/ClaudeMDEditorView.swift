@@ -298,7 +298,7 @@ struct ClaudeMDEditorView: View {
     private var filteredProjects: [Project] {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return projects.filter { project in
-            guard project.originalPath != home else { return false }
+            guard project.originalPath != home, project.isPathResolved else { return false }
             let hasClaudeMD = project.claudeMD != nil
             let hasSessions = !project.sessions.isEmpty
             let hasSettings = project.settings != nil

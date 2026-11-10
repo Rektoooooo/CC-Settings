@@ -375,12 +375,13 @@ private struct CleanupProjectRow: View {
                 Text(project.displayName)
                     .font(.body)
                     .lineLimit(1)
-                Text(project.originalPath)
+                Text(project.displayPath)
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             .opacity(isEmpty ? 0.5 : 1)
+            .help(project.isPathResolved ? project.originalPath : "\(ProjectPathResolver.unresolvedLabel). Claude Code folder: \(project.id)")
 
             Spacer()
 

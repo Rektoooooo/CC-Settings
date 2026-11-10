@@ -44,16 +44,45 @@ enum SessionCleanup {
         return total
     }
 
-    /// Move the project's session data to the Trash. Returns per-item failures.
-    static func trashSessions(in projectDir: URL, fileManager fm: FileManager = .default) -> [(URL, Error)] {
+    /// Move the project's session data to the Trash, then the project folder itself when
+    /// that leaves it completely empty. A folder that still holds anything (`memory/`,
+    /// `custom-title.json`, files this app does not know) is never removed, and nothing
+    /// is removed from it after a failure. Returns per-item failures.
+    ///
+    /// `trash` is injectable so tests can run without touching the real Trash.
+    static func trashSessions(
+        in projectDir: URL,
+        fileManager fm: FileManager = .default,
+        trash: ((URL) throws -> Void)? = nil
+    ) -> [(URL, Error)] {
+        let move: (URL) throws -> Void = trash ?? { try fm.trashItem(at: $0, resultingItemURL: nil) }
         var failures: [(URL, Error)] = []
         for item in sessionItems(in: projectDir, fileManager: fm) {
             do {
-                try fm.trashItem(at: item, resultingItemURL: nil)
+                try move(item)
             } catch {
                 failures.append((item, error))
             }
         }
+        if failures.isEmpty {
+            do {
+                try trashFolderIfEmpty(projectDir, fileManager: fm, trash: move)
+            } catch {
+                failures.append((projectDir, error))
+            }
+        }
         return failures
+    }
+
+    /// Trashes `dir` only when it contains nothing at all (hidden files count as content).
+    @discardableResult
+    static func trashFolderIfEmpty(
+        _ dir: URL,
+        fileManager fm: FileManager = .default,
+        trash: (URL) throws -> Void
+    ) throws -> Bool {
+        guard let entries = try? fm.contentsOfDirectory(atPath: dir.path), entries.isEmpty else { return false }
+        try trash(dir)
+        return true
     }
 }

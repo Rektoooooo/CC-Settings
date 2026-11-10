@@ -124,6 +124,7 @@
 		82490888A9C870E558CFD896 /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91A1F0B40DCCBCDD81881DED /* GlassModifiers.swift */; };
 		8263E7908B27C7A1C580BB31 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 565151DA5397228F2DFF6E9B /* Assets.xcassets */; };
 		83300849F48F85BCFC76DFC7 /* VersionControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FABD61633522C4352FFF6291 /* VersionControlView.swift */; };
+		849881521D77C0B806BC824D /* Phase6ProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E529684BFF2B0A8EFD6D8170 /* Phase6ProjectTests.swift */; };
 		86D6BA655AD3FBA7E70B495A /* ThemeFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC54ED1EF92EBFAADED2819E /* ThemeFile.swift */; };
 		87C48C8C13DF1E96ABA055C6 /* CCSettingsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8655FE9A624FB9D4F68C7DA3 /* CCSettingsApp.swift */; };
 		88E38EEEBA296DB123D0F0C5 /* ConfigScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F073C786ED3E06CF317D2B2 /* ConfigScope.swift */; };
@@ -336,6 +337,7 @@
 		DB32168184D32059C8D0C9D8 /* Phase5SafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase5SafetyTests.swift; sourceTree = "<group>"; };
 		DB76297BD50B47F6E08293E2 /* JSONFileViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONFileViewer.swift; sourceTree = "<group>"; };
 		E078EEF2396FC63786AA8871 /* ThemeListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeListRow.swift; sourceTree = "<group>"; };
+		E529684BFF2B0A8EFD6D8170 /* Phase6ProjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase6ProjectTests.swift; sourceTree = "<group>"; };
 		E6A0C97F7B9C63135FC42CC5 /* AppGitPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGitPreferences.swift; sourceTree = "<group>"; };
 		E8D11316B1B54134A2BCEB44 /* ClaudeMDTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeMDTemplate.swift; sourceTree = "<group>"; };
 		ED8C99460055C9AD93B6E79B /* HUDContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDContentView.swift; sourceTree = "<group>"; };
@@ -586,6 +588,7 @@
 				CA93FB8BE47171FA49698879 /* Phase2SettingsTests.swift */,
 				DB32168184D32059C8D0C9D8 /* Phase5SafetyTests.swift */,
 				FDF45FCC2D27581F056FEF0E /* Phase6EnvTests.swift */,
+				E529684BFF2B0A8EFD6D8170 /* Phase6ProjectTests.swift */,
 				A8355D574445556A424139F0 /* Phase6SettingsTests.swift */,
 				C0A63E5FB8EE73ECC5A8906B /* SettingsSafetyTests.swift */,
 				5ADF188DD739E750B74A4403 /* SlashCommandFrontmatterTests.swift */,
@@ -1098,6 +1101,7 @@
 				03C8B5E1428FE08DD2DE9F47 /* Phase2SettingsTests.swift in Sources */,
 				A31E37796728FBAFA4726A08 /* Phase5SafetyTests.swift in Sources */,
 				AE0F66E418C006D8E3E04A2F /* Phase6EnvTests.swift in Sources */,
+				849881521D77C0B806BC824D /* Phase6ProjectTests.swift in Sources */,
 				BED00EF9537AA1F73C17BA05 /* Phase6SettingsTests.swift in Sources */,
 				5AEA2C9A2E15484F6EE41D42 /* PluginsView.swift in Sources */,
 				3783A2CA38FF004ECBD4A170 /* ProfileManager.swift in Sources */,

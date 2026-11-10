@@ -512,7 +512,7 @@ struct SidebarView: View {
         let query = searchText.lowercased()
         return filteredProjects.contains { project in
             project.displayName.localizedCaseInsensitiveContains(query) ||
-            project.originalPath.localizedCaseInsensitiveContains(query)
+            project.displayPath.localizedCaseInsensitiveContains(query)
         }
     }
 
@@ -595,20 +595,23 @@ struct SidebarView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(project.displayName)
-                Text(project.originalPath)
+                Text(project.displayPath)
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
+            .help(project.isPathResolved ? project.originalPath : "\(ProjectPathResolver.unresolvedLabel). Claude Code folder: \(project.id)")
         }
         .contextMenu {
             Button("Show in Finder") {
                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: project.originalPath)
             }
+            .disabled(!project.isPathResolved)
             Button("Show .claude/ in Finder") {
                 let claudeDir = URL(fileURLWithPath: project.originalPath).appendingPathComponent(".claude").path
                 NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: claudeDir)
             }
+            .disabled(!project.isPathResolved)
         }
     }
 
@@ -789,7 +792,7 @@ struct SidebarView: View {
         var counts = ProjectItemCounts()
 
         for project in projects {
-            guard project.originalPath != home else { continue }
+            guard project.originalPath != home, project.isPathResolved else { continue }
             let claudeDir = URL(fileURLWithPath: project.originalPath).appendingPathComponent(".claude")
 
             counts.commands += countFilesRecursively(

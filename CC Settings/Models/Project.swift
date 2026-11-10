@@ -20,7 +20,13 @@ struct Project: Identifiable, Hashable {
     var isPathResolved: Bool { ProjectPathResolver.isResolved(originalPath) }
 
     var displayName: String {
-        (originalPath as NSString).lastPathComponent
+        ProjectPathResolver.displayName(path: originalPath, id: id)
+    }
+
+    /// The location to show: the real path, or the encoded folder id when unresolved.
+    /// `originalPath` itself is an internal sentinel in that case and is never displayed.
+    var displayPath: String {
+        ProjectPathResolver.displayPath(originalPath, id: id)
     }
 }
 

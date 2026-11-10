@@ -49,19 +49,25 @@ struct ProjectSettingsView: View {
     }
 
     private var projectDisplayName: String {
-        projectPath.split(separator: "/").last.map(String.init) ?? projectId
+        ProjectPathResolver.displayName(path: projectPath, id: projectId)
     }
+
+    /// False until `loadProjectData` has run, and for projects whose folder could not be located.
+    private var isEditable: Bool { ProjectPathResolver.isResolved(projectPath) }
 
     var body: some View {
         Form {
             headerSection
-            modelSection
-            behaviorSection
-            memorySection
-            environmentSection
-            permissionsSection
-            sandboxSection
-            worktreeSection
+            Group {
+                modelSection
+                behaviorSection
+                memorySection
+                environmentSection
+                permissionsSection
+                sandboxSection
+                worktreeSection
+            }
+            .disabled(!isEditable)
         }
         .formStyle(.grouped)
         .onAppear { loadProjectData() }
@@ -84,11 +90,17 @@ struct ProjectSettingsView: View {
                     Text(projectDisplayName)
                         .font(.title2)
                         .fontWeight(.semibold)
-                    Text(projectPath)
+                    Text(ProjectPathResolver.displayPath(projectPath, id: projectId))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
+            }
+
+            if !isEditable {
+                Label(ProjectPathResolver.unresolvedExplanation, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundColor(.orange)
             }
 
             Text("Override global settings for this project. Inherited settings use the global value.")
@@ -660,6 +672,7 @@ struct ProjectSettingsView: View {
     }
 
     private func saveProjectField(_ keyPath: String, value: Any?) {
+        guard isEditable else { return }
         configManager.saveField(keyPath, value: value, to: projectSettingsURL)
     }
 
@@ -669,6 +682,7 @@ struct ProjectSettingsView: View {
     }
 
     private func saveLocalProjectField(_ keyPath: String, value: Any?) {
+        guard isEditable else { return }
         configManager.saveField(keyPath, value: value, to: configManager.projectLocalSettingsURL(projectPath: projectPath))
     }
 

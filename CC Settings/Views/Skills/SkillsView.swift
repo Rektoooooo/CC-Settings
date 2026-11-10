@@ -347,7 +347,7 @@ struct SkillsView: View {
         // Project skills
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         for project in projects {
-            guard project.originalPath != home else { continue }
+            guard project.originalPath != home, project.isPathResolved else { continue }
             let projectSkillsURL = URL(fileURLWithPath: project.originalPath)
                 .appendingPathComponent(".claude/skills")
             let scope = ConfigScope.project(id: project.id, path: project.originalPath)

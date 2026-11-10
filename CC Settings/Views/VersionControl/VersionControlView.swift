@@ -632,7 +632,7 @@ struct VersionControlView: View {
                 // Check each Claude Code project for git repos
                 let home = FileManager.default.homeDirectoryForCurrentUser.path
                 for project in projects {
-                    guard project.originalPath != home else { continue }
+                    guard project.originalPath != home, project.isPathResolved else { continue }
                     let projectURL = URL(fileURLWithPath: project.originalPath)
                     guard GitService.isGitRepository(at: projectURL) else { continue }
                     guard !repos.contains(where: { $0.id == projectURL.path }) else { continue }
