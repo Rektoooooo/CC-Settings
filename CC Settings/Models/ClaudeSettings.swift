@@ -11,7 +11,8 @@ struct ClaudeSettings: Equatable {
     var hooks: HooksConfig?
     var skipWebFetchPreflight: Bool?
     var alwaysThinkingEnabled: Bool?
-    var thinkingBudgetTokens: Int?
+    /// Top-level in Claude Code (not under `permissions`).
+    var skipDangerousModePermissionPrompt: Bool?
     var mainBranch: String?
     var preferredGitApp: GitAppPreference?
     var customGitAppPath: String?
@@ -43,7 +44,7 @@ struct ClaudeSettings: Equatable {
     // Behavior
     var showTurnDuration: Bool?
     var respectGitignore: Bool?
-    var autoCompact: AutoCompactConfig?
+    var autoCompactEnabled: Bool?
     var plansDirectory: String?
     var includeGitInstructions: Bool?
     var showThinkingSummaries: Bool?
@@ -79,7 +80,6 @@ struct ClaudeSettings: Equatable {
     var bashOutputMaxChars: Int?
     /// Characters of a background task's output `TaskOutput` hands Claude inline.
     /// Default 32_000; Claude Code clamps to 4_000…128_000.
-    var taskOutputMaxChars: Int?
 
     // Time & Locale
     /// Clock format for times in the UI: `auto` (default, follows locale), `12-hour`,
@@ -105,7 +105,6 @@ struct ClaudeSettings: Equatable {
     var syntaxHighlightingDisabled: Bool?
     /// Hide the built-in `-- INSERT --` / `-- VISUAL --` indicator — for status lines
     /// that render `vim.mode` themselves.
-    var hideVimModeIndicator: Bool?
     /// Vim INSERT-mode key-sequence remaps, e.g. `{"jj": "<Esc>"}`. Keys are exactly two
     /// printable characters; `<Esc>` is the only supported target. Needs `editorMode: "vim"`.
     var vimInsertModeRemaps: [String: String]?
@@ -138,7 +137,6 @@ struct ClaudeSettings: Equatable {
     var voiceEnabled: Bool?
 
     // Updates
-    var autoUpdates: Bool?
     var autoUpdatesChannel: String?
 
     // Notifications
@@ -224,19 +222,11 @@ struct ClaudeSettings: Equatable {
     // Worktree
     var worktree: WorktreeConfig?
 
-    // Legacy flat sandbox fields (kept for backward compat during migration)
-    var enableWeakerSandbox: Bool?
-    var unsandboxedCommands: [String]?
-    var allowLocalBinding: Bool?
-    var allowAllUnixSockets: Bool?
-    var allowedDomains: [String]?
 
     // Spinner
     var spinnerTipsEnabled: Bool?
     var spinnerVerbsMode: String?
     var spinnerVerbs: [String]?
-    var customTips: [String]?
-    var excludeDefaultTips: Bool?
     var spinnerTipsOverride: SpinnerTipsOverride?
 
     // Status Line (nested object)
@@ -271,7 +261,7 @@ extension ClaudeSettings: Codable {
         hooks = try? c.decodeIfPresent(HooksConfig.self, forKey: .hooks)
         skipWebFetchPreflight = try? c.decodeIfPresent(Bool.self, forKey: .skipWebFetchPreflight)
         alwaysThinkingEnabled = try? c.decodeIfPresent(Bool.self, forKey: .alwaysThinkingEnabled)
-        thinkingBudgetTokens = try? c.decodeIfPresent(Int.self, forKey: .thinkingBudgetTokens)
+        skipDangerousModePermissionPrompt = try? c.decodeIfPresent(Bool.self, forKey: .skipDangerousModePermissionPrompt)
         mainBranch = try? c.decodeIfPresent(String.self, forKey: .mainBranch)
         preferredGitApp = try? c.decodeIfPresent(GitAppPreference.self, forKey: .preferredGitApp)
         customGitAppPath = try? c.decodeIfPresent(String.self, forKey: .customGitAppPath)
@@ -288,7 +278,7 @@ extension ClaudeSettings: Codable {
         workflowSizeGuideline = try? c.decodeIfPresent(String.self, forKey: .workflowSizeGuideline)
         showTurnDuration = try? c.decodeIfPresent(Bool.self, forKey: .showTurnDuration)
         respectGitignore = try? c.decodeIfPresent(Bool.self, forKey: .respectGitignore)
-        autoCompact = try? c.decodeIfPresent(AutoCompactConfig.self, forKey: .autoCompact)
+        autoCompactEnabled = try? c.decodeIfPresent(Bool.self, forKey: .autoCompactEnabled)
         plansDirectory = try? c.decodeIfPresent(String.self, forKey: .plansDirectory)
         includeGitInstructions = try? c.decodeIfPresent(Bool.self, forKey: .includeGitInstructions)
         showThinkingSummaries = try? c.decodeIfPresent(Bool.self, forKey: .showThinkingSummaries)
@@ -306,7 +296,6 @@ extension ClaudeSettings: Codable {
         fileSuggestion = try? c.decodeIfPresent(CommandScriptConfig.self, forKey: .fileSuggestion)
         autoContinueAtUsageLimit = try? c.decodeIfPresent(Bool.self, forKey: .autoContinueAtUsageLimit)
         bashOutputMaxChars = try? c.decodeIfPresent(Int.self, forKey: .bashOutputMaxChars)
-        taskOutputMaxChars = try? c.decodeIfPresent(Int.self, forKey: .taskOutputMaxChars)
         timeFormat = try? c.decodeIfPresent(String.self, forKey: .timeFormat)
         timeZone = try? c.decodeIfPresent(String.self, forKey: .timeZone)
         axScreenReader = try? c.decodeIfPresent(Bool.self, forKey: .axScreenReader)
@@ -315,7 +304,6 @@ extension ClaudeSettings: Codable {
         terminalProgressBarEnabled = try? c.decodeIfPresent(Bool.self, forKey: .terminalProgressBarEnabled)
         showMessageTimestamps = try? c.decodeIfPresent(Bool.self, forKey: .showMessageTimestamps)
         syntaxHighlightingDisabled = try? c.decodeIfPresent(Bool.self, forKey: .syntaxHighlightingDisabled)
-        hideVimModeIndicator = try? c.decodeIfPresent(Bool.self, forKey: .hideVimModeIndicator)
         // Claude Code types the values as `unknown`; only "<Esc>" is a supported target,
         // so drop any non-string values rather than failing the whole settings decode.
         vimInsertModeRemaps = try? c.decodeIfPresent([String: String].self, forKey: .vimInsertModeRemaps)
@@ -335,7 +323,6 @@ extension ClaudeSettings: Codable {
         autoMemoryEnabled = try? c.decodeIfPresent(Bool.self, forKey: .autoMemoryEnabled)
         autoMemoryDirectory = try? c.decodeIfPresent(String.self, forKey: .autoMemoryDirectory)
         voiceEnabled = try? c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)
-        autoUpdates = try? c.decodeIfPresent(Bool.self, forKey: .autoUpdates)
         autoUpdatesChannel = try? c.decodeIfPresent(String.self, forKey: .autoUpdatesChannel)
         preferredNotifChannel = try? c.decodeIfPresent(String.self, forKey: .preferredNotifChannel)
         cleanupPeriodDays = try? c.decodeIfPresent(Int.self, forKey: .cleanupPeriodDays)
@@ -367,23 +354,17 @@ extension ClaudeSettings: Codable {
         claudeMdExcludes = try? c.decodeIfPresent([String].self, forKey: .claudeMdExcludes)
         sandbox = try? c.decodeIfPresent(SandboxConfig.self, forKey: .sandbox)
         worktree = try? c.decodeIfPresent(WorktreeConfig.self, forKey: .worktree)
-        enableWeakerSandbox = try? c.decodeIfPresent(Bool.self, forKey: .enableWeakerSandbox)
-        unsandboxedCommands = try? c.decodeIfPresent([String].self, forKey: .unsandboxedCommands)
-        allowLocalBinding = try? c.decodeIfPresent(Bool.self, forKey: .allowLocalBinding)
-        allowAllUnixSockets = try? c.decodeIfPresent(Bool.self, forKey: .allowAllUnixSockets)
-        allowedDomains = try? c.decodeIfPresent([String].self, forKey: .allowedDomains)
         spinnerTipsEnabled = try? c.decodeIfPresent(Bool.self, forKey: .spinnerTipsEnabled)
-        spinnerVerbsMode = try? c.decodeIfPresent(String.self, forKey: .spinnerVerbsMode)
-        // Claude Code stores `spinnerVerbs` as `{ "mode": "append"|"replace", "verbs": [...] }`;
-        // older builds of this app wrote a bare array plus a flat `spinnerVerbsMode`.
+        // Claude Code stores `spinnerVerbs` as `{ "mode": "append"|"replace", "verbs": [...] }`.
+        // The object's own mode always wins; the flat `spinnerVerbsMode` key written by old
+        // builds of this app is only read when `spinnerVerbs` is the old bare array.
         if let flat = (try? c.decodeIfPresent([String].self, forKey: .spinnerVerbs)) ?? nil {
             spinnerVerbs = flat
+            spinnerVerbsMode = try? c.decodeIfPresent(String.self, forKey: .spinnerVerbsMode)
         } else if let object = (try? c.decodeIfPresent(SpinnerVerbsObject.self, forKey: .spinnerVerbs)) ?? nil {
             spinnerVerbs = object.verbs
-            if spinnerVerbsMode == nil { spinnerVerbsMode = object.mode }
+            spinnerVerbsMode = object.mode
         }
-        customTips = try? c.decodeIfPresent([String].self, forKey: .customTips)
-        excludeDefaultTips = try? c.decodeIfPresent(Bool.self, forKey: .excludeDefaultTips)
         spinnerTipsOverride = try? c.decodeIfPresent(SpinnerTipsOverride.self, forKey: .spinnerTipsOverride)
         statusLine = try? c.decodeIfPresent(StatusLineConfig.self, forKey: .statusLine)
         statusLineCommand = try? c.decodeIfPresent(String.self, forKey: .statusLineCommand)
@@ -396,6 +377,8 @@ struct StatusLineConfig: Codable, Equatable {
     var type: String? = "command"
     var command: String?
     var padding: Int?
+    var refreshInterval: Int?
+    var hideVimModeIndicator: Bool?
 }
 
 // MARK: - Spinner Tips Override
@@ -527,9 +510,6 @@ struct WorktreeConfig: Codable, Equatable {
 
 // MARK: - Auto Compact
 
-struct AutoCompactConfig: Codable, Equatable {
-    var customInstructions: String?
-}
 
 // MARK: - Auto Mode
 

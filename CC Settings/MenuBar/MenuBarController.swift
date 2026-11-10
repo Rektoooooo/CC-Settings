@@ -68,18 +68,9 @@ class MenuBarController: NSObject {
 
     func toggleThinking() {
         let config = ConfigurationManager.shared
-        let isCurrentlyEnabled = config.settings.alwaysThinkingEnabled == true
-        let newEnabled = !isCurrentlyEnabled
-        var fields: [(keyPath: String, value: Any?)] = [
-            (keyPath: "alwaysThinkingEnabled", value: newEnabled ? true : nil)
-        ]
-        if newEnabled && config.settings.thinkingBudgetTokens == nil {
-            fields.append((keyPath: "thinkingBudgetTokens", value: 10000))
-        }
-        if !newEnabled {
-            fields.append((keyPath: "thinkingBudgetTokens", value: nil))
-        }
-        config.saveFields(fields)
+        let isCurrentlyEnabled = config.settings.alwaysThinkingEnabled ?? true
+        // Absent == on in Claude Code; only "off" is written.
+        config.saveThinkingEnabled(!isCurrentlyEnabled)
     }
 
     // MARK: - Menu
@@ -128,7 +119,7 @@ class MenuBarController: NSObject {
         )
         thinkingItem.target = self
         thinkingItem.image = NSImage(systemSymbolName: "brain", accessibilityDescription: "Thinking")
-        if ConfigurationManager.shared.settings.alwaysThinkingEnabled == true {
+        if ConfigurationManager.shared.settings.alwaysThinkingEnabled ?? true {
             thinkingItem.state = .on
         }
         menu.addItem(thinkingItem)

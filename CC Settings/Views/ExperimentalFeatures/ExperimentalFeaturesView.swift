@@ -9,8 +9,7 @@ struct ExperimentalFeaturesView: View {
     private static var env: [String: String] { s.env }
 
     // Thinking
-    @State private var thinkingEnabled: Bool = s.alwaysThinkingEnabled ?? false
-    @State private var thinkingBudget: Double = Double(s.thinkingBudgetTokens ?? 10000)
+    @State private var thinkingEnabled: Bool = s.alwaysThinkingEnabled ?? true
 
     // Agent Teams
     @State private var agentTeamsEnabled: Bool = env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] == "1"
@@ -28,14 +27,12 @@ struct ExperimentalFeaturesView: View {
     @State private var disableAutoMode: Bool = s.disableAutoMode == "disable"
     @State private var disableAllHooks: Bool = s.disableAllHooks ?? false
 
-    // Sandbox (legacy)
-    @State private var enableWeakerSandbox: Bool = s.enableWeakerSandbox ?? false
-    @State private var unsandboxedCommands: String = (s.unsandboxedCommands ?? []).joined(separator: ", ")
-    @State private var allowLocalBinding: Bool = s.allowLocalBinding ?? false
-    @State private var allowAllUnixSockets: Bool = s.allowAllUnixSockets ?? false
-    @State private var allowedDomains: String = (s.allowedDomains ?? []).joined(separator: ", ")
-
-    // Sandbox (new nested)
+    // Sandbox (all keys live under `sandbox.*`; Claude Code ignores flat top-level copies)
+    @State private var enableWeakerSandbox: Bool = s.sandbox?.enableWeakerNestedSandbox ?? false
+    @State private var unsandboxedCommands: String = (s.sandbox?.excludedCommands ?? []).joined(separator: ", ")
+    @State private var allowLocalBinding: Bool = s.sandbox?.network?.allowLocalBinding ?? false
+    @State private var allowAllUnixSockets: Bool = s.sandbox?.network?.allowAllUnixSockets ?? false
+    @State private var allowedDomains: String = (s.sandbox?.network?.allowedDomains ?? []).joined(separator: ", ")
     @State private var sandboxEnabled: Bool = s.sandbox?.enabled ?? false
     @State private var sandboxFailIfUnavailable: Bool = s.sandbox?.failIfUnavailable ?? false
     @State private var autoAllowBashIfSandboxed: Bool = s.sandbox?.autoAllowBashIfSandboxed ?? true
@@ -61,8 +58,8 @@ struct ExperimentalFeaturesView: View {
     @State private var spinnerTipsEnabled: Bool = s.spinnerTipsEnabled ?? true
     @State private var spinnerVerbsMode: String = s.spinnerVerbsMode ?? "append"
     @State private var spinnerVerbs: String = (s.spinnerVerbs ?? []).joined(separator: ", ")
-    @State private var customTips: String = (s.spinnerTipsOverride?.tips ?? s.customTips ?? []).joined(separator: ", ")
-    @State private var excludeDefaultTips: Bool = s.spinnerTipsOverride?.excludeDefault ?? s.excludeDefaultTips ?? false
+    @State private var customTips: String = (s.spinnerTipsOverride?.tips ?? []).joined(separator: ", ")
+    @State private var excludeDefaultTips: Bool = s.spinnerTipsOverride?.excludeDefault ?? false
 
     // Status Line
     @State private var statusLineCommand: String = s.statusLine?.command ?? s.statusLineCommand ?? ""
@@ -85,57 +82,9 @@ struct ExperimentalFeaturesView: View {
             Section {
                 Toggle("Extended Thinking", isOn: $thinkingEnabled)
                     .onChange(of: thinkingEnabled) { _, _ in saveThinking() }
-                Text("Enable Claude to think more deeply before responding. Uses additional tokens.")
+                Text("When off, Claude Code disables thinking (writes alwaysThinkingEnabled: false). On by default for supported models.")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                if thinkingEnabled {
-                    HStack {
-                        Text("Budget")
-                        Spacer()
-                        Text("\(Int(thinkingBudget).formatted()) tokens")
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-
-                    Slider(value: $thinkingBudget, in: 1000...100000, step: 1000)
-                        .onChange(of: thinkingBudget) { _, _ in saveThinking() }
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(budgetColor)
-                            .frame(width: 8, height: 8)
-                        Text(budgetLabel)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(budgetColor)
-                    }
-
-                    HStack(spacing: 8) {
-                        Text("Presets:")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        ForEach(["5K", "10K", "25K", "50K"], id: \.self) { preset in
-                            Button(preset) {
-                                thinkingBudget = presetValue(preset)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .font(.caption)
-                        }
-                    }
-
-                    if thinkingBudget > 50000 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                                .font(.caption)
-                            Text("High budget may significantly increase API costs and response times.")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                    }
-                }
             } header: {
                 Text("Thinking")
             }.id("thinking")
@@ -276,7 +225,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
-                    .onSubmit { saveSandbox() }
+                    .commitOnFocusLoss(of: sandboxDeniedDomains) { saveSandbox() }
                 Text("Comma-separated domains always blocked, even when Allowed Domains would match them.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -287,7 +236,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxCredentialFiles) { saveSandbox() }
                         Text("Comma-separated credential files exposed inside the sandbox.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -296,7 +245,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxCredentialEnvVars) { saveSandbox() }
                         Text("Comma-separated environment variables exposed inside the sandbox.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -310,7 +259,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxAllowWrite) { saveSandbox() }
                         Text("Comma-separated paths allowed for writing.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -319,7 +268,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxDenyWrite) { saveSandbox() }
                         Text("Comma-separated paths denied for writing.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -328,7 +277,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxDenyRead) { saveSandbox() }
                         Text("Comma-separated paths denied for reading.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -337,7 +286,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveSandbox() }
+                            .commitOnFocusLoss(of: sandboxAllowRead) { saveSandbox() }
                         Text("Comma-separated paths allowed for reading.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -351,31 +300,31 @@ struct ExperimentalFeaturesView: View {
                     .padding(.vertical, 4)
                 }
 
-                Toggle("Enable Weaker Sandbox", isOn: $enableWeakerSandbox)
-                    .onChange(of: enableWeakerSandbox) { _, _ in saveLegacySandbox() }
-                Text("Use a weaker sandbox for Docker or unprivileged environments.")
+                Toggle("Enable Weaker Nested Sandbox", isOn: $enableWeakerSandbox)
+                    .onChange(of: enableWeakerSandbox) { _, _ in saveSandbox() }
+                Text("Linux only: run without the fresh /proc mount, for hosts such as unprivileged Docker containers. Reduces security (sandbox.enableWeakerNestedSandbox).")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                TextField("Unsandboxed Commands", text: $unsandboxedCommands, prompt: Text("git, docker, npm"), axis: .vertical)
+                TextField("Excluded Commands", text: $unsandboxedCommands, prompt: Text("git, docker, npm"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
-                    .onSubmit { saveLegacySandbox() }
-                Text("Comma-separated commands that should never run in the sandbox.")
+                    .commitOnFocusLoss(of: unsandboxedCommands) { saveSandbox() }
+                Text("Comma-separated command patterns that run outside the sandbox (sandbox.excludedCommands). They still go through the permission flow.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 GroupBox("Network") {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Allow Local Binding", isOn: $allowLocalBinding)
-                            .onChange(of: allowLocalBinding) { _, _ in saveLegacySandbox() }
-                        Text("Allow binding to localhost (macOS).")
+                            .onChange(of: allowLocalBinding) { _, _ in saveSandbox() }
+                        Text("Allow binding to localhost (macOS only).")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
                         Toggle("Allow All Unix Sockets", isOn: $allowAllUnixSockets)
-                            .onChange(of: allowAllUnixSockets) { _, _ in saveLegacySandbox() }
+                            .onChange(of: allowAllUnixSockets) { _, _ in saveSandbox() }
                         Text("Allow connections to all Unix sockets.")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -384,7 +333,7 @@ struct ExperimentalFeaturesView: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.system(.body, design: .monospaced))
                             .lineLimit(1...3)
-                            .onSubmit { saveLegacySandbox() }
+                            .commitOnFocusLoss(of: allowedDomains) { saveSandbox() }
                         Text("Comma-separated domains allowed for outbound traffic (supports wildcards).")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -412,7 +361,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
-                    .onSubmit { saveWorktree() }
+                    .commitOnFocusLoss(of: worktreeSparsePaths) { saveWorktree() }
                 Text("Comma-separated paths for sparse checkout in worktrees.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -421,7 +370,7 @@ struct ExperimentalFeaturesView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .lineLimit(1...3)
-                    .onSubmit { saveWorktree() }
+                    .commitOnFocusLoss(of: worktreeSymlinkDirs) { saveWorktree() }
                 Text("Comma-separated directories to symlink in worktrees.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -453,7 +402,7 @@ struct ExperimentalFeaturesView: View {
                 TextField("Custom Verbs", text: $spinnerVerbs, prompt: Text("Pondering, Crafting, Brewing"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
-                    .onSubmit { saveSpinner() }
+                    .commitOnFocusLoss(of: spinnerVerbs) { saveSpinner() }
                 Text("Comma-separated custom action verbs for the spinner.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -464,7 +413,7 @@ struct ExperimentalFeaturesView: View {
                 TextField("Custom Tips", text: $customTips, prompt: Text("Tip 1, Tip 2, Tip 3"), axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...3)
-                    .onSubmit { saveSpinner() }
+                    .commitOnFocusLoss(of: customTips) { saveSpinner() }
                 Text("Comma-separated custom tip strings shown in the spinner.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -477,12 +426,12 @@ struct ExperimentalFeaturesView: View {
                 TextField("Command", text: $statusLineCommand, prompt: Text("~/.claude/statusline.sh"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: statusLineCommand) { _, _ in saveStatusLine() }
+                    .commitOnFocusLoss(of: statusLineCommand) { saveStatusLine() }
 
                 TextField("Padding", text: $statusLinePadding, prompt: Text("0"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
-                    .onChange(of: statusLinePadding) { _, _ in saveStatusLine() }
+                    .commitOnFocusLoss(of: statusLinePadding) { saveStatusLine() }
 
                 Text("Path to a script or command that generates the status line. Padding adds extra blank lines.")
                     .font(.caption)
@@ -513,36 +462,6 @@ struct ExperimentalFeaturesView: View {
         } // ScrollViewReader
     }
 
-    // MARK: - Budget Helpers
-
-    private var budgetColor: Color {
-        switch Int(thinkingBudget) {
-        case ...10000: return .green
-        case ...25000: return .themeAccent
-        case ...50000: return .orange
-        default: return .red
-        }
-    }
-
-    private var budgetLabel: String {
-        switch Int(thinkingBudget) {
-        case ...10000: return "Light"
-        case ...25000: return "Standard"
-        case ...50000: return "Deep"
-        default: return "Maximum"
-        }
-    }
-
-    private func presetValue(_ preset: String) -> Double {
-        switch preset {
-        case "5K": return 5000
-        case "10K": return 10000
-        case "25K": return 25000
-        case "50K": return 50000
-        default: return 10000
-        }
-    }
-
     // MARK: - Data Sync
 
     private func loadSettings() {
@@ -550,8 +469,7 @@ struct ExperimentalFeaturesView: View {
         let env = s.env
 
         // Thinking
-        thinkingEnabled = s.alwaysThinkingEnabled ?? false
-        thinkingBudget = Double(s.thinkingBudgetTokens ?? 10000)
+        thinkingEnabled = s.alwaysThinkingEnabled ?? true
 
         // Agent Teams
         agentTeamsEnabled = env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] == "1"
@@ -569,12 +487,12 @@ struct ExperimentalFeaturesView: View {
         disableAutoMode = s.disableAutoMode == "disable"
         disableAllHooks = s.disableAllHooks ?? false
 
-        // Sandbox (legacy)
-        enableWeakerSandbox = s.enableWeakerSandbox ?? false
-        unsandboxedCommands = (s.unsandboxedCommands ?? []).joined(separator: ", ")
-        allowLocalBinding = s.allowLocalBinding ?? false
-        allowAllUnixSockets = s.allowAllUnixSockets ?? false
-        allowedDomains = (s.allowedDomains ?? []).joined(separator: ", ")
+        // Sandbox (nested keys only)
+        enableWeakerSandbox = s.sandbox?.enableWeakerNestedSandbox ?? false
+        unsandboxedCommands = (s.sandbox?.excludedCommands ?? []).joined(separator: ", ")
+        allowLocalBinding = s.sandbox?.network?.allowLocalBinding ?? false
+        allowAllUnixSockets = s.sandbox?.network?.allowAllUnixSockets ?? false
+        allowedDomains = (s.sandbox?.network?.allowedDomains ?? []).joined(separator: ", ")
 
         // Sandbox (nested)
         sandboxEnabled = s.sandbox?.enabled ?? false
@@ -598,17 +516,12 @@ struct ExperimentalFeaturesView: View {
         worktreeBaseRef = s.worktree?.baseRef ?? ""
         worktreeBgIsolation = s.worktree?.bgIsolation ?? ""
 
-        // Spinner — prefer nested overrides, fall back to flat fields
+        // Spinner
         spinnerTipsEnabled = s.spinnerTipsEnabled ?? true
         spinnerVerbsMode = s.spinnerVerbsMode ?? "append"
         spinnerVerbs = (s.spinnerVerbs ?? []).joined(separator: ", ")
-        if let tipsOverride = s.spinnerTipsOverride {
-            customTips = (tipsOverride.tips ?? []).joined(separator: ", ")
-            excludeDefaultTips = tipsOverride.excludeDefault ?? false
-        } else {
-            customTips = (s.customTips ?? []).joined(separator: ", ")
-            excludeDefaultTips = s.excludeDefaultTips ?? false
-        }
+        customTips = (s.spinnerTipsOverride?.tips ?? []).joined(separator: ", ")
+        excludeDefaultTips = s.spinnerTipsOverride?.excludeDefault ?? false
 
         // Status line
         // Status line: prefer nested object, fall back to legacy flat field
@@ -625,10 +538,8 @@ struct ExperimentalFeaturesView: View {
 
     private func saveThinking() {
         guard !isSyncing else { return }
-        configManager.saveFields([
-            (keyPath: "alwaysThinkingEnabled", value: thinkingEnabled ? true : nil),
-            (keyPath: "thinkingBudgetTokens", value: thinkingEnabled ? Int(thinkingBudget) : nil)
-        ])
+        // Claude Code treats an absent key as "on", so only "off" needs to be written.
+        configManager.saveThinkingEnabled(thinkingEnabled)
     }
 
     private func saveSandbox() {
@@ -653,18 +564,13 @@ struct ExperimentalFeaturesView: View {
             (keyPath: "sandbox.network.deniedDomains", value: parseCSV(sandboxDeniedDomains)),
             (keyPath: "sandbox.credentials.files", value: parseCSV(sandboxCredentialFiles)),
             (keyPath: "sandbox.credentials.envVars", value: parseCSV(sandboxCredentialEnvVars))
-        ])
-    }
-
-    private func saveLegacySandbox() {
-        guard !isSyncing else { return }
-        configManager.saveFields([
-            (keyPath: "enableWeakerSandbox", value: enableWeakerSandbox ? true : nil),
-            (keyPath: "allowLocalBinding", value: allowLocalBinding ? true : nil),
-            (keyPath: "allowAllUnixSockets", value: allowAllUnixSockets ? true : nil),
-            (keyPath: "unsandboxedCommands", value: parseCSV(unsandboxedCommands)),
-            (keyPath: "allowedDomains", value: parseCSV(allowedDomains))
-        ])
+        ] + Self.sandboxKeyMapping(
+            enableWeakerNestedSandbox: enableWeakerSandbox,
+            excludedCommands: parseCSV(unsandboxedCommands),
+            allowLocalBinding: allowLocalBinding,
+            allowAllUnixSockets: allowAllUnixSockets,
+            allowedDomains: parseCSV(allowedDomains)
+        ))
     }
 
     private func saveWorktree() {
@@ -688,13 +594,11 @@ struct ExperimentalFeaturesView: View {
         let tips = parseCSV(customTips)
         var fields: [(keyPath: String, value: Any?)] = [
             (keyPath: "spinnerTipsEnabled", value: spinnerTipsEnabled ? nil : false),
-            (keyPath: "excludeDefaultTips", value: excludeDefaultTips ? true : nil),
             (keyPath: "spinnerTipsOverride.excludeDefault", value: excludeDefaultTips ? true : nil)
         ]
         // Claude Code stores spinnerVerbs as { mode, verbs }. Only rewrite it when the user
-        // actually changed it, and retire the old flat spinnerVerbsMode key.
+        // actually changed it.
         if verbs != stored.spinnerVerbs || spinnerVerbsMode != (stored.spinnerVerbsMode ?? "append") {
-            fields.append((keyPath: "spinnerVerbsMode", value: nil))
             if verbs == nil {
                 fields.append((keyPath: "spinnerVerbs", value: nil))
             } else {
@@ -703,9 +607,7 @@ struct ExperimentalFeaturesView: View {
         }
         // tips may hold {id,text} objects on disk (shown flattened here); leave them alone
         // unless the visible text was edited.
-        let storedTips = stored.spinnerTipsOverride?.tips ?? stored.customTips
-        if tips != storedTips {
-            fields.append((keyPath: "customTips", value: tips))
+        if tips != stored.spinnerTipsOverride?.tips {
             fields.append((keyPath: "spinnerTipsOverride.tips", value: tips))
         }
         configManager.saveFields(fields)
@@ -727,6 +629,24 @@ struct ExperimentalFeaturesView: View {
                 (keyPath: "statusLineCommand", value: nil)
             ])
         }
+    }
+
+    /// The sandbox switches that used to be written as flat top-level keys (which Claude Code
+    /// never read) mapped to their real nested paths.
+    static func sandboxKeyMapping(
+        enableWeakerNestedSandbox: Bool,
+        excludedCommands: [String]?,
+        allowLocalBinding: Bool,
+        allowAllUnixSockets: Bool,
+        allowedDomains: [String]?
+    ) -> [(keyPath: String, value: Any?)] {
+        [
+            (keyPath: "sandbox.enableWeakerNestedSandbox", value: enableWeakerNestedSandbox ? true : nil),
+            (keyPath: "sandbox.excludedCommands", value: excludedCommands),
+            (keyPath: "sandbox.network.allowLocalBinding", value: allowLocalBinding ? true : nil),
+            (keyPath: "sandbox.network.allowAllUnixSockets", value: allowAllUnixSockets ? true : nil),
+            (keyPath: "sandbox.network.allowedDomains", value: allowedDomains)
+        ]
     }
 
     private func parseCSV(_ text: String) -> [String]? {

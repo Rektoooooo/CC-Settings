@@ -184,6 +184,40 @@ class ConfigurationManager: ObservableObject {
         saveFields([(keyPath: keyPath, value: value)], to: url)
     }
 
+    /// Claude Code treats an absent `alwaysThinkingEnabled` as "on", so turning thinking on
+    /// removes the key and only "off" is written (`false`).
+    func saveThinkingEnabled(_ enabled: Bool) {
+        saveField("alwaysThinkingEnabled", value: enabled ? nil : false)
+    }
+
+    /// `skipDangerousModePermissionPrompt` is a top-level key in Claude Code. Older builds of
+    /// this app wrote it under `permissions`, where the CLI never reads it, so a toggle also
+    /// retires that stray copy.
+    func saveSkipDangerousModePrompt(_ skip: Bool) {
+        saveFields([
+            (keyPath: "skipDangerousModePermissionPrompt", value: skip ? true : nil),
+            (keyPath: "permissions.skipDangerousModePermissionPrompt", value: nil)
+        ])
+    }
+
+    // MARK: - Global config (~/.claude.json)
+
+    /// `autoUpdates` lives in the global config, not settings.json. Absent means on.
+    func globalAutoUpdatesEnabled() -> Bool {
+        let store = MCPConfigStore(fileURL: mcpConfigURL)
+        return ((try? store.readRootValue("autoUpdates")) as? Bool) ?? true
+    }
+
+    /// Read-modify-write of just `autoUpdates` in `~/.claude.json`: `false` when off, key
+    /// removed when on (the CLI default), every other key untouched.
+    func saveGlobalAutoUpdates(_ enabled: Bool) {
+        do {
+            try MCPConfigStore(fileURL: mcpConfigURL).setRootValue("autoUpdates", to: enabled ? nil : false)
+        } catch {
+            lastError = error
+        }
+    }
+
     /// Writes multiple fields atomically in a single read-modify-write cycle.
     /// Key paths are split on "." — use `applyEdits` for keys that may contain dots.
     func saveFields(_ fields: [(keyPath: String, value: Any?)], to url: URL? = nil) {
@@ -388,17 +422,17 @@ class ConfigurationManager: ObservableObject {
     /// Keys that ClaudeSettings models — used to distinguish "intentionally nil" from "unknown".
     private let knownSettingsKeys: Set<String> = [
         "apiKeyHelper", "env", "permissions", "model", "hooks",
-        "skipWebFetchPreflight", "alwaysThinkingEnabled", "thinkingBudgetTokens",
+        "skipWebFetchPreflight", "alwaysThinkingEnabled",
         "mainBranch", "preferredGitApp", "customGitAppPath",
         "theme", "language", "effortLevel", "outputStyle", "verbose", "prefersReducedMotion",
         "skillOverrides", "prUrlTemplate",
-        "showTurnDuration", "respectGitignore", "autoCompact", "plansDirectory",
+        "showTurnDuration", "respectGitignore", "autoCompactEnabled", "plansDirectory",
         "includeGitInstructions", "showThinkingSummaries", "showClearContextOnPlanAccept",
         "defaultShell",
         "fastMode", "fastModePerSessionOptIn", "availableModels",
         "autoMemoryEnabled", "autoMemoryDirectory",
         "voiceEnabled",
-        "autoUpdates", "autoUpdatesChannel",
+        "autoUpdatesChannel",
         "preferredNotifChannel",
         "cleanupPeriodDays",
         "attribution",
@@ -420,7 +454,7 @@ class ConfigurationManager: ObservableObject {
         "askUserQuestionTimeout", "awaySummaryEnabled", "promptSuggestionEnabled",
         "emojiCompletionEnabled", "fileCheckpointingEnabled", "feedbackSurveyRate",
         "fileSuggestion", "autoContinueAtUsageLimit",
-        "bashOutputMaxChars", "taskOutputMaxChars",
+        "bashOutputMaxChars",
         // Time & locale
         "timeFormat", "timeZone",
         // Terminal & accessibility
@@ -671,6 +705,20 @@ class ConfigurationManager: ObservableObject {
             .appendingPathComponent(".claude")
             .appendingPathComponent("settings.json")
         writeSettingsDiff(settings, to: url)
+    }
+
+    /// URL of `<project>/.claude/settings.local.json` (personal, not checked in).
+    func projectLocalSettingsURL(projectPath: String) -> URL {
+        URL(fileURLWithPath: projectPath)
+            .appendingPathComponent(".claude")
+            .appendingPathComponent("settings.local.json")
+    }
+
+    /// Raw JSON of a project's `settings.local.json`, or `[:]` when missing/unreadable.
+    func loadProjectLocalRawJSON(projectPath: String) -> [String: Any] {
+        guard let data = try? Data(contentsOf: projectLocalSettingsURL(projectPath: projectPath)) else { return [:] }
+        let fixed = validateAndFix(jsonData: data)
+        return (try? JSONSerialization.jsonObject(with: fixed) as? [String: Any]) ?? [:]
     }
 
     /// URL of `<project>/.claude/settings.json`.

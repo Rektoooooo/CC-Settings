@@ -3,6 +3,8 @@ import SwiftUI
 struct VersionControlView: View {
     @StateObject private var gitService = GitService.shared
     @EnvironmentObject var configManager: ConfigurationManager
+    @AppStorage(AppGitPreferences.appKey) private var gitAppRaw: String = ""
+    @AppStorage(AppGitPreferences.customPathKey) private var gitAppCustomPath: String = ""
 
     // Persistence keys
     private static let selectedRepoKey = "VersionControl.selectedRepoPath"
@@ -516,11 +518,11 @@ struct VersionControlView: View {
 
     private func openInGitApp() {
         guard let repo = selectedRepo else { return }
-        guard let pref = configManager.settings.preferredGitApp else { return }
+        guard let pref = GitAppPreference(rawValue: gitAppRaw) else { return }
 
         if pref == .custom {
-            guard let customPath = configManager.settings.customGitAppPath,
-                  !customPath.isEmpty else { return }
+            guard !gitAppCustomPath.isEmpty else { return }
+            let customPath = gitAppCustomPath
             let appURL = URL(fileURLWithPath: customPath)
             NSWorkspace.shared.open(
                 [repo.path],
@@ -547,7 +549,7 @@ struct VersionControlView: View {
             .buttonStyle(.plain)
             .help(gitService.remoteURL != nil ? "Configure Remote" : "Add Remote")
 
-            if let gitApp = configManager.settings.preferredGitApp {
+            if let gitApp = GitAppPreference(rawValue: gitAppRaw) {
                 Button {
                     openInGitApp()
                 } label: {

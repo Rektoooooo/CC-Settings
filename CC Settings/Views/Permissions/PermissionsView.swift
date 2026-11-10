@@ -114,15 +114,25 @@ enum DefaultPermissionMode: String, CaseIterable, Identifiable {
     case defaultMode = "default"
     case acceptEdits = "acceptEdits"
     case plan = "plan"
+    case auto = "auto"
+    case dontAsk = "dontAsk"
     case bypassPermissions = "bypassPermissions"
 
     var id: String { rawValue }
+
+    /// Claude Code accepts `manual` as an alias for `default`.
+    static func parse(_ raw: String?) -> DefaultPermissionMode? {
+        guard let raw else { return nil }
+        return DefaultPermissionMode(rawValue: raw == "manual" ? "default" : raw)
+    }
 
     var displayName: String {
         switch self {
         case .defaultMode: return "Default"
         case .acceptEdits: return "Accept Edits"
         case .plan: return "Plan Mode"
+        case .auto: return "Auto Mode"
+        case .dontAsk: return "Don't Ask"
         case .bypassPermissions: return "Bypass All"
         }
     }
@@ -132,6 +142,8 @@ enum DefaultPermissionMode: String, CaseIterable, Identifiable {
         case .defaultMode: return "Ask for permission on each tool use"
         case .acceptEdits: return "Auto-approve file edits, ask for other tools"
         case .plan: return "Require plan approval before implementation"
+        case .auto: return "A classifier approves or blocks each tool use (user settings only)"
+        case .dontAsk: return "Never prompt: anything not already allowed is denied"
         case .bypassPermissions: return "Auto-approve all tool use (dangerous)"
         }
     }
@@ -148,11 +160,11 @@ struct PermissionsView: View {
     @State private var customRules: [CustomPermissionRule] = []
     private static var p: PermissionsConfig { ConfigurationManager.shared.settings.permissions }
     @State private var defaultMode: DefaultPermissionMode = {
-        if let raw = p.defaultMode, let mode = DefaultPermissionMode(rawValue: raw) { return mode }
+        if let mode = DefaultPermissionMode.parse(p.defaultMode) { return mode }
         return .defaultMode
     }()
     @State private var disableBypassPermissions: Bool = p.disableBypassPermissionsMode == "disable"
-    @State private var skipDangerousModePrompt: Bool = p.skipDangerousModePermissionPrompt ?? false
+    @State private var skipDangerousModePrompt: Bool = ConfigurationManager.shared.settings.skipDangerousModePermissionPrompt ?? p.skipDangerousModePermissionPrompt ?? false
     @State private var additionalDirectories: [String] = p.additionalDirectories ?? []
     @State private var newDirectory: String = ""
     @State private var showingAddRule = false
@@ -207,7 +219,7 @@ struct PermissionsView: View {
                 Toggle("Skip Dangerous Mode Prompt", isOn: $skipDangerousModePrompt)
                     .onChange(of: skipDangerousModePrompt) { _, newValue in
                         guard !isSyncing else { return }
-                        configManager.saveField("permissions.skipDangerousModePermissionPrompt", value: newValue ? true : nil)
+                        configManager.saveSkipDangerousModePrompt(newValue)
                     }
                 Text("Skips the confirmation prompt when entering dangerous mode.")
                     .font(.caption)
@@ -477,7 +489,7 @@ struct PermissionsView: View {
         customRules = customs
 
         // Default mode
-        if let mode = perms.defaultMode, let parsed = DefaultPermissionMode(rawValue: mode) {
+        if let parsed = DefaultPermissionMode.parse(perms.defaultMode) {
             defaultMode = parsed
         }
 
@@ -486,7 +498,7 @@ struct PermissionsView: View {
 
         // Permission mode toggles
         disableBypassPermissions = perms.disableBypassPermissionsMode != nil
-        skipDangerousModePrompt = perms.skipDangerousModePermissionPrompt == true
+        skipDangerousModePrompt = configManager.settings.skipDangerousModePermissionPrompt ?? perms.skipDangerousModePermissionPrompt ?? false
 
         // Auto Mode
         let am = configManager.settings.autoMode
@@ -532,8 +544,7 @@ struct PermissionsView: View {
             (keyPath: "permissions.ask", value: ask.isEmpty ? nil : ask.sorted()),
             (keyPath: "permissions.defaultMode", value: defaultMode != .defaultMode ? defaultMode.rawValue : nil),
             (keyPath: "permissions.additionalDirectories", value: additionalDirectories.isEmpty ? nil : additionalDirectories),
-            (keyPath: "permissions.disableBypassPermissionsMode", value: disableBypassPermissions ? "disable" : nil),
-            (keyPath: "permissions.skipDangerousModePermissionPrompt", value: skipDangerousModePrompt ? true : nil)
+            (keyPath: "permissions.disableBypassPermissionsMode", value: disableBypassPermissions ? "disable" : nil)
         ])
     }
 
@@ -605,7 +616,7 @@ struct PermissionsView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.caption, design: .monospaced))
                 .lineLimit(2...8)
-                .onChange(of: text.wrappedValue) { _, _ in saveAutoMode() }
+                .commitOnFocusLoss(of: text.wrappedValue) { saveAutoMode() }
         }
         .padding(.vertical, 4)
     }

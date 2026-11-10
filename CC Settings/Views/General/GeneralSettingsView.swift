@@ -42,8 +42,7 @@ struct GeneralSettingsView: View {
     @State private var showThinkingSummaries: Bool = s.showThinkingSummaries ?? false
     @State private var showClearContextOnPlanAccept: Bool = s.showClearContextOnPlanAccept ?? false
     @State private var voiceEnabled: Bool = s.voiceEnabled ?? false
-    @State private var autoCompactEnabled: Bool = s.autoCompact != nil
-    @State private var autoCompactInstructions: String = s.autoCompact?.customInstructions ?? ""
+    @State private var autoCompactEnabled: Bool = s.autoCompactEnabled ?? true
     @State private var plansDirectory: String = s.plansDirectory ?? ""
     @State private var autoCompactWindow: String = s.autoCompactWindow.map(String.init) ?? ""
     @State private var precomputeCompactionEnabled: Bool = s.precomputeCompactionEnabled ?? false
@@ -56,7 +55,6 @@ struct GeneralSettingsView: View {
     @State private var fileSuggestionCommand: String = s.fileSuggestion?.command ?? ""
     @State private var autoContinueAtUsageLimit: Bool = s.autoContinueAtUsageLimit ?? false
     @State private var bashOutputMaxChars: String = s.bashOutputMaxChars.map(String.init) ?? ""
-    @State private var taskOutputMaxChars: String = s.taskOutputMaxChars.map(String.init) ?? ""
 
     // Terminal & Accessibility
     @State private var axScreenReader: Bool = s.axScreenReader ?? false
@@ -65,7 +63,7 @@ struct GeneralSettingsView: View {
     @State private var terminalProgressBarEnabled: Bool = s.terminalProgressBarEnabled ?? false
     @State private var showMessageTimestamps: Bool = s.showMessageTimestamps ?? false
     @State private var syntaxHighlightingEnabled: Bool = !(s.syntaxHighlightingDisabled ?? false)
-    @State private var hideVimModeIndicator: Bool = s.hideVimModeIndicator ?? false
+    @State private var hideVimModeIndicator: Bool = s.statusLine?.hideVimModeIndicator ?? false
     @State private var vimEscapeSequences: String = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
     @State private var spellcheckEnabled: Bool = s.spellcheck?.enabled ?? false
     @State private var spellcheckChecker: String = s.spellcheck?.checker ?? ""
@@ -76,20 +74,21 @@ struct GeneralSettingsView: View {
     @State private var timeZoneName: String = s.timeZone ?? ""
 
     // Memory
-    @State private var autoMemoryEnabled: Bool = s.autoMemoryEnabled ?? false
+    @State private var autoMemoryEnabled: Bool = s.autoMemoryEnabled ?? true
     @State private var autoMemoryDirectory: String = s.autoMemoryDirectory ?? ""
 
     // Git
-    @State private var mainBranch: String = s.mainBranch ?? ""
-    @State private var selectedGitApp: String = s.preferredGitApp?.rawValue ?? "system"
-    @State private var customGitAppPath: String = s.customGitAppPath ?? ""
+    // App-only preferences (Claude Code doesn't read them), stored in UserDefaults.
+    @AppStorage(AppGitPreferences.mainBranchKey) private var mainBranch: String = ""
+    @AppStorage(AppGitPreferences.appKey) private var selectedGitAppRaw: String = ""
+    @AppStorage(AppGitPreferences.customPathKey) private var customGitAppPath: String = ""
 
     // Updates
-    @State private var autoUpdates: Bool = s.autoUpdates ?? true
+    @State private var autoUpdates: Bool = ConfigurationManager.shared.globalAutoUpdatesEnabled()
     @State private var autoUpdatesChannel: String = s.autoUpdatesChannel ?? "latest"
 
     // Notifications
-    @State private var preferredNotifChannel: String = s.preferredNotifChannel ?? "iterm2"
+    @State private var preferredNotifChannel: String = s.preferredNotifChannel ?? "auto"
 
     // Data Retention
     @State private var cleanupPeriodDays: Double = Double(s.cleanupPeriodDays ?? 30)
@@ -431,6 +430,7 @@ struct GeneralSettingsView: View {
     private var languageSection: some View {
         Section("Language & Output") {
             TextField("Response Language", text: $language, prompt: Text("English"))
+                .commitOnFocusLoss(of: language) { commitLanguage() }
                 .textFieldStyle(.roundedBorder)
             Text("Claude's preferred response language (e.g. Japanese, Spanish).")
                 .font(.caption)
@@ -470,6 +470,7 @@ struct GeneralSettingsView: View {
 
             TextField("Output Style", text: $outputStyle, prompt: Text("Default"))
                 .textFieldStyle(.roundedBorder)
+                .commitOnFocusLoss(of: outputStyle) { commitOutputStyle() }
             Text("Controls response verbosity (e.g. Explanatory, Concise).")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -591,16 +592,10 @@ struct GeneralSettingsView: View {
                     .foregroundColor(.secondary)
 
                 if autoCompactEnabled {
-                    TextField("Custom Instructions", text: $autoCompactInstructions, prompt: Text("e.g. Preserve all file paths, function names..."), axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                    Text("Custom instructions for auto-compact summaries.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
                     TextField("Window Size", text: $autoCompactWindow, prompt: Text("e.g. 200000"))
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
+                        .commitOnFocusLoss(of: autoCompactWindow) { commitAutoCompactWindow() }
                     Text("Token window that triggers compaction. Claude Code clamps this to 100,000–1,000,000; leave empty for the default.")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -616,6 +611,7 @@ struct GeneralSettingsView: View {
                 TextField("Plans Directory", text: $plansDirectory, prompt: Text("~/.claude/plans"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
+                    .commitOnFocusLoss(of: plansDirectory) { commitPlansDirectory() }
                 Button("Browse...") {
                     choosePlansDirectory()
                 }
@@ -670,6 +666,7 @@ struct GeneralSettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
                     .frame(width: 100)
+                    .commitOnFocusLoss(of: bashOutputMaxChars) { commitBashOutputMaxChars() }
                 Text("chars")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -678,20 +675,6 @@ struct GeneralSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            HStack {
-                Text("Task Output Limit")
-                Spacer()
-                TextField("32000", text: $taskOutputMaxChars)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(width: 100)
-                Text("chars")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Text("Characters of a background task's output handed to Claude inline. Default 32000; clamped to 4000–128000.")
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
 
@@ -798,7 +781,8 @@ struct GeneralSettingsView: View {
             wheelScrollRow
 
             Toggle("Hide Vim Mode Indicator", isOn: $hideVimModeIndicator)
-            Text("Hide the built-in -- INSERT -- / -- VISUAL -- line. Use this when your status line renders vim.mode itself.")
+                .disabled(configManager.settings.statusLine?.command == nil)
+            Text("Hide the built-in -- INSERT -- / -- VISUAL -- line (statusLine.hideVimModeIndicator). Use this when your status line renders vim.mode itself. Needs a status line command to be configured.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -899,14 +883,15 @@ struct GeneralSettingsView: View {
     private var memorySection: some View {
         Section("Memory") {
             Toggle("Auto Memory", isOn: $autoMemoryEnabled)
-            Text("Automatically save context to memory between sessions.")
+            Text("Let Claude read and write the auto-memory directory. On by default; turning it off writes autoMemoryEnabled: false.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             if autoMemoryEnabled {
-                TextField("Memory Directory", text: $autoMemoryDirectory, prompt: Text("~/.claude/memory"))
+                TextField("Memory Directory", text: $autoMemoryDirectory, prompt: Text("~/.claude/projects/<project>/memory"))
                     .textFieldStyle(.roundedBorder)
                     .font(.system(.body, design: .monospaced))
+                    .commitOnFocusLoss(of: autoMemoryDirectory) { commitAutoMemoryDirectory() }
                 Text("Directory where auto-memory files are stored.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -919,8 +904,11 @@ struct GeneralSettingsView: View {
         Section("Git") {
             TextField("Main Branch", text: $mainBranch, prompt: Text("main"))
                 .textFieldStyle(.roundedBorder)
+            Text("CC Settings only. Claude Code does not read this, so it is kept in the app's own preferences, not settings.json.")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
-            Picker("Git Application", selection: $selectedGitApp) {
+            Picker("Git Application", selection: selectedGitApp) {
                 Text("System Default").tag("system")
                 Divider()
                 ForEach(GitAppPreference.allCases) { app in
@@ -929,7 +917,7 @@ struct GeneralSettingsView: View {
                 }
             }
 
-            if selectedGitApp == GitAppPreference.custom.rawValue {
+            if selectedGitAppRaw == GitAppPreference.custom.rawValue {
                 HStack {
                     TextField("Custom Git App Path", text: $customGitAppPath)
                         .textFieldStyle(.roundedBorder)
@@ -946,7 +934,7 @@ struct GeneralSettingsView: View {
     private var updatesSection: some View {
         Section("Updates") {
             Toggle("Automatic Updates", isOn: $autoUpdates)
-            Text("Allow Claude Code to update automatically.")
+            Text("Allow Claude Code to update automatically. Stored in ~/.claude.json (autoUpdates), not settings.json. Native installs can ignore it; the DISABLE_AUTOUPDATER env var also turns updates off.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -963,9 +951,12 @@ struct GeneralSettingsView: View {
     private var notificationsSection: some View {
         Section("Notifications") {
             Picker("Notification Channel", selection: $preferredNotifChannel) {
+                Text("Auto").tag("auto")
                 Text("iTerm2").tag("iterm2")
                 Text("iTerm2 with Bell").tag("iterm2_with_bell")
                 Text("Terminal Bell").tag("terminal_bell")
+                Text("Kitty").tag("kitty")
+                Text("Ghostty").tag("ghostty")
                 Text("Disabled").tag("notifications_disabled")
             }
         }
@@ -1176,6 +1167,7 @@ struct GeneralSettingsView: View {
             TextField("Feedback Survey Rate", text: $feedbackSurveyRate, prompt: Text("0.05"))
                 .textFieldStyle(.roundedBorder)
                 .font(.system(.body, design: .monospaced))
+                .commitOnFocusLoss(of: feedbackSurveyRate) { commitFeedbackSurveyRate() }
             Text("Probability from 0 to 1 that the session quality survey appears when eligible. Leave empty for the default.")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -1326,19 +1318,9 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("prefersReducedMotion", value: prefersReducedMotion ? true : nil)
             }
-            .onChange(of: language) {
-                guard isLoaded else { return }
-                let trimmed = language.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("language", value: trimmed.isEmpty ? nil : trimmed)
-            }
             .onChange(of: effortLevel) {
                 guard isLoaded else { return }
                 configManager.saveField("effortLevel", value: effortLevel.isEmpty ? nil : effortLevel)
-            }
-            .onChange(of: outputStyle) {
-                guard isLoaded else { return }
-                let trimmed = outputStyle.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("outputStyle", value: trimmed.isEmpty ? nil : trimmed)
             }
             .onChange(of: verbose) {
                 guard isLoaded else { return }
@@ -1375,43 +1357,18 @@ struct GeneralSettingsView: View {
             }
             .onChange(of: autoMemoryEnabled) {
                 guard isLoaded else { return }
-                configManager.saveField("autoMemoryEnabled", value: autoMemoryEnabled ? true : nil)
-            }
-            .onChange(of: autoMemoryDirectory) {
-                guard isLoaded else { return }
-                let trimmed = autoMemoryDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("autoMemoryDirectory", value: trimmed.isEmpty ? nil : trimmed)
+                // Claude Code defaults auto-memory to on, so only "off" is written.
+                configManager.saveField("autoMemoryEnabled", value: autoMemoryEnabled ? nil : false)
             }
             .onChange(of: autoCompactEnabled) {
                 guard isLoaded else { return }
-                saveAutoCompact()
-            }
-            .onChange(of: autoCompactInstructions) {
-                guard isLoaded else { return }
-                saveAutoCompact()
-            }
-            .onChange(of: plansDirectory) {
-                guard isLoaded else { return }
-                let trimmed = plansDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("plansDirectory", value: trimmed.isEmpty ? nil : trimmed)
+                // Default is on; only "off" is written.
+                configManager.saveField("autoCompactEnabled", value: autoCompactEnabled ? nil : false)
             }
         Color.clear
-            .onChange(of: mainBranch) {
-                guard isLoaded else { return }
-                let trimmed = mainBranch.trimmingCharacters(in: .whitespacesAndNewlines)
-                configManager.saveField("mainBranch", value: (trimmed.isEmpty || trimmed == "main") ? nil : trimmed)
-            }
-            .onChange(of: selectedGitApp) {
-                guard isLoaded else { return }
-                saveGitApp()
-            }
-            .onChange(of: customGitAppPath) {
-                guard isLoaded else { return }
-                saveGitApp()
-            }
             .onChange(of: autoUpdates) {
                 guard isLoaded else { return }
-                configManager.saveField("autoUpdates", value: autoUpdates ? nil : false)
+                configManager.saveGlobalAutoUpdates(autoUpdates)
             }
             .onChange(of: autoUpdatesChannel) {
                 guard isLoaded else { return }
@@ -1419,7 +1376,7 @@ struct GeneralSettingsView: View {
             }
             .onChange(of: preferredNotifChannel) {
                 guard isLoaded else { return }
-                configManager.saveField("preferredNotifChannel", value: preferredNotifChannel == "iterm2" ? nil : preferredNotifChannel)
+                configManager.saveField("preferredNotifChannel", value: preferredNotifChannel == "auto" ? nil : preferredNotifChannel)
             }
             .onChange(of: cleanupPeriodDays) {
                 guard isLoaded else { return }
@@ -1481,13 +1438,6 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 saveOptionalString("askUserQuestionTimeout", askUserQuestionTimeout)
             }
-            .onChange(of: autoCompactWindow) {
-                guard isLoaded else { return }
-                // Claude Code clamps to 100_000…1_000_000 — don't write a value it will reject
-                let parsed: Int? = Int(autoCompactWindow.trimmingCharacters(in: .whitespaces))
-                let valid: Int? = parsed.flatMap { (100_000...1_000_000).contains($0) ? $0 : nil }
-                configManager.saveField("autoCompactWindow", value: valid)
-            }
             .onChange(of: precomputeCompactionEnabled) {
                 guard isLoaded else { return }
                 saveFlag("precomputeCompactionEnabled", precomputeCompactionEnabled)
@@ -1511,7 +1461,7 @@ struct GeneralSettingsView: View {
             }
             .onChange(of: hideVimModeIndicator) {
                 guard isLoaded else { return }
-                saveFlag("hideVimModeIndicator", hideVimModeIndicator)
+                configManager.saveField("statusLine.hideVimModeIndicator", value: hideVimModeIndicator ? true : nil)
             }
             .onChange(of: vimEscapeSequences) {
                 guard isLoaded else { return }
@@ -1550,13 +1500,6 @@ struct GeneralSettingsView: View {
                 guard isLoaded else { return }
                 configManager.saveField("blockedMarketplaces", value: commaList(blockedMarketplaces))
             }
-            .onChange(of: feedbackSurveyRate) {
-                guard isLoaded else { return }
-                // Out-of-range values are rejected by Claude Code — clear instead of writing
-                let parsed: Double? = Double(feedbackSurveyRate.trimmingCharacters(in: .whitespaces))
-                let valid: Double? = parsed.flatMap { (0.0...1.0).contains($0) ? $0 : nil }
-                configManager.saveField("feedbackSurveyRate", value: valid)
-            }
         // Claude Code 2.1.221 → 2.1.263. Kept in its own Color.clear block so the
         // chain stays under SwiftUI's type-check budget.
         Color.clear
@@ -1567,14 +1510,6 @@ struct GeneralSettingsView: View {
             .onChange(of: autoContinueAtUsageLimit) {
                 guard isLoaded else { return }
                 saveFlag("autoContinueAtUsageLimit", autoContinueAtUsageLimit)
-            }
-            .onChange(of: bashOutputMaxChars) {
-                guard isLoaded else { return }
-                saveClampedInt("bashOutputMaxChars", bashOutputMaxChars, min: 4000, max: 128000)
-            }
-            .onChange(of: taskOutputMaxChars) {
-                guard isLoaded else { return }
-                saveClampedInt("taskOutputMaxChars", taskOutputMaxChars, min: 4000, max: 128000)
             }
             .onChange(of: timeFormat) {
                 guard isLoaded else { return }
@@ -1731,8 +1666,7 @@ struct GeneralSettingsView: View {
         showThinkingSummaries = s.showThinkingSummaries ?? false
         showClearContextOnPlanAccept = s.showClearContextOnPlanAccept ?? false
         voiceEnabled = s.voiceEnabled ?? false
-        autoCompactEnabled = s.autoCompact != nil
-        autoCompactInstructions = s.autoCompact?.customInstructions ?? ""
+        autoCompactEnabled = s.autoCompactEnabled ?? true
         plansDirectory = s.plansDirectory ?? ""
         autoCompactWindow = s.autoCompactWindow.map(String.init) ?? ""
         precomputeCompactionEnabled = s.precomputeCompactionEnabled ?? false
@@ -1745,7 +1679,6 @@ struct GeneralSettingsView: View {
         fileSuggestionCommand = s.fileSuggestion?.command ?? ""
         autoContinueAtUsageLimit = s.autoContinueAtUsageLimit ?? false
         bashOutputMaxChars = s.bashOutputMaxChars.map(String.init) ?? ""
-        taskOutputMaxChars = s.taskOutputMaxChars.map(String.init) ?? ""
 
         // Terminal & Accessibility
         axScreenReader = s.axScreenReader ?? false
@@ -1754,7 +1687,7 @@ struct GeneralSettingsView: View {
         terminalProgressBarEnabled = s.terminalProgressBarEnabled ?? false
         showMessageTimestamps = s.showMessageTimestamps ?? false
         syntaxHighlightingEnabled = !(s.syntaxHighlightingDisabled ?? false)
-        hideVimModeIndicator = s.hideVimModeIndicator ?? false
+        hideVimModeIndicator = s.statusLine?.hideVimModeIndicator ?? false
         vimEscapeSequences = (s.vimInsertModeRemaps ?? [:]).keys.sorted().joined(separator: ", ")
         spellcheckEnabled = s.spellcheck?.enabled ?? false
         spellcheckChecker = s.spellcheck?.checker ?? ""
@@ -1763,24 +1696,18 @@ struct GeneralSettingsView: View {
         timeZoneName = s.timeZone ?? ""
 
         // Memory
-        autoMemoryEnabled = s.autoMemoryEnabled ?? false
+        autoMemoryEnabled = s.autoMemoryEnabled ?? true
         autoMemoryDirectory = s.autoMemoryDirectory ?? ""
 
         // Git
-        mainBranch = s.mainBranch ?? ""
-        customGitAppPath = s.customGitAppPath ?? ""
-        if let gitApp = s.preferredGitApp {
-            selectedGitApp = gitApp.rawValue
-        } else {
-            selectedGitApp = "system"
-        }
+        AppGitPreferences.migrateIfNeeded(from: s)
 
         // Updates
-        autoUpdates = s.autoUpdates ?? true
+        autoUpdates = configManager.globalAutoUpdatesEnabled()
         autoUpdatesChannel = s.autoUpdatesChannel ?? "latest"
 
         // Notifications
-        preferredNotifChannel = s.preferredNotifChannel ?? "iterm2"
+        preferredNotifChannel = s.preferredNotifChannel ?? "auto"
 
         // Data
         cleanupPeriodDays = Double(s.cleanupPeriodDays ?? 30)
@@ -1908,15 +1835,65 @@ struct GeneralSettingsView: View {
 
     // MARK: - Compound Field Savers
 
-    private func saveAutoCompact() {
-        if autoCompactEnabled {
-            let trimmed = autoCompactInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
-            var dict: [String: Any] = [:]
-            if !trimmed.isEmpty { dict["customInstructions"] = trimmed }
-            configManager.saveField("autoCompact", value: dict)
+    // MARK: - Commit handlers (run on Return / focus loss / navigating away)
+
+    private func commitLanguage() {
+        guard isLoaded else { return }
+        saveOptionalString("language", language)
+    }
+
+    private func commitOutputStyle() {
+        guard isLoaded else { return }
+        saveOptionalString("outputStyle", outputStyle)
+    }
+
+    private func commitPlansDirectory() {
+        guard isLoaded else { return }
+        saveOptionalString("plansDirectory", plansDirectory)
+    }
+
+    private func commitAutoMemoryDirectory() {
+        guard isLoaded else { return }
+        saveOptionalString("autoMemoryDirectory", autoMemoryDirectory)
+    }
+
+    private func commitBashOutputMaxChars() {
+        guard isLoaded else { return }
+        saveClampedInt("bashOutputMaxChars", bashOutputMaxChars, min: 4000, max: 128000)
+    }
+
+    /// Claude Code accepts 100_000…1_000_000. An empty field clears the key; an out-of-range
+    /// or non-numeric entry is discarded and the field snaps back to what is stored.
+    private func commitAutoCompactWindow() {
+        guard isLoaded else { return }
+        let trimmed = autoCompactWindow.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            configManager.saveField("autoCompactWindow", value: nil)
+        } else if let parsed = Int(trimmed), (100_000...1_000_000).contains(parsed) {
+            configManager.saveField("autoCompactWindow", value: parsed)
         } else {
-            configManager.saveField("autoCompact", value: nil)
+            autoCompactWindow = configManager.settings.autoCompactWindow.map(String.init) ?? ""
         }
+    }
+
+    /// Claude Code requires 0…1. Same empty / invalid handling as `commitAutoCompactWindow`.
+    private func commitFeedbackSurveyRate() {
+        guard isLoaded else { return }
+        let trimmed = feedbackSurveyRate.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            configManager.saveField("feedbackSurveyRate", value: nil)
+        } else if let parsed = Double(trimmed), (0.0...1.0).contains(parsed) {
+            configManager.saveField("feedbackSurveyRate", value: parsed)
+        } else {
+            feedbackSurveyRate = configManager.settings.feedbackSurveyRate.map { String($0) } ?? ""
+        }
+    }
+
+    private var selectedGitApp: Binding<String> {
+        Binding(
+            get: { selectedGitAppRaw.isEmpty ? "system" : selectedGitAppRaw },
+            set: { selectedGitAppRaw = $0 == "system" ? "" : $0 }
+        )
     }
 
     private func saveAttribution() {
@@ -1933,21 +1910,6 @@ struct GeneralSettingsView: View {
                 (keyPath: "attribution.commit", value: commit),
                 (keyPath: "attribution.pr", value: pr),
                 (keyPath: "attribution.sessionUrl", value: sessionUrl)
-            ])
-        }
-    }
-
-    private func saveGitApp() {
-        if selectedGitApp == "system" {
-            configManager.saveFields([
-                (keyPath: "preferredGitApp", value: nil),
-                (keyPath: "customGitAppPath", value: nil)
-            ])
-        } else if let app = GitAppPreference(rawValue: selectedGitApp) {
-            let customPath: String? = app == .custom ? (customGitAppPath.isEmpty ? nil : customGitAppPath) : nil
-            configManager.saveFields([
-                (keyPath: "preferredGitApp", value: app.rawValue),
-                (keyPath: "customGitAppPath", value: customPath)
             ])
         }
     }
