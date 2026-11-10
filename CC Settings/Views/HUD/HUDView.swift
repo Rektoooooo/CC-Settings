@@ -137,6 +137,7 @@ struct HUDView: View {
     @State private var isInstalled = false
     @State private var installedVersion: String?
     @State private var hasLoadedOnce = false
+    @State private var configError: String?
     @State private var allElements: [ElementItem] = []
     @State private var draggedElementID: String?
     @State private var hoveredElementID: String?
@@ -174,6 +175,14 @@ struct HUDView: View {
             }
         }
         .navigationTitle("HUD")
+        .alert("HUD Config Not Changed", isPresented: Binding(
+            get: { configError != nil },
+            set: { if !$0 { configError = nil } }
+        )) {
+            Button("OK", role: .cancel) { configError = nil }
+        } message: {
+            Text(configError ?? "")
+        }
         .onAppear {
             checkInstallation()
             loadConfig()
@@ -1639,6 +1648,14 @@ struct HUDView: View {
     }
 
     private func loadConfig() {
+        // A config file that exists but can't be parsed must never be replaced by defaults:
+        // leave hasLoadedOnce false so saveConfig() stays disabled, and tell the user.
+        do {
+            _ = try HUDConfigFile.readExisting(at: configURL)
+        } catch {
+            configError = error.localizedDescription
+            return
+        }
         let decoder = JSONDecoder()
         guard let data = try? Data(contentsOf: configURL),
               let loaded = try? decoder.decode(HUDConfig.self, from: data) else {
@@ -1752,11 +1769,6 @@ struct HUDView: View {
         }
     }
 
-    /// Top-level keys that HUDConfig models — used to merge without destroying unknown plugin keys.
-    private static let knownHUDConfigKeys: Set<String> = [
-        "language", "display", "lineLayout", "showSeparators", "pathLevels", "elementOrder", "gitStatus", "colors", "customColors",
-    ]
-
     private func saveConfig() {
         guard hasLoadedOnce else { return }
 
@@ -1765,43 +1777,10 @@ struct HUDView: View {
 
         guard let encodedData = try? encoder.encode(config) else { return }
 
-        // Ensure directory exists
-        let dir = configURL.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        // Load existing JSON to preserve unknown keys the plugin may use
-        var existingJSON: [String: Any] = [:]
-        if let fileData = try? Data(contentsOf: configURL),
-           let json = try? JSONSerialization.jsonObject(with: fileData) as? [String: Any] {
-            existingJSON = json
-        }
-
-        // Merge our known keys on top
-        if let configJSON = try? JSONSerialization.jsonObject(with: encodedData) as? [String: Any] {
-            for (key, value) in configJSON {
-                existingJSON[key] = value
-            }
-            // Remove keys that our model explicitly set to nil (encoded as absent)
-            for key in existingJSON.keys {
-                if configJSON[key] == nil, Self.knownHUDConfigKeys.contains(key) {
-                    existingJSON.removeValue(forKey: key)
-                }
-            }
-        }
-
-        // Strip empty/whitespace-only strings from display that the plugin would misinterpret as overrides
-        if var display = existingJSON["display"] as? [String: Any] {
-            if let v = display["modelOverride"] as? String, v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                display.removeValue(forKey: "modelOverride")
-            }
-            if let v = display["customLine"] as? String, v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                display.removeValue(forKey: "customLine")
-            }
-            existingJSON["display"] = display
-        }
-
-        if let outputData = try? JSONSerialization.data(withJSONObject: existingJSON, options: [.prettyPrinted, .sortedKeys]) {
-            try? outputData.write(to: configURL, options: .atomic)
+        do {
+            try HUDConfigFile.save(encodedConfig: encodedData, to: configURL)
+        } catch {
+            configError = error.localizedDescription
         }
     }
 }
